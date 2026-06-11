@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getChinaRequests, updateChinaRequestStatus, sendClientNotification } from '../lib/supabase'
-import { ArrowLeft, Globe } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['На рассмотрении', 'Одобрен', 'Отменён']
 

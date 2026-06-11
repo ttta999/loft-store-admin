@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
-import { ArrowLeft, Package } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
 
