@@ -79,6 +79,7 @@ export const sendClientNotification = async (chatId: string, message: string) =>
     }
     
     const data = await response.json()
+    console.log('Уведомление отправлено:', data)
     return data.success
   } catch (error) {
     console.error('Ошибка отправки уведомления:', error)

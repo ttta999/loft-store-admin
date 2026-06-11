@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getChinaRequests, updateChinaRequestStatus } from '../lib/supabase'
+import { getChinaRequests, updateChinaRequestStatus, sendClientNotification } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['На рассмотрении', 'Одобрен', 'Отменён']
+
+const STATUS_MESSAGES: Record<string, string> = {
+  'Одобрен': 'Ваш спецзаказ одобрен! ✅ Менеджер свяжется с вами для уточнения деталей.',
+  'Отменён': 'Ваш спецзаказ отменён ',
+}
 
 export default function ChinaPage() {
   const navigate = useNavigate()
@@ -22,12 +27,24 @@ export default function ChinaPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (requestId: string, newStatus: string) => {
+  const handleStatusChange = async (requestId: string, newStatus: string, clientChatId: string) => {
     try {
       const updated = await updateChinaRequestStatus(requestId, newStatus)
       
       if (updated) {
-        alert(`Статус спецзаказа изменён на: ${newStatus}`)
+        // Отправляем уведомление клиенту
+        const message = STATUS_MESSAGES[newStatus]
+        if (message && clientChatId) {
+          const sent = await sendClientNotification(clientChatId, message)
+          if (sent) {
+            alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
+          } else {
+            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено`)
+          }
+        } else {
+          alert(`Статус изменён на: ${newStatus}`)
+        }
+        
         await loadRequests()
       } else {
         alert('Ошибка при обновлении статуса')
@@ -114,7 +131,7 @@ export default function ChinaPage() {
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-1">
-                  📎 <strong>Ссылка/Название:</strong> {request.link}
+                   <strong>Ссылка/Название:</strong> {request.link}
                 </p>
                 {request.size_color && (
                   <p className="text-sm text-gray-600 mb-1">
@@ -142,7 +159,7 @@ export default function ChinaPage() {
                 {STATUSES.filter(s => s !== request.status).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusChange(request.id, status)}
+                    onClick={() => handleStatusChange(request.id, status, request.user_id)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
                     {status}

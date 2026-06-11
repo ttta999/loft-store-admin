@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, updateOrderStatus } from '../lib/supabase'
+import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
+
+const STATUS_MESSAGES: Record<string, string> = {
+  'В обработке': 'Ваш заказ принят в обработку ✅',
+  'Готов': 'Ваш заказ готов к выдаче! 🎉',
+  'Выдан': 'Ваш заказ выдан. Спасибо за покупку! ❤️',
+  'Отменён': 'Ваш заказ отменён ',
+}
 
 export default function OrdersPage() {
   const navigate = useNavigate()
@@ -22,12 +29,24 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string) => {
     try {
       const updated = await updateOrderStatus(orderId, newStatus)
       
       if (updated) {
-        alert(`Статус заказа изменён на: ${newStatus}`)
+        // Отправляем уведомление клиенту
+        const message = STATUS_MESSAGES[newStatus]
+        if (message && clientChatId) {
+          const sent = await sendClientNotification(clientChatId, message)
+          if (sent) {
+            alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
+          } else {
+            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено (проверьте токен бота)`)
+          }
+        } else {
+          alert(`Статус изменён на: ${newStatus}`)
+        }
+        
         await loadOrders()
       } else {
         alert('Ошибка при обновлении статуса')
@@ -105,7 +124,9 @@ export default function OrdersPage() {
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   order.status === 'Активный' ? 'bg-blue-100 text-blue-800' :
-                  order.status === 'Выдан' ? 'bg-green-100 text-green-800' :
+                  order.status === 'В обработке' ? 'bg-yellow-100 text-yellow-800' :
+                  order.status === 'Готов' ? 'bg-green-100 text-green-800' :
+                  order.status === 'Выдан' ? 'bg-gray-100 text-gray-800' :
                   order.status === 'Отменён' ? 'bg-red-100 text-red-800' :
                   'bg-yellow-100 text-yellow-800'
                 }`}>
@@ -143,7 +164,7 @@ export default function OrdersPage() {
                 {STATUSES.filter(s => s !== order.status).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusChange(order.id, status)}
+                    onClick={() => handleStatusChange(order.id, status, order.user_id)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
                     {status}
