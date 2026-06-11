@@ -108,7 +108,7 @@ export default function DashboardPage() {
               <Globe size={24} className="text-yellow-600" />
               <h2 className="text-xl font-bold">Спецзаказы</h2>
             </div>
-            <p className="text-gray-600">Заявки из Китая</p>
+            <p className="text-gray-600">Заявки на спецзаказы</p>
             <p className="text-sm text-gray-500 mt-2">Всего: {chinaRequests.length}</p>
           </button>
         </div>
