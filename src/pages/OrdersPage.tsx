@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
-// Старые статусы для фильтров (для подсчёта)
-const OLD_STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
-
 // Новые статусы для отображения
 const NEW_STATUSES = [
   { old: 'Активный', new: 'Принят 📄' },
-  { old: 'В обработке', new: 'Собирается ' },
+  { old: 'В обработке', new: 'Собирается 📦' },
   { old: 'Готов', new: 'Упакован 🛍️' },
   { old: 'Выдан', new: 'Передан курьеру 🚀' },
   { old: 'Отменён', new: 'Отменен 🚫' },
@@ -21,7 +18,7 @@ const DELIVERY_MESSAGES: Record<string, string> = {
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
   'Готов': '🛍️ Упакован: Отличные новости! Ваш заказ №{orderId} собран и ждет курьера.',
   'Выдан': '🚀 Передан курьеру: Ваш заказ №{orderId} передан курьеру и уже в пути к вам! Ожидайте звонка.',
-  'Отменён': ' Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
+  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
 // Сообщения для самовывоза
@@ -35,20 +32,20 @@ const PICKUP_MESSAGES: Record<string, string> = {
 
 // Отображение статусов для доставки
 const DELIVERY_STATUS_LABELS: Record<string, string> = {
-  'Активный': 'Принят ',
+  'Активный': 'Принят 📄',
   'В обработке': 'Собирается 📦',
   'Готов': 'Упакован 🛍️',
-  'Выдан': 'Передан курьеру ',
+  'Выдан': 'Передан курьеру 🚀',
   'Отменён': 'Отменен 🚫',
 }
 
 // Отображение статусов для самовывоза
 const PICKUP_STATUS_LABELS: Record<string, string> = {
-  'Активный': 'Принят ',
+  'Активный': 'Принят 📄',
   'В обработке': 'Собирается 📦',
   'Готов': 'Готов к выдаче 🎉',
   'Выдан': 'Получен 🤝',
-  'Отменён': 'Отменен ',
+  'Отменён': 'Отменен 🚫',
 }
 
 export default function OrdersPage() {
@@ -82,10 +79,10 @@ export default function OrdersPage() {
           if (sent) {
             alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
           } else {
-            alert(`Статус изменён на: ${newStatus}\n️ Уведомление не отправлено`)
+            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено`)
           }
         } else {
-          alert(`Статус изменён на: ${newStatus}\n️ Chat ID клиента не найден`)
+          alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден`)
         }
         
         await loadOrders()
@@ -131,7 +128,7 @@ export default function OrdersPage() {
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold"> Управление заказами</h1>
+          <h1 className="text-2xl font-bold">📦 Управление заказами</h1>
         </div>
       </div>
 
@@ -184,7 +181,7 @@ export default function OrdersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className="text-sm text-gray-600"> <strong>Клиент:</strong> {order.client_name}</p>
+                  <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
                   <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
                   <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
                 </div>
