@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getChinaRequests, updateChinaRequestStatus, sendClientNotification } from '../lib/supabase'
+import { getChinaRequests, updateChinaRequestStatus } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['На рассмотрении', 'Одобрен', 'Отменён']
@@ -22,21 +22,19 @@ export default function ChinaPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (requestId: string, newStatus: string, clientChatId: string) => {
-    const updated = await updateChinaRequestStatus(requestId, newStatus)
-    
-    if (updated) {
-      const messages: Record<string, string> = {
-        'Одобрен': `Ваш спецзаказ одобрен! ✅ Менеджер свяжется с вами для уточнения деталей.`,
-        'Отменён': `Ваш спецзаказ отменён ❌`,
-      }
+  const handleStatusChange = async (requestId: string, newStatus: string) => {
+    try {
+      const updated = await updateChinaRequestStatus(requestId, newStatus)
       
-      const message = messages[newStatus]
-      if (message && clientChatId) {
-        await sendClientNotification(clientChatId, message)
+      if (updated) {
+        alert(`Статус спецзаказа изменён на: ${newStatus}`)
+        await loadRequests()
+      } else {
+        alert('Ошибка при обновлении статуса')
       }
-      
-      await loadRequests()
+    } catch (error) {
+      console.error('Ошибка:', error)
+      alert('Произошла ошибка при обновлении')
     }
   }
 
@@ -144,7 +142,7 @@ export default function ChinaPage() {
                 {STATUSES.filter(s => s !== request.status).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusChange(request.id, status, request.user_id)}
+                    onClick={() => handleStatusChange(request.id, status)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
                     {status}

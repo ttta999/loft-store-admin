@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
+import { getOrders, updateOrderStatus } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
@@ -22,23 +22,19 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string) => {
-    const updated = await updateOrderStatus(orderId, newStatus)
-    
-    if (updated) {
-      const messages: Record<string, string> = {
-        'В обработке': `Ваш заказ принят в обработку ✅`,
-        'Готов': `Ваш заказ готов к выдаче! 🎉`,
-        'Выдан': `Ваш заказ выдан. Спасибо за покупку! ❤️`,
-        'Отменён': `Ваш заказ отменён ❌`,
-      }
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      const updated = await updateOrderStatus(orderId, newStatus)
       
-      const message = messages[newStatus]
-      if (message && clientChatId) {
-        await sendClientNotification(clientChatId, message)
+      if (updated) {
+        alert(`Статус заказа изменён на: ${newStatus}`)
+        await loadOrders()
+      } else {
+        alert('Ошибка при обновлении статуса')
       }
-      
-      await loadOrders()
+    } catch (error) {
+      console.error('Ошибка:', error)
+      alert('Произошла ошибка при обновлении')
     }
   }
 
@@ -147,7 +143,7 @@ export default function OrdersPage() {
                 {STATUSES.filter(s => s !== order.status).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusChange(order.id, status, order.user_id)}
+                    onClick={() => handleStatusChange(order.id, status)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
                     {status}
