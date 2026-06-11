@@ -3,7 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
 import { ArrowLeft } from 'lucide-react'
 
-const STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
+// Старые статусы для фильтров (для подсчёта)
+const OLD_STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
+
+// Новые статусы для отображения
+const NEW_STATUSES = [
+  { old: 'Активный', new: 'Принят 📄' },
+  { old: 'В обработке', new: 'Собирается ' },
+  { old: 'Готов', new: 'Упакован 🛍️' },
+  { old: 'Выдан', new: 'Передан курьеру 🚀' },
+  { old: 'Отменён', new: 'Отменен 🚫' },
+]
 
 // Сообщения для доставки
 const DELIVERY_MESSAGES: Record<string, string> = {
@@ -11,7 +21,7 @@ const DELIVERY_MESSAGES: Record<string, string> = {
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
   'Готов': '🛍️ Упакован: Отличные новости! Ваш заказ №{orderId} собран и ждет курьера.',
   'Выдан': '🚀 Передан курьеру: Ваш заказ №{orderId} передан курьеру и уже в пути к вам! Ожидайте звонка.',
-  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
+  'Отменён': ' Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
 // Сообщения для самовывоза
@@ -25,20 +35,20 @@ const PICKUP_MESSAGES: Record<string, string> = {
 
 // Отображение статусов для доставки
 const DELIVERY_STATUS_LABELS: Record<string, string> = {
-  'Активный': 'Принят 📄',
+  'Активный': 'Принят ',
   'В обработке': 'Собирается 📦',
   'Готов': 'Упакован 🛍️',
-  'Выдан': 'Передан курьеру 🚀',
+  'Выдан': 'Передан курьеру ',
   'Отменён': 'Отменен 🚫',
 }
 
 // Отображение статусов для самовывоза
 const PICKUP_STATUS_LABELS: Record<string, string> = {
-  'Активный': 'Принят 📄',
+  'Активный': 'Принят ',
   'В обработке': 'Собирается 📦',
   'Готов': 'Готов к выдаче 🎉',
   'Выдан': 'Получен 🤝',
-  'Отменён': 'Отменен 🚫',
+  'Отменён': 'Отменен ',
 }
 
 export default function OrdersPage() {
@@ -63,7 +73,6 @@ export default function OrdersPage() {
       const updated = await updateOrderStatus(orderId, newStatus)
       
       if (updated) {
-        // Выбираем сообщения в зависимости от способа доставки
         const messages = deliveryMethod === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
         const messageTemplate = messages[newStatus] || `Статус заказа №${orderId} изменён на: ${newStatus}`
         const message = messageTemplate.replace('{orderId}', orderId)
@@ -73,10 +82,10 @@ export default function OrdersPage() {
           if (sent) {
             alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
           } else {
-            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено`)
+            alert(`Статус изменён на: ${newStatus}\n️ Уведомление не отправлено`)
           }
         } else {
-          alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден`)
+          alert(`Статус изменён на: ${newStatus}\n️ Chat ID клиента не найден`)
         }
         
         await loadOrders()
@@ -122,7 +131,7 @@ export default function OrdersPage() {
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold">📦 Управление заказами</h1>
+          <h1 className="text-2xl font-bold"> Управление заказами</h1>
         </div>
       </div>
 
@@ -137,15 +146,15 @@ export default function OrdersPage() {
             >
               Все ({orders.length})
             </button>
-            {STATUSES.map(status => (
+            {NEW_STATUSES.map(({ old, new: newLabel }) => (
               <button
-                key={status}
-                onClick={() => setFilter(status)}
+                key={old}
+                onClick={() => setFilter(old)}
                 className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
-                  filter === status ? 'bg-black text-white' : 'bg-gray-100'
+                  filter === old ? 'bg-black text-white' : 'bg-gray-100'
                 }`}
               >
-                {status} ({orders.filter(o => o.status === status).length})
+                {newLabel} ({orders.filter(o => o.status === old).length})
               </button>
             ))}
           </div>
@@ -175,7 +184,7 @@ export default function OrdersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
+                  <p className="text-sm text-gray-600"> <strong>Клиент:</strong> {order.client_name}</p>
                   <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
                   <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
                 </div>
@@ -200,13 +209,13 @@ export default function OrdersPage() {
               )}
 
               <div className="flex gap-2 flex-wrap">
-                {STATUSES.filter(s => s !== order.status).map((status) => (
+                {NEW_STATUSES.filter(({ old }) => old !== order.status).map(({ old, new: newLabel }) => (
                   <button
-                    key={status}
-                    onClick={() => handleStatusChange(order.id, status, order.user_id, order.delivery_method)}
+                    key={old}
+                    onClick={() => handleStatusChange(order.id, old, order.user_id, order.delivery_method)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
-                    {getStatusLabel(status, order.delivery_method)}
+                    {newLabel}
                   </button>
                 ))}
               </div>
