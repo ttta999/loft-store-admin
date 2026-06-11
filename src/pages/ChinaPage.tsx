@@ -6,8 +6,8 @@ import { ArrowLeft } from 'lucide-react'
 const STATUSES = ['На рассмотрении', 'Одобрен', 'Отменён']
 
 const STATUS_MESSAGES: Record<string, string> = {
-  'Одобрен': 'Ваш спецзаказ одобрен! ✅ Менеджер свяжется с вами для уточнения деталей.',
-  'Отменён': 'Ваш спецзаказ отменён ',
+  'Одобрен': 'Ваш спецзаказ №{requestId} одобрен! ✅ Менеджер свяжется с вами.',
+  'Отменён': 'Ваш спецзаказ №{requestId} отменён ❌',
 }
 
 export default function ChinaPage() {
@@ -32,9 +32,10 @@ export default function ChinaPage() {
       const updated = await updateChinaRequestStatus(requestId, newStatus)
       
       if (updated) {
-        // Отправляем уведомление клиенту
-        const message = STATUS_MESSAGES[newStatus]
-        if (message && clientChatId) {
+        const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
+        const message = messageTemplate.replace('{requestId}', requestId)
+        
+        if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           if (sent) {
             alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
@@ -42,7 +43,7 @@ export default function ChinaPage() {
             alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено`)
           }
         } else {
-          alert(`Статус изменён на: ${newStatus}`)
+          alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден`)
         }
         
         await loadRequests()
@@ -131,7 +132,7 @@ export default function ChinaPage() {
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-1">
-                   <strong>Ссылка/Название:</strong> {request.link}
+                  📎 <strong>Ссылка/Название:</strong> {request.link}
                 </p>
                 {request.size_color && (
                   <p className="text-sm text-gray-600 mb-1">

@@ -5,11 +5,40 @@ import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Отменён']
 
-const STATUS_MESSAGES: Record<string, string> = {
-  'В обработке': 'Ваш заказ принят в обработку ✅',
-  'Готов': 'Ваш заказ готов к выдаче! 🎉',
-  'Выдан': 'Ваш заказ выдан. Спасибо за покупку! ❤️',
-  'Отменён': 'Ваш заказ отменён ',
+// Сообщения для доставки
+const DELIVERY_MESSAGES: Record<string, string> = {
+  'Активный': '📄 Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
+  'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
+  'Готов': '🛍️ Упакован: Отличные новости! Ваш заказ №{orderId} собран и ждет курьера.',
+  'Выдан': '🚀 Передан курьеру: Ваш заказ №{orderId} передан курьеру и уже в пути к вам! Ожидайте звонка.',
+  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
+}
+
+// Сообщения для самовывоза
+const PICKUP_MESSAGES: Record<string, string> = {
+  'Активный': '📄 Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
+  'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Пожалуйста, дождитесь уведомления о готовности.',
+  'Готов': '🎉 Готов к выдаче: Отличные новости! Ваш заказ №{orderId} собран и ожидает получения в магазине по адресу: ТЦ Меркато, 2 этаж, магазин 34.',
+  'Выдан': '🤝 Получен: Заказ №{orderId} успешно выдан. Будем рады новым заказам!',
+  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
+}
+
+// Отображение статусов для доставки
+const DELIVERY_STATUS_LABELS: Record<string, string> = {
+  'Активный': 'Принят 📄',
+  'В обработке': 'Собирается 📦',
+  'Готов': 'Упакован 🛍️',
+  'Выдан': 'Передан курьеру 🚀',
+  'Отменён': 'Отменен 🚫',
+}
+
+// Отображение статусов для самовывоза
+const PICKUP_STATUS_LABELS: Record<string, string> = {
+  'Активный': 'Принят 📄',
+  'В обработке': 'Собирается 📦',
+  'Готов': 'Готов к выдаче 🎉',
+  'Выдан': 'Получен 🤝',
+  'Отменён': 'Отменен 🚫',
 }
 
 export default function OrdersPage() {
@@ -29,22 +58,25 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string) => {
+  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string) => {
     try {
       const updated = await updateOrderStatus(orderId, newStatus)
       
       if (updated) {
-        // Отправляем уведомление клиенту
-        const message = STATUS_MESSAGES[newStatus]
-        if (message && clientChatId) {
+        // Выбираем сообщения в зависимости от способа доставки
+        const messages = deliveryMethod === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
+        const messageTemplate = messages[newStatus] || `Статус заказа №${orderId} изменён на: ${newStatus}`
+        const message = messageTemplate.replace('{orderId}', orderId)
+        
+        if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           if (sent) {
             alert(`Статус изменён на: ${newStatus}\nУведомление отправлено клиенту ✅`)
           } else {
-            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено (проверьте токен бота)`)
+            alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено`)
           }
         } else {
-          alert(`Статус изменён на: ${newStatus}`)
+          alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден`)
         }
         
         await loadOrders()
@@ -55,6 +87,13 @@ export default function OrdersPage() {
       console.error('Ошибка:', error)
       alert('Произошла ошибка при обновлении')
     }
+  }
+
+  const getStatusLabel = (status: string, deliveryMethod: string) => {
+    if (deliveryMethod === 'pickup') {
+      return PICKUP_STATUS_LABELS[status] || status
+    }
+    return DELIVERY_STATUS_LABELS[status] || status
   }
 
   const filteredOrders = filter === 'all' 
@@ -130,7 +169,7 @@ export default function OrdersPage() {
                   order.status === 'Отменён' ? 'bg-red-100 text-red-800' :
                   'bg-yellow-100 text-yellow-800'
                 }`}>
-                  {order.status}
+                  {getStatusLabel(order.status, order.delivery_method)}
                 </span>
               </div>
 
@@ -164,10 +203,10 @@ export default function OrdersPage() {
                 {STATUSES.filter(s => s !== order.status).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusChange(order.id, status, order.user_id)}
+                    onClick={() => handleStatusChange(order.id, status, order.user_id, order.delivery_method)}
                     className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
                   >
-                    {status}
+                    {getStatusLabel(status, order.delivery_method)}
                   </button>
                 ))}
               </div>
