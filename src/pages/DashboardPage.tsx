@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, getChinaRequests } from '../lib/supabase'
-import { Package, Globe, LogOut, TrendingUp } from 'lucide-react'
+import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
+import { Package, Globe, LogOut, TrendingUp, ShoppingBag } from 'lucide-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<any[]>([])
   const [chinaRequests, setChinaRequests] = useState<any[]>([])
+  const [productsCount, setProductsCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -15,10 +16,21 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     setLoading(true)
-    const ordersData = await getOrders()
-    const chinaData = await getChinaRequests()
-    setOrders(ordersData)
-    setChinaRequests(chinaData)
+    try {
+      const ordersData = await getOrders()
+      const chinaData = await getChinaRequests()
+      
+      // Загружаем количество товаров
+      const { count } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+      
+      setOrders(ordersData)
+      setChinaRequests(chinaData)
+      setProductsCount(count || 0)
+    } catch (error) {
+      console.error('Ошибка загрузки:', error)
+    }
     setLoading(false)
   }
 
@@ -87,7 +99,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Кнопки навигации */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
             onClick={() => navigate('/orders')}
             className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
@@ -110,6 +122,18 @@ export default function DashboardPage() {
             </div>
             <p className="text-gray-600">Заявки на спецзаказы</p>
             <p className="text-sm text-gray-500 mt-2">Всего: {chinaRequests.length}</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/products')}
+            className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <ShoppingBag size={24} className="text-purple-600" />
+              <h2 className="text-xl font-bold">Товары</h2>
+            </div>
+            <p className="text-gray-600">Управление каталогом</p>
+            <p className="text-sm text-gray-500 mt-2">Всего: {productsCount}</p>
           </button>
         </div>
       </div>
