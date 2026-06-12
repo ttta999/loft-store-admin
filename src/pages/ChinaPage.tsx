@@ -24,10 +24,16 @@ export default function ChinaPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  
+  // Модалка для оценки
   const [showPriceModal, setShowPriceModal] = useState(false)
+  // Модалка для отклонения
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [managerPrice, setManagerPrice] = useState('')
   const [managerComment, setManagerComment] = useState('')
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     loadRequests()
@@ -41,10 +47,19 @@ export default function ChinaPage() {
   }
 
   const handleStatusChange = async (requestId: string, newStatus: string, clientChatId: string) => {
+    // Если статус "Оценён" - показываем модалку для ввода цены
     if (newStatus === 'Оценён') {
       const request = requests.find(r => r.id === requestId)
       setSelectedRequest(request)
       setShowPriceModal(true)
+      return
+    }
+
+    // Если статус "Отклонён" - показываем модалку для ввода причины
+    if (newStatus === 'Отклонён') {
+      const request = requests.find(r => r.id === requestId)
+      setSelectedRequest(request)
+      setShowRejectModal(true)
       return
     }
 
@@ -66,7 +81,7 @@ export default function ChinaPage() {
             alert(`Статус изменён на: ${newStatus}\n⚠️ Уведомление не отправлено (проверьте консоль)`)
           }
         } else {
-          alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден в базе`)
+          alert(`Статус изменён на: ${newStatus}\n️ Chat ID клиента не найден в базе`)
         }
         
         await loadRequests()
@@ -119,6 +134,50 @@ export default function ChinaPage() {
         await loadRequests()
       } else {
         alert('Ошибка при установке цены')
+      }
+    } catch (error) {
+      console.error('Ошибка:', error)
+      alert('Ошибка: ' + error)
+    }
+  }
+
+  const handleRejectSubmit = async () => {
+    if (!selectedRequest) return
+
+    try {
+      console.log('Отклоняем спецзаказ:', { requestId: selectedRequest.id, reason: rejectReason })
+      
+      const updated = await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', {
+        manager_comment: rejectReason
+      })
+      
+      console.log('Результат обновления:', updated)
+      
+      if (updated) {
+        const message = STATUS_MESSAGES['Отклонён']
+          .replace('{requestId}', selectedRequest.id)
+          .replace('{managerComment}', rejectReason || 'Не указана')
+        
+        console.log('Отправляем уведомление об отклонении:', { userId: selectedRequest.user_id, message })
+        
+        if (selectedRequest.user_id) {
+          const sent = await sendClientNotification(selectedRequest.user_id, message)
+          console.log('Результат отправки уведомления:', sent)
+          
+          if (sent) {
+            alert(`Спецзаказ отклонён и уведомление отправлено клиенту ✅`)
+          } else {
+            alert(`Спецзаказ отклонён\n⚠️ Уведомление не отправлено (проверьте консоль)`)
+          }
+        } else {
+          alert(`Спецзаказ отклонён\n️ Chat ID клиента не найден в базе`)
+        }
+        
+        setShowRejectModal(false)
+        setRejectReason('')
+        await loadRequests()
+      } else {
+        alert('Ошибка при отклонении спецзаказа')
       }
     } catch (error) {
       console.error('Ошибка:', error)
@@ -210,7 +269,7 @@ export default function ChinaPage() {
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-1">
-                  📎 <strong>Ссылка/Название:</strong> {request.link}
+                   <strong>Ссылка/Название:</strong> {request.link}
                 </p>
                 {request.size_color && (
                   <p className="text-sm text-gray-600 mb-1">
@@ -219,7 +278,7 @@ export default function ChinaPage() {
                 )}
                 {request.comment && (
                   <p className="text-sm text-gray-600 mb-1">
-                    💬 <strong>Комментарий:</strong> {request.comment}
+                    💬 <strong>Комментарий клиента:</strong> {request.comment}
                   </p>
                 )}
                 {request.manager_price && (
@@ -229,7 +288,7 @@ export default function ChinaPage() {
                 )}
                 {request.manager_comment && (
                   <p className="text-sm text-gray-600 mb-1">
-                    📝 <strong>Комментарий менеджера:</strong> {request.manager_comment}
+                     <strong>Комментарий менеджера:</strong> {request.manager_comment}
                   </p>
                 )}
               </div>
@@ -260,6 +319,7 @@ export default function ChinaPage() {
         </div>
       </div>
 
+      {/* Модалка для ввода цены */}
       {showPriceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
@@ -309,6 +369,59 @@ export default function ChinaPage() {
                 className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
               >
                 Отправить оценку
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка для отклонения с причиной */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-2 text-red-600">
+              Отклонить спецзаказ №{selectedRequest?.id}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Укажите причину отклонения. Это сообщение будет отправлено клиенту.
+            </p>
+            
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Причина отклонения *
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Например: Товар снят с производства / Не можем найти поставщика / Слишком долгая доставка"
+                rows={4}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Минимум 5 символов
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false)
+                  setRejectReason('')
+                }}
+                className="flex-1 px-4 py-2 bg-gray-100 rounded-lg"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={rejectReason.trim().length < 5}
+                className={`flex-1 px-4 py-2 rounded-lg text-white ${
+                  rejectReason.trim().length < 5 
+                    ? 'bg-red-300 cursor-not-allowed' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Отклонить
               </button>
             </div>
           </div>
