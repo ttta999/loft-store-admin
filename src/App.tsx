@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage'
 import OrdersPage from './pages/OrdersPage'
 import ChinaPage from './pages/ChinaPage'
 import ProductsPage from './pages/ProductsPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -54,6 +55,11 @@ export default function App() {
         <Route path="/products" element={
           <ProtectedRoute>
             <ProductsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute>
+            <AnalyticsPage />
           </ProtectedRoute>
         } />
       </Routes>

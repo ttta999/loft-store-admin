@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
-import { Package, Globe, LogOut, TrendingUp, ShoppingBag } from 'lucide-react'
+import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3 } from 'lucide-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -134,6 +134,17 @@ export default function DashboardPage() {
             </div>
             <p className="text-gray-600">Управление каталогом</p>
             <p className="text-sm text-gray-500 mt-2">Всего: {productsCount}</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/analytics')}
+            className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <BarChart3 size={24} className="text-green-600" />
+              <h2 className="text-xl font-bold">Аналитика</h2>
+            </div>
+            <p className="text-gray-600">Статистика и отчёты</p>
           </button>
         </div>
       </div>
