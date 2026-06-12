@@ -45,22 +45,29 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
     return null
   }
   
-  return data?.[0]
+  return data?.[0] || null
 }
 
-export const updateChinaRequestStatus = async (requestId: string, status: string) => {
+export const updateChinaRequestStatus = async (
+  requestId: string, 
+  status: string, 
+  extraData?: any
+) => {
   const { data, error } = await supabase
     .from('china_requests')
-    .update({ status })
+    .update({ 
+      status,
+      ...extraData 
+    })
     .eq('id', requestId)
     .select()
   
   if (error) {
-    console.error('Ошибка при обновлении статуса:', error)
+    console.error('Ошибка обновления статуса спецзаказа:', error)
     return null
   }
   
-  return data?.[0]
+  return Array.isArray(data) ? data[0] : data
 }
 
 export const sendClientNotification = async (chatId: string, message: string) => {
