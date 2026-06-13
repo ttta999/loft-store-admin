@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X } from 'lucide-react'
+import { ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff } from 'lucide-react'
 
 const CATEGORIES = [
   { 
@@ -88,6 +88,7 @@ interface Product {
   price_usd: number
   images: string[]
   size_type: string
+  is_active: boolean
   created_at: string
 }
 
@@ -105,6 +106,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden'>('all')
   
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -264,6 +266,11 @@ export default function ProductsPage() {
       productData.brand = brand
     }
 
+    // При создании нового товара - он активен по умолчанию
+    if (!editingProduct) {
+      productData.is_active = true
+    }
+
     try {
       if (editingProduct) {
         // Обновление
@@ -389,6 +396,26 @@ export default function ProductsPage() {
     }
   }
 
+  const toggleActive = async (productId: string, currentActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: !currentActive })
+        .eq('id', productId)
+      
+      if (error) throw error
+      
+      alert(currentActive 
+        ? 'Товар скрыт из основного приложения 🙈' 
+        : 'Товар снова виден в приложении ✅')
+      
+      await loadProducts()
+    } catch (error: any) {
+      console.error('Ошибка:', error)
+      alert('Ошибка: ' + (error?.message || 'Неизвестная ошибка'))
+    }
+  }
+
   const toggleSize = (size: string) => {
     setSelectedSizes(prev => {
       const newSizes = { ...prev }
@@ -412,7 +439,10 @@ export default function ProductsPage() {
     const matchesSearch = p.name_ru.toLowerCase().includes(search.toLowerCase()) ||
                          p.name_uz.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesVisibility = visibilityFilter === 'all' || 
+                             (visibilityFilter === 'active' && p.is_active !== false) ||
+                             (visibilityFilter === 'hidden' && p.is_active === false)
+    return matchesSearch && matchesCategory && matchesVisibility
   })
 
   const getAvailableSizes = () => {
@@ -425,6 +455,9 @@ export default function ProductsPage() {
     const cat = CATEGORIES.find(c => c.value === category)
     return cat?.subcategories || []
   }
+
+  const activeCount = products.filter(p => p.is_active !== false).length
+  const hiddenCount = products.filter(p => p.is_active === false).length
 
   if (loading) {
     return (
@@ -464,7 +497,7 @@ export default function ProductsPage() {
       <div className="max-w-7xl mx-auto p-4">
         {/* Фильтры и поиск */}
         <div className="bg-white p-4 rounded-xl mb-4">
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-4 flex-wrap mb-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -477,27 +510,59 @@ export default function ProductsPage() {
                 />
               </div>
             </div>
-            <div className="flex gap-2">
+          </div>
+          
+          {/* Фильтр по категориям */}
+          <div className="flex gap-2 flex-wrap mb-3">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                categoryFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+              }`}
+            >
+              Все категории ({products.length})
+            </button>
+            {CATEGORIES.map(cat => (
               <button
-                onClick={() => setCategoryFilter('all')}
+                key={cat.value}
+                onClick={() => setCategoryFilter(cat.value)}
                 className={`px-4 py-2 rounded-lg font-medium ${
-                  categoryFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                  categoryFilter === cat.value ? 'bg-black text-white' : 'bg-gray-100'
                 }`}
               >
-                Все ({products.length})
+                {cat.label} ({products.filter(p => p.category === cat.value).length})
               </button>
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategoryFilter(cat.value)}
-                  className={`px-4 py-2 rounded-lg font-medium ${
-                    categoryFilter === cat.value ? 'bg-black text-white' : 'bg-gray-100'
-                  }`}
-                >
-                  {cat.label} ({products.filter(p => p.category === cat.value).length})
-                </button>
-              ))}
-            </div>
+            ))}
+          </div>
+          
+          {/* Фильтр по видимости */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setVisibilityFilter('all')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm ${
+                visibilityFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+              }`}
+            >
+              Все ({products.length})
+            </button>
+            <button
+              onClick={() => setVisibilityFilter('active')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 ${
+                visibilityFilter === 'active' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+              }`}
+            >
+              <Eye size={16} />
+              Видимые ({activeCount})
+            </button>
+            <button
+              onClick={() => setVisibilityFilter('hidden')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 ${
+                visibilityFilter === 'hidden' ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
+              }`}
+            >
+              <EyeOff size={16} />
+              Скрытые ({hiddenCount})
+            </button>
           </div>
         </div>
 
@@ -506,9 +571,13 @@ export default function ProductsPage() {
           {filteredProducts.map((product) => {
             const productVariants = variants.filter(v => v.product_id === product.id)
             const totalStock = productVariants.reduce((sum, v) => sum + v.stock, 0)
+            const isActive = product.is_active !== false
             
             return (
-              <div key={product.id} className="bg-white rounded-xl p-4 shadow-sm">
+              <div 
+                key={product.id} 
+                className={`bg-white rounded-xl p-4 shadow-sm ${!isActive ? 'opacity-60 border-2 border-yellow-200' : ''}`}
+              >
                 <div className="flex gap-4">
                   {product.images?.[0] && (
                     <img
@@ -520,7 +589,14 @@ export default function ProductsPage() {
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-bold text-lg">{product.name_ru}</h3>
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                          {product.name_ru}
+                          {!isActive && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                              🙈 Скрыт
+                            </span>
+                          )}
+                        </h3>
                         {product.name_uz && product.name_uz !== product.name_ru && (
                           <p className="text-sm text-gray-500">{product.name_uz}</p>
                         )}
@@ -555,13 +631,33 @@ export default function ProductsPage() {
                       </div>
                     )}
                     
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => openEditModal(product)}
                         className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center gap-1"
                       >
                         <Edit size={16} />
                         Редактировать
+                      </button>
+                      <button
+                        onClick={() => toggleActive(product.id, isActive)}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1 ${
+                          isActive
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        }`}
+                      >
+                        {isActive ? (
+                          <>
+                            <EyeOff size={16} />
+                            Скрыть
+                          </>
+                        ) : (
+                          <>
+                            <Eye size={16} />
+                            Показать
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={() => handleDelete(product.id)}
