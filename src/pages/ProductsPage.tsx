@@ -4,10 +4,52 @@ import { supabase } from '../lib/supabase'
 import { ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X } from 'lucide-react'
 
 const CATEGORIES = [
-  { value: 'shoes', label: 'Обувь ' },
-  { value: 'clothes', label: 'Одежда 👕' },
-  { value: 'accessories', label: 'Аксессуары 👜' },
-  { value: 'caps', label: 'Кепки 🧢' },
+  { 
+    value: 'shoes', 
+    label: 'Обувь 👟',
+    subcategories: [
+      { value: 'sneakers', label: 'Кроссовки' },
+      { value: 'boots', label: 'Ботинки' },
+      { value: 'loafers', label: 'Лоферы' },
+      { value: 'sandals', label: 'Сандалии' },
+    ]
+  },
+  { 
+    value: 'clothes', 
+    label: 'Одежда 👕',
+    subcategories: [
+      { value: 't-shirts', label: 'Футболки' },
+      { value: 'shirts', label: 'Рубашки' },
+      { value: 'hoodies', label: 'Худи' },
+      { value: 'pants', label: 'Брюки' },
+      { value: 'jeans', label: 'Джинсы' },
+      { value: 'jackets', label: 'Куртки' },
+    ]
+  },
+  { 
+    value: 'accessories', 
+    label: 'Аксессуары ⌚',
+    subcategories: [
+      { value: 'belts', label: 'Ремни' },
+      { value: 'bags', label: 'Сумки' },
+      { value: 'watches', label: 'Часы' },
+      { value: 'sunglasses', label: 'Очки' },
+    ]
+  },
+]
+
+const BRANDS = [
+  'Loro Piana',
+  'Brunello Cucinelli',
+  "Tod's",
+  'Hermès',
+  'Kiton',
+  'Dior',
+  'Ferragamo',
+  'Zegna',
+  'Dolce & Gabbana',
+  'Fendi',
+  'Louis Vuitton',
 ]
 
 const SIZE_TYPES = [
@@ -27,6 +69,7 @@ interface Product {
   description_uz: string
   category: string
   subcategory: string
+  brand: string
   price_usd: number
   images: string[]
   size_type: string
@@ -58,6 +101,7 @@ export default function ProductsPage() {
   const [descriptionUz, setDescriptionUz] = useState('')
   const [category, setCategory] = useState('shoes')
   const [subcategory, setSubcategory] = useState('')
+  const [brand, setBrand] = useState('')
   const [priceUsd, setPriceUsd] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
@@ -145,6 +189,7 @@ export default function ProductsPage() {
     setDescriptionUz('')
     setCategory('shoes')
     setSubcategory('')
+    setBrand('')
     setPriceUsd('')
     setImages([])
     setSizeType('numeric')
@@ -160,6 +205,7 @@ export default function ProductsPage() {
     setDescriptionUz(product.description_uz || '')
     setCategory(product.category)
     setSubcategory(product.subcategory || '')
+    setBrand(product.brand || '')
     setPriceUsd(product.price_usd.toString())
     setImages(product.images || [])
     setSizeType(product.size_type || 'numeric')
@@ -188,6 +234,7 @@ export default function ProductsPage() {
       description_uz: descriptionUz || null,
       category,
       subcategory: subcategory || category,
+      brand: brand || null,
       price_usd: parseFloat(priceUsd),
       images,
       size_type: sizeType,
@@ -323,6 +370,11 @@ export default function ProductsPage() {
     return []
   }
 
+  const getSubcategories = () => {
+    const cat = CATEGORIES.find(c => c.value === category)
+    return cat?.subcategories || []
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -346,7 +398,7 @@ export default function ProductsPage() {
             <span>На главную</span>
           </button>
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold"> Управление товарами</h1>
+            <h1 className="text-2xl font-bold">📦 Управление товарами</h1>
             <button
               onClick={openAddModal}
               className="bg-black text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-gray-800"
@@ -423,8 +475,13 @@ export default function ProductsPage() {
                         )}
                         <p className="text-sm text-gray-600 mt-1">
                           {CATEGORIES.find(c => c.value === product.category)?.label || product.category}
-                          {product.subcategory && ` → ${product.subcategory}`}
+                          {product.subcategory && ` → ${getSubcategories().find(s => s.value === product.subcategory)?.label || product.subcategory}`}
                         </p>
+                        {product.brand && (
+                          <p className="text-sm text-purple-600 mt-1">
+                            🏷️ {product.brand}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold">${product.price_usd}</p>
@@ -505,7 +562,7 @@ export default function ProductsPage() {
                     type="text"
                     value={nameRu}
                     onChange={(e) => setNameRu(e.target.value)}
-                    placeholder="Например: Nike Air Force 1"
+                    placeholder="Например: Loro Piana Summer Walk"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   />
                 </div>
@@ -517,7 +574,7 @@ export default function ProductsPage() {
                     type="text"
                     value={nameUz}
                     onChange={(e) => setNameUz(e.target.value)}
-                    placeholder="Masalan: Nike Air Force 1"
+                    placeholder="Masalan: Loro Piana Summer Walk"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   />
                 </div>
@@ -551,8 +608,8 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Категория и подкатегория */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Категория, подкатегория и бренд */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
                     Категория *
@@ -572,15 +629,33 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Подкатегория
+                    Подкатегория *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={subcategory}
                     onChange={(e) => setSubcategory(e.target.value)}
-                    placeholder="Например: sneakers"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-                  />
+                  >
+                    <option value="">Выберите подкатегорию</option>
+                    {getSubcategories().map(sub => (
+                      <option key={sub.value} value={sub.value}>{sub.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Бренд
+                  </label>
+                  <select
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                  >
+                    <option value="">Выберите бренд</option>
+                    {BRANDS.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
