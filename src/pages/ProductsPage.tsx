@@ -45,7 +45,7 @@ const BRANDS = [
   'Hermès',
   'Kiton',
   'Dior',
-  'Ferragamo',
+  'Salvatore Ferragamo',
   'Zegna',
   'Dolce & Gabbana',
   'Fendi',
@@ -69,7 +69,7 @@ interface Product {
   description_uz: string
   category: string
   subcategory: string
-  brand: string
+  brand?: string
   price_usd: number
   images: string[]
   size_type: string
@@ -227,28 +227,47 @@ export default function ProductsPage() {
       return
     }
 
-    const productData = {
+    if (!subcategory) {
+      alert('Выберите подкатегорию!')
+      return
+    }
+
+    const productData: any = {
       name_ru: nameRu,
       name_uz: nameUz || nameRu,
       description_ru: descriptionRu || null,
       description_uz: descriptionUz || null,
       category,
-      subcategory: subcategory || category,
-      brand: brand || null,
+      subcategory,
       price_usd: parseFloat(priceUsd),
       images,
       size_type: sizeType,
     }
 
+    // Добавляем бренд только если он выбран
+    if (brand) {
+      productData.brand = brand
+    }
+
     try {
       if (editingProduct) {
         // Обновление
-        const { error } = await supabase
+        console.log('Обновляем товар:', editingProduct.id, productData)
+        
+        const { data, error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', editingProduct.id)
+          .select()
         
-        if (error) throw error
+        if (error) {
+          console.error('Ошибка Supabase:', error)
+          const errorMsg = error.message || 'Неизвестная ошибка'
+          alert(`Ошибка при обновлении: ${errorMsg}`)
+          return
+        }
+        
+        console.log('Товар обновлён:', data)
         
         // Удаляем старые варианты
         await supabase
@@ -270,19 +289,32 @@ export default function ProductsPage() {
             .from('product_variants')
             .insert(newVariants)
           
-          if (variantsError) throw variantsError
+          if (variantsError) {
+            console.error('Ошибка вариантов:', variantsError)
+            alert(`Ошибка при сохранении размеров: ${variantsError.message}`)
+            return
+          }
         }
         
         alert('Товар обновлён! ✅')
       } else {
         // Создание
+        console.log('Создаём товар:', productData)
+        
         const { data: newProduct, error } = await supabase
           .from('products')
           .insert(productData)
           .select()
           .single()
         
-        if (error) throw error
+        if (error) {
+          console.error('Ошибка Supabase:', error)
+          const errorMsg = error.message || 'Неизвестная ошибка'
+          alert(`Ошибка при создании: ${errorMsg}`)
+          return
+        }
+        
+        console.log('Товар создан:', newProduct)
         
         // Создаём варианты
         const newVariants = Object.entries(selectedSizes)
@@ -298,7 +330,11 @@ export default function ProductsPage() {
             .from('product_variants')
             .insert(newVariants)
           
-          if (variantsError) throw variantsError
+          if (variantsError) {
+            console.error('Ошибка вариантов:', variantsError)
+            alert(`Ошибка при сохранении размеров: ${variantsError.message}`)
+            return
+          }
         }
         
         alert('Товар добавлен! ✅')
@@ -306,9 +342,9 @@ export default function ProductsPage() {
       
       setShowModal(false)
       await loadProducts()
-    } catch (error) {
-      console.error('Ошибка:', error)
-      alert('Ошибка при сохранении: ' + error)
+    } catch (error: any) {
+      console.error('Полная ошибка:', error)
+      alert('Ошибка при сохранении: ' + (error?.message || error || 'Неизвестная ошибка'))
     }
   }
 
@@ -651,7 +687,7 @@ export default function ProductsPage() {
                     onChange={(e) => setBrand(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   >
-                    <option value="">Выберите бренд</option>
+                    <option value="">Не выбран</option>
                     {BRANDS.map(b => (
                       <option key={b} value={b}>{b}</option>
                     ))}
