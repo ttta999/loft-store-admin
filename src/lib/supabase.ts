@@ -93,3 +93,41 @@ export const sendClientNotification = async (chatId: string, message: string) =>
     return false
   }
 }
+
+// ✅ ВОЗВРАТ ОСТАТКОВ ПРИ ОТМЕНЕ ЗАКАЗА
+export const restoreStockAfterCancel = async (items: any[]) => {
+  console.log('📈 Возвращаем остатки после отмены:', items)
+  
+  for (const item of items) {
+    // Пропускаем спецзаказы
+    if (!item.productId || item.isSpecialOrder) continue
+    
+    // Находим вариант товара
+    const { data: variants } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', item.productId)
+      .eq('size_value', item.size)
+    
+    if (!variants || variants.length === 0) continue
+    
+    const variant = variants[0]
+    const newStock = (variant.stock || 0) + item.quantity
+    
+    console.log(`📈 Товар ${item.productId} (${item.size}): ${variant.stock} → ${newStock}`)
+    
+    // Обновляем остаток
+    await supabase
+      .from('product_variants')
+      .update({ stock: newStock })
+      .eq('id', variant.id)
+    
+    // ✅ Если товар был скрыт — снова показываем
+    if (variant.stock === 0 && newStock > 0) {
+      await supabase
+        .from('products')
+        .update({ is_active: true })
+        .eq('id', item.productId)
+    }
+  }
+}

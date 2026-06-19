@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
+import { getOrders, updateOrderStatus, sendClientNotification, restoreStockAfterCancel } from '../lib/supabase'
 import { ArrowLeft, Truck, Store, MessageCircle } from 'lucide-react'
 
-// Тип для статуса
 interface StatusItem {
   old: string
   new: string
 }
 
-// СТАТУСЫ ДЛЯ ДОСТАВКИ
 const DELIVERY_STATUSES: StatusItem[] = [
   { old: 'Активный', new: 'Принят 📄' },
   { old: 'В обработке', new: 'Собирается 📦' },
@@ -19,7 +17,6 @@ const DELIVERY_STATUSES: StatusItem[] = [
   { old: 'Отменён', new: 'Отменен 🚫' },
 ]
 
-// СТАТУСЫ ДЛЯ САМОВЫВОЗА
 const PICKUP_STATUSES: StatusItem[] = [
   { old: 'Активный', new: 'Принят 📄' },
   { old: 'В обработке', new: 'Собирается 📦' },
@@ -28,7 +25,6 @@ const PICKUP_STATUSES: StatusItem[] = [
   { old: 'Отменён', new: 'Отменен 🚫' },
 ]
 
-// СООБЩЕНИЯ ДЛЯ ДОСТАВКИ
 const DELIVERY_MESSAGES: Record<string, string> = {
   'Активный': '📄 Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
@@ -38,7 +34,6 @@ const DELIVERY_MESSAGES: Record<string, string> = {
   'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
-// СООБЩЕНИЯ ДЛЯ САМОВЫВОЗА
 const PICKUP_MESSAGES: Record<string, string> = {
   'Активный': '📄 Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Пожалуйста, дождитесь уведомления о готовности.',
@@ -67,11 +62,20 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string) => {
+  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
     try {
+      const oldStatus = order.status
       const updated = await updateOrderStatus(orderId, newStatus)
       
       if (updated) {
+        // ✅ Если заказ отменяется — возвращаем остатки
+        if (newStatus === 'Отменён' && oldStatus !== 'Отменён') {
+          console.log('🔄 Заказ отменён, возвращаем остатки')
+          if (order.items && order.items.length > 0) {
+            await restoreStockAfterCancel(order.items)
+          }
+        }
+        
         const messages = deliveryMethod === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
         const messageTemplate = messages[newStatus] || `Статус заказа №${orderId} изменён на: ${newStatus}`
         const message = messageTemplate.replace('{orderId}', orderId)
@@ -97,7 +101,6 @@ export default function OrdersPage() {
     }
   }
 
-  // ✅ Отправка произвольного сообщения клиенту
   const handleSendCustomMessage = async (orderId: string, clientChatId: string) => {
     if (!customMessageText.trim()) {
       alert('Введите сообщение')
@@ -136,7 +139,6 @@ export default function OrdersPage() {
     return deliveryMethod === 'pickup' ? PICKUP_STATUSES : DELIVERY_STATUSES
   }
 
-  // Фильтрация заказов
   const filteredOrders = orders.filter(order => {
     if (filter === 'delivery' && order.delivery_method !== 'delivery') return false
     if (filter === 'pickup' && order.delivery_method !== 'pickup') return false
@@ -174,7 +176,6 @@ export default function OrdersPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        {/* Основные фильтры по типу доставки */}
         <div className="bg-white p-4 rounded-xl mb-4">
           <div className="flex gap-2 flex-wrap">
             <button
@@ -206,7 +207,6 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        {/* Фильтры по статусам */}
         {filter !== 'all' && (
           <div className="bg-white p-4 rounded-xl mb-4">
             <div className="flex gap-2 overflow-x-auto">
@@ -233,7 +233,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* ЗАКАЗЫ С ДОСТАВКОЙ */}
         {(filter === 'all' || filter === 'delivery') && deliveryOrders.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -263,7 +262,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* ЗАКАЗЫ САМОВЫВОЗА */}
         {(filter === 'all' || filter === 'pickup') && pickupOrders.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -293,7 +291,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* Если заказов нет */}
         {filteredOrders.length === 0 && (
           <div className="bg-white rounded-xl p-8 text-center text-gray-500">
             <p>Заказов не найдено</p>
@@ -304,10 +301,9 @@ export default function OrdersPage() {
   )
 }
 
-// Интерфейс для пропсов карточки заказа
 interface OrderCardProps {
   order: any
-  onStatusChange: (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string) => void
+  onStatusChange: (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => void
   onSendCustomMessage: (orderId: string, clientChatId: string) => void
   getStatusLabel: (status: string, deliveryMethod: string) => string
   getAvailableStatuses: (deliveryMethod: string) => StatusItem[]
@@ -317,7 +313,6 @@ interface OrderCardProps {
   setCustomMessageText: (text: string) => void
 }
 
-// Компонент карточки заказа
 function OrderCard({ 
   order, 
   onStatusChange, 
@@ -330,7 +325,6 @@ function OrderCard({
   setCustomMessageText
 }: OrderCardProps) {
   const availableStatuses = getAvailableStatuses(order.delivery_method)
-  // ✅ Используем user_chat_id, если есть, иначе user_id
   const clientChatId = order.user_chat_id || order.user_id
 
   return (
@@ -365,7 +359,6 @@ function OrderCard({
           <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
           <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
-          {/* ✅ Показываем Chat ID клиента */}
           {clientChatId && (
             <p className="text-xs text-gray-500 mt-1">
               💬 Chat ID: <code className="bg-gray-100 px-1 rounded">{clientChatId}</code>
@@ -397,7 +390,6 @@ function OrderCard({
         </div>
       )}
 
-      {/* Кнопка отправки произвольного сообщения */}
       {clientChatId && (
         <div className="mb-3">
           <button
@@ -445,7 +437,7 @@ function OrderCard({
           .map((s: StatusItem) => (
             <button
               key={s.old}
-              onClick={() => onStatusChange(order.id, s.old, clientChatId, order.delivery_method)}
+              onClick={() => onStatusChange(order.id, s.old, clientChatId, order.delivery_method, order)}
               className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
             >
               {s.new}
