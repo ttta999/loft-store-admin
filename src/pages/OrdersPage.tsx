@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification } from '../lib/supabase'
-import { ArrowLeft, Truck, Store } from 'lucide-react'
+import { ArrowLeft, Truck, Store, MessageCircle } from 'lucide-react'
 
 // Тип для статуса
 interface StatusItem {
@@ -53,6 +53,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
+  const [customMessageText, setCustomMessageText] = useState('')
 
   useEffect(() => {
     loadOrders()
@@ -92,6 +94,35 @@ export default function OrdersPage() {
     } catch (error) {
       console.error('Ошибка:', error)
       alert('Произошла ошибка при обновлении')
+    }
+  }
+
+  // ✅ Отправка произвольного сообщения клиенту
+  const handleSendCustomMessage = async (orderId: string, clientChatId: string) => {
+    if (!customMessageText.trim()) {
+      alert('Введите сообщение')
+      return
+    }
+
+    if (!clientChatId) {
+      alert('⚠️ Chat ID клиента не найден')
+      return
+    }
+
+    try {
+      const message = `📩 <b>Сообщение по заказу №${orderId}:</b>\n\n${customMessageText}`
+      const sent = await sendClientNotification(clientChatId, message)
+      
+      if (sent) {
+        alert('Сообщение отправлено клиенту ✅')
+        setShowCustomMessage(null)
+        setCustomMessageText('')
+      } else {
+        alert('⚠️ Не удалось отправить сообщение')
+      }
+    } catch (error) {
+      console.error('Ошибка:', error)
+      alert('Произошла ошибка при отправке')
     }
   }
 
@@ -219,8 +250,13 @@ export default function OrdersPage() {
                   key={order.id}
                   order={order}
                   onStatusChange={handleStatusChange}
+                  onSendCustomMessage={handleSendCustomMessage}
                   getStatusLabel={getStatusLabel}
                   getAvailableStatuses={getAvailableStatuses}
+                  showCustomMessage={showCustomMessage}
+                  setShowCustomMessage={setShowCustomMessage}
+                  customMessageText={customMessageText}
+                  setCustomMessageText={setCustomMessageText}
                 />
               ))}
             </div>
@@ -244,8 +280,13 @@ export default function OrdersPage() {
                   key={order.id}
                   order={order}
                   onStatusChange={handleStatusChange}
+                  onSendCustomMessage={handleSendCustomMessage}
                   getStatusLabel={getStatusLabel}
                   getAvailableStatuses={getAvailableStatuses}
+                  showCustomMessage={showCustomMessage}
+                  setShowCustomMessage={setShowCustomMessage}
+                  customMessageText={customMessageText}
+                  setCustomMessageText={setCustomMessageText}
                 />
               ))}
             </div>
@@ -267,13 +308,30 @@ export default function OrdersPage() {
 interface OrderCardProps {
   order: any
   onStatusChange: (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string) => void
+  onSendCustomMessage: (orderId: string, clientChatId: string) => void
   getStatusLabel: (status: string, deliveryMethod: string) => string
   getAvailableStatuses: (deliveryMethod: string) => StatusItem[]
+  showCustomMessage: string | null
+  setShowCustomMessage: (id: string | null) => void
+  customMessageText: string
+  setCustomMessageText: (text: string) => void
 }
 
 // Компонент карточки заказа
-function OrderCard({ order, onStatusChange, getStatusLabel, getAvailableStatuses }: OrderCardProps) {
+function OrderCard({ 
+  order, 
+  onStatusChange, 
+  onSendCustomMessage,
+  getStatusLabel, 
+  getAvailableStatuses,
+  showCustomMessage,
+  setShowCustomMessage,
+  customMessageText,
+  setCustomMessageText
+}: OrderCardProps) {
   const availableStatuses = getAvailableStatuses(order.delivery_method)
+  // ✅ Используем user_chat_id, если есть, иначе user_id
+  const clientChatId = order.user_chat_id || order.user_id
 
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -307,6 +365,17 @@ function OrderCard({ order, onStatusChange, getStatusLabel, getAvailableStatuses
           <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
           <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
+          {/* ✅ Показываем Chat ID клиента */}
+          {clientChatId && (
+            <p className="text-xs text-gray-500 mt-1">
+              💬 Chat ID: <code className="bg-gray-100 px-1 rounded">{clientChatId}</code>
+            </p>
+          )}
+          {!clientChatId && (
+            <p className="text-xs text-orange-600 mt-1">
+              ⚠️ Клиент не в Telegram
+            </p>
+          )}
         </div>
         <div>
           <p className="text-sm text-gray-600">🚚 <strong>Доставка:</strong> {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
@@ -328,13 +397,55 @@ function OrderCard({ order, onStatusChange, getStatusLabel, getAvailableStatuses
         </div>
       )}
 
+      {/* Кнопка отправки произвольного сообщения */}
+      {clientChatId && (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowCustomMessage(showCustomMessage === order.id ? null : order.id)}
+            className="px-3 py-1 bg-purple-100 text-purple-800 hover:bg-purple-200 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+          >
+            <MessageCircle size={16} />
+            Написать клиенту
+          </button>
+
+          {showCustomMessage === order.id && (
+            <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <textarea
+                value={customMessageText}
+                onChange={(e) => setCustomMessageText(e.target.value)}
+                placeholder="Введите сообщение для клиента..."
+                rows={3}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => onSendCustomMessage(order.id, clientChatId)}
+                  className="px-3 py-1 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+                >
+                  Отправить
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCustomMessage(null)
+                    setCustomMessageText('')
+                  }}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap">
         {availableStatuses
           .filter((s: StatusItem) => s.old !== order.status)
           .map((s: StatusItem) => (
             <button
               key={s.old}
-              onClick={() => onStatusChange(order.id, s.old, order.user_id, order.delivery_method)}
+              onClick={() => onStatusChange(order.id, s.old, clientChatId, order.delivery_method)}
               className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
             >
               {s.new}
