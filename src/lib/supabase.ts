@@ -70,6 +70,7 @@ export const updateChinaRequestStatus = async (
   return Array.isArray(data) ? data[0] : data
 }
 
+// ✅ ИСПРАВЛЕНО: Отправка уведомления КЛИЕНТУ (через клиентский бот)
 export const sendClientNotification = async (chatId: string, message: string) => {
   try {
     const response = await fetch('/api/sendNotification', {
@@ -77,7 +78,11 @@ export const sendClientNotification = async (chatId: string, message: string) =>
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ chatId, message }),
+      body: JSON.stringify({ 
+        chatId, 
+        message,
+        botType: 'client' // ✅ Отправляем через КЛИЕНТСКИЙ бот
+      }),
     })
     
     if (!response.ok) {
@@ -86,23 +91,21 @@ export const sendClientNotification = async (chatId: string, message: string) =>
     }
     
     const data = await response.json()
-    console.log('Уведомление отправлено:', data)
+    console.log('Уведомление отправлено клиенту:', data)
     return data.success
   } catch (error) {
-    console.error('Ошибка отправки уведомления:', error)
+    console.error('Ошибка отправки уведомления клиенту:', error)
     return false
   }
 }
 
-// ✅ ВОЗВРАТ ОСТАТКОВ ПРИ ОТМЕНЕ ЗАКАЗА
+// ✅ Возврат остатков при отмене заказа
 export const restoreStockAfterCancel = async (items: any[]) => {
   console.log('📈 Возвращаем остатки после отмены:', items)
   
   for (const item of items) {
-    // Пропускаем спецзаказы
     if (!item.productId || item.isSpecialOrder) continue
     
-    // Находим вариант товара
     const { data: variants } = await supabase
       .from('product_variants')
       .select('*')
@@ -116,18 +119,9 @@ export const restoreStockAfterCancel = async (items: any[]) => {
     
     console.log(`📈 Товар ${item.productId} (${item.size}): ${variant.stock} → ${newStock}`)
     
-    // Обновляем остаток
     await supabase
       .from('product_variants')
       .update({ stock: newStock })
       .eq('id', variant.id)
-    
-    // ✅ Если товар был скрыт — снова показываем
-    if (variant.stock === 0 && newStock > 0) {
-      await supabase
-        .from('products')
-        .update({ is_active: true })
-        .eq('id', item.productId)
-    }
   }
 }
