@@ -41,31 +41,18 @@ const CATEGORIES = [
 
 // ✅ УМНЫЕ РАЗМЕРЫ ПО ПОДКАТЕГОРИЯМ
 const SUBCATEGORY_SIZE_CONFIG: Record<string, { type: string; range: string[] }> = {
-  // Обувь → числовые размеры 38-47
   'sneakers': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
   'boots': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
   'loafers': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
   'sandals-shlapantsy': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
-  
-  // Футболки, рубашки, джемперы → буквенные XS-XXL
   't-shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
   'shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
   'sweaters-cardigans': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-  
-  // ✅ Брюки, джинсы → числовые 44-56 + буквенные XS-XXL
   'pants': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
   'jeans': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-  
-  // Спортивные костюмы → буквенные S-XXL
   'tracksuits': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
-  
-  // Верхняя одежда → буквенные S-XXL
   'outerwear': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
-  
-  // ✅ Ремни → буквенные S-XL + числовые 80-130
   'belts': { type: 'combined', range: ['S', 'M', 'L', 'XL', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130'] },
-  
-  // Аксессуары → One Size
   'caps': { type: 'one_size', range: [] },
   'hats': { type: 'one_size', range: [] },
   'bags-backpacks': { type: 'one_size', range: [] },
@@ -114,7 +101,6 @@ export default function ProductsPage() {
   const [newBrandName, setNewBrandName] = useState('')
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   
-  // Форма товара
   const [nameRu, setNameRu] = useState('')
   const [nameUz, setNameUz] = useState('')
   const [descriptionRu, setDescriptionRu] = useState('')
@@ -126,8 +112,6 @@ export default function ProductsPage() {
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
   const [uploading, setUploading] = useState(false)
-  
-  // Варианты (размеры)
   const [selectedSizes, setSelectedSizes] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -242,7 +226,6 @@ export default function ProductsPage() {
     setImages(product.images || [])
     setSizeType(product.size_type || 'numeric')
     
-    // Загружаем текущие размеры
     const productVariants = variants.filter(v => v.product_id === product.id)
     const sizesMap: Record<string, number> = {}
     productVariants.forEach(v => {
@@ -286,7 +269,7 @@ export default function ProductsPage() {
 
     try {
       if (editingProduct) {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', editingProduct.id)
@@ -431,7 +414,6 @@ export default function ProductsPage() {
     }))
   }
 
-  // ✅ Добавление нового бренда
   const handleAddBrand = async () => {
     if (!newBrandName.trim()) {
       alert('Введите название бренда')
@@ -439,7 +421,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const { data: brandData, error } = await supabase
+      const { data, error } = await supabase
         .from('brands')
         .insert({ name: newBrandName.trim() })
         .select()
@@ -454,8 +436,11 @@ export default function ProductsPage() {
         return
       }
 
-      setBrands(prev => [...prev, brandData])
-      setBrand(brandData.name)
+      if (data) {
+        setBrands(prev => [...prev, data])
+        setBrand(data.name)
+      }
+      
       setNewBrandName('')
       setShowBrandModal(false)
       alert('Бренд добавлен! ✅')
@@ -465,25 +450,22 @@ export default function ProductsPage() {
     }
   }
 
-  // ✅ При выборе подкатегории - устанавливаем правильные размеры
   const handleSubcategoryChange = (newSubcategory: string) => {
     setSubcategory(newSubcategory)
     
     const config = SUBCATEGORY_SIZE_CONFIG[newSubcategory]
     if (config) {
       setSizeType(config.type)
-      setSelectedSizes({}) // Сбрасываем выбранные размеры
+      setSelectedSizes({})
     }
   }
 
-  // ✅ Получаем доступные размеры для текущей подкатегории
   const getAvailableSizes = () => {
     const config = SUBCATEGORY_SIZE_CONFIG[subcategory]
     if (config && config.range.length > 0) {
       return config.range
     }
     
-    // Fallback на стандартные размеры
     if (sizeType === 'numeric') {
       return ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
     }
@@ -730,7 +712,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Модалка добавления/редактирования */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full my-8">
@@ -991,7 +972,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Модалка добавления бренда */}
       {showBrandModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
