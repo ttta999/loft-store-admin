@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification, restoreStockAfterCancel } from '../lib/supabase'
-import { ArrowLeft, Truck, Store, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Truck, Store, MessageCircle, CheckCircle, XCircle, Eye } from 'lucide-react'
+import { confirmPayment } from '../lib/payments'
 
 interface StatusItem {
   old: string
@@ -9,7 +10,7 @@ interface StatusItem {
 }
 
 const DELIVERY_STATUSES: StatusItem[] = [
-  { old: 'Активный', new: 'Принят ' },
+  { old: 'Активный', new: 'Принят 📄' },
   { old: 'В обработке', new: 'Собирается 📦' },
   { old: 'Готов', new: 'Упакован 🛍️' },
   { old: 'Выдан', new: 'Передан курьеру 🚀' },
@@ -21,12 +22,12 @@ const PICKUP_STATUSES: StatusItem[] = [
   { old: 'Активный', new: 'Принят 📄' },
   { old: 'В обработке', new: 'Собирается 📦' },
   { old: 'Готов', new: 'Готов к выдаче 🎉' },
-  { old: 'Выдан', new: 'Получен ' },
+  { old: 'Выдан', new: 'Получен 🤝' },
   { old: 'Отменён', new: 'Отменен 🚫' },
 ]
 
 const DELIVERY_MESSAGES: Record<string, string> = {
-  'Активный': ' Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
+  'Активный': '✅ Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
   'Готов': '🛍️ Упакован: Отличные новости! Ваш заказ №{orderId} собран и ждет курьера.',
   'Выдан': '🚀 Передан курьеру: Ваш заказ №{orderId} передан курьеру и уже в пути к вам! Ожидайте звонка.',
@@ -35,11 +36,11 @@ const DELIVERY_MESSAGES: Record<string, string> = {
 }
 
 const PICKUP_MESSAGES: Record<string, string> = {
-  'Активный': ' Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
+  'Активный': '✅ Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
   'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Пожалуйста, дождитесь уведомления о готовности.',
   'Готов': '🎉 Готов к выдаче: Отличные новости! Ваш заказ №{orderId} собран и ожидает получения в магазине по адресу: ТЦ Меркато, 2 этаж, магазин 34.',
   'Выдан': '🤝 Получен: Заказ №{orderId} успешно выдан. Будем рады новым заказам!',
-  'Отменён': ' Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
+  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
 export default function OrdersPage() {
@@ -58,7 +59,6 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true)
     const data = await getOrders()
-    // ✅ Сортировка от нового к старому
     const sorted = data.sort((a: any, b: any) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
@@ -104,6 +104,25 @@ export default function OrdersPage() {
     }
   }
 
+  // ✅ Подтверждение оплаты
+  const handleConfirmPayment = async (order: any) => {
+    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: $${order.total_price_usd}`)
+    if (!confirmed) return
+    
+    const success = await confirmPayment(order.id)
+    if (success) {
+      // Отправляем уведомление клиенту
+      if (order.user_chat_id) {
+        const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Менеджер свяжется с вами в ближайшее время.`
+        await sendClientNotification(order.user_chat_id, message)
+      }
+      alert('✅ Оплата подтверждена! Заказ активирован.')
+      await loadOrders()
+    } else {
+      alert('❌ Ошибка подтверждения')
+    }
+  }
+
   const handleSendCustomMessage = async (orderId: string, clientChatId: string) => {
     if (!customMessageText.trim()) {
       alert('Введите сообщение')
@@ -142,7 +161,6 @@ export default function OrdersPage() {
     return deliveryMethod === 'pickup' ? PICKUP_STATUSES : DELIVERY_STATUSES
   }
 
-  // ✅ Фильтрация заказов
   const filteredOrders = orders.filter(order => {
     if (filter === 'delivery' && order.delivery_method !== 'delivery') return false
     if (filter === 'pickup' && order.delivery_method !== 'pickup') return false
@@ -152,6 +170,7 @@ export default function OrdersPage() {
 
   const deliveryOrders = orders.filter(o => o.delivery_method === 'delivery')
   const pickupOrders = orders.filter(o => o.delivery_method === 'pickup')
+  const pendingPaymentOrders = orders.filter(o => o.status === 'Ожидает оплаты')
 
   if (loading) {
     return (
@@ -180,7 +199,25 @@ export default function OrdersPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        {/* Основные фильтры по типу доставки */}
+        {/* ✅ Блок заказов ожидающих оплаты */}
+        {pendingPaymentOrders.length > 0 && (
+          <div className="bg-orange-50 border-2 border-orange-300 p-4 rounded-xl mb-4">
+            <h2 className="text-lg font-bold text-orange-900 mb-3 flex items-center gap-2">
+              ⏳ Ожидают оплаты ({pendingPaymentOrders.length})
+            </h2>
+            <div className="space-y-3">
+              {pendingPaymentOrders.map((order) => (
+                <PendingPaymentCard
+                  key={order.id}
+                  order={order}
+                  onConfirmPayment={handleConfirmPayment}
+                  onStatusChange={handleStatusChange}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white p-4 rounded-xl mb-4">
           <div className="flex gap-2 flex-wrap">
             <button
@@ -212,7 +249,6 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        {/* Фильтры по статусам */}
         {filter !== 'all' && (
           <div className="bg-white p-4 rounded-xl mb-4">
             <div className="flex gap-2 overflow-x-auto">
@@ -239,29 +275,119 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {/* ✅ ОДИН СПИСОК ЗАКАЗОВ (от нового к старому) */}
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onStatusChange={handleStatusChange}
-              onSendCustomMessage={handleSendCustomMessage}
-              getStatusLabel={getStatusLabel}
-              getAvailableStatuses={getAvailableStatuses}
-              showCustomMessage={showCustomMessage}
-              setShowCustomMessage={setShowCustomMessage}
-              customMessageText={customMessageText}
-              setCustomMessageText={setCustomMessageText}
-            />
-          ))}
+          {filteredOrders
+            .filter(o => o.status !== 'Ожидает оплаты') // Не показываем ожидающие оплаты здесь
+            .map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onStatusChange={handleStatusChange}
+                onSendCustomMessage={handleSendCustomMessage}
+                getStatusLabel={getStatusLabel}
+                getAvailableStatuses={getAvailableStatuses}
+                showCustomMessage={showCustomMessage}
+                setShowCustomMessage={setShowCustomMessage}
+                customMessageText={customMessageText}
+                setCustomMessageText={setCustomMessageText}
+              />
+            ))}
         </div>
 
-        {filteredOrders.length === 0 && (
+        {filteredOrders.filter(o => o.status !== 'Ожидает оплаты').length === 0 && (
           <div className="bg-white rounded-xl p-8 text-center text-gray-500">
             <p>Заказов не найдено</p>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ✅ Компонент для заказов ожидающих оплаты
+function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
+  const clientChatId = order.user_chat_id || order.user_id
+
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-sm border-2 border-orange-200">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="font-bold text-lg">Заказ №{order.id}</h3>
+          <p className="text-sm text-gray-500">
+            {new Date(order.created_at).toLocaleString('ru-RU')}
+          </p>
+        </div>
+        <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+          ⏳ Ожидает оплаты
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
+          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
+          <p className="text-sm text-gray-600">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+        </div>
+        <div>
+          {order.items && (
+            <div className="text-sm text-gray-600">
+              <strong>Товары:</strong>
+              {order.items.map((item: any, idx: number) => (
+                <div key={idx} className="text-xs mt-1">
+                  • {item.name} ({item.size}) × {item.quantity}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ Скриншот оплаты */}
+      {order.payment_screenshot_url ? (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+          <p className="text-sm text-green-800 font-medium mb-2">
+            ✅ Скриншот оплаты получен
+          </p>
+          <a
+            href={order.payment_screenshot_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-green-300 rounded-lg text-sm text-green-700 hover:bg-green-100"
+          >
+            <Eye size={16} />
+            Открыть скриншот
+          </a>
+        </div>
+      ) : (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+          <p className="text-sm text-yellow-800">
+            ⏳ Клиент ещё не загрузил скриншот оплаты
+          </p>
+        </div>
+      )}
+
+      {/* ✅ Кнопки подтверждения */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => onConfirmPayment(order)}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-1"
+        >
+          <CheckCircle size={16} />
+          ✅ Подтвердить оплату
+        </button>
+        
+        <button
+          onClick={() => {
+            if (confirm(`🚫 Отменить заказ №${order.id}?`)) {
+              onStatusChange(order.id, 'Отменён', clientChatId, order.delivery_method, order)
+            }
+          }}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-1"
+        >
+          <XCircle size={16} />
+          🚫 Отменить
+        </button>
       </div>
     </div>
   )
@@ -322,17 +448,12 @@ function OrderCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-gray-600"> <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
           <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
           {clientChatId && (
             <p className="text-xs text-gray-500 mt-1">
               💬 Chat ID: <code className="bg-gray-100 px-1 rounded">{clientChatId}</code>
-            </p>
-          )}
-          {!clientChatId && (
-            <p className="text-xs text-orange-600 mt-1">
-              ⚠️ Клиент не в Telegram
             </p>
           )}
         </div>
@@ -353,6 +474,24 @@ function OrderCard({
               {idx + 1}. {item.name} — {item.size} — {item.quantity} шт. — ${item.priceUsd}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ✅ Скриншот оплаты (если есть) */}
+      {order.payment_screenshot_url && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-medium text-sm text-blue-900 mb-2">
+            📸 Скриншот оплаты:
+          </h4>
+          <a
+            href={order.payment_screenshot_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm text-blue-700 hover:bg-blue-100"
+          >
+            <Eye size={16} />
+            Открыть скриншот
+          </a>
         </div>
       )}
 
