@@ -39,42 +39,37 @@ const CATEGORIES = [
   },
 ]
 
-const BRANDS = [
-  'Loro Piana',
-  'Brunello Cucinelli',
-  "Tod's",
-  'Hermès',
-  'Kiton',
-  'Dior',
-  'Salvatore Ferragamo',
-  'Zegna',
-  'Dolce & Gabbana',
-  'Fendi',
-  'Louis Vuitton',
-]
-
-const SIZE_TYPES = [
-  { value: 'numeric', label: 'Числовые (40, 41, 42...)' },
-  { value: 'alphabetical', label: 'Буквенные (S, M, L, XL...)' },
-  { value: 'one_size', label: 'One Size' },
-]
-
-const NUMERIC_SIZES = [
-  '30', '31', '32', '33', '34', '35', '36', '37', '38', '39',
-  '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',
-  '50', '51', '52', '53', '54', '55', '56', '57', '58', '59',
-  '60', '61', '62', '63', '64', '65', '66', '67', '68', '69',
-  '70', '71', '72', '73', '74', '75', '76', '77', '78', '79',
-  '80', '81', '82', '83', '84', '85', '86', '87', '88', '89',
-  '90', '91', '92', '93', '94', '95', '96', '97', '98', '99',
-  '100', '101', '102', '103', '104', '105', '106', '107', '108', '109',
-  '110', '111', '112', '113', '114', '115', '116', '117', '118', '119',
-  '120'
-]
-
-const ALPHABETICAL_SIZES = [
-  'XXXS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'
-]
+// ✅ УМНЫЕ РАЗМЕРЫ ПО ПОДКАТЕГОРИЯМ
+const SUBCATEGORY_SIZE_CONFIG: Record<string, { type: string; range: string[] }> = {
+  // Обувь → числовые размеры 38-47
+  'sneakers': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
+  'boots': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
+  'loafers': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
+  'sandals-shlapantsy': { type: 'numeric', range: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] },
+  
+  // Футболки, рубашки, джемперы → буквенные XS-XXL
+  't-shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'sweaters-cardigans': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  
+  // ✅ Брюки, джинсы → числовые 44-56 + буквенные XS-XXL
+  'pants': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'jeans': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  
+  // Спортивные костюмы → буквенные S-XXL
+  'tracksuits': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
+  
+  // Верхняя одежда → буквенные S-XXL
+  'outerwear': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
+  
+  // ✅ Ремни → буквенные S-XL + числовые 80-130
+  'belts': { type: 'combined', range: ['S', 'M', 'L', 'XL', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130'] },
+  
+  // Аксессуары → One Size
+  'caps': { type: 'one_size', range: [] },
+  'hats': { type: 'one_size', range: [] },
+  'bags-backpacks': { type: 'one_size', range: [] },
+}
 
 interface Product {
   id: string
@@ -99,16 +94,24 @@ interface ProductVariant {
   stock: number
 }
 
+interface Brand {
+  id: string
+  name: string
+}
+
 export default function ProductsPage() {
   const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden'>('all')
   
   const [showModal, setShowModal] = useState(false)
+  const [showBrandModal, setShowBrandModal] = useState(false)
+  const [newBrandName, setNewBrandName] = useState('')
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   
   // Форма товара
@@ -129,7 +132,19 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts()
+    loadBrands()
   }, [])
+
+  const loadBrands = async () => {
+    const { data, error } = await supabase
+      .from('brands')
+      .select('*')
+      .order('name')
+    
+    if (!error && data) {
+      setBrands(data)
+    }
+  }
 
   const loadProducts = async () => {
     setLoading(true)
@@ -261,21 +276,16 @@ export default function ProductsPage() {
       size_type: sizeType,
     }
 
-    // Добавляем бренд только если он выбран
     if (brand) {
       productData.brand = brand
     }
 
-    // При создании нового товара - он активен по умолчанию
     if (!editingProduct) {
       productData.is_active = true
     }
 
     try {
       if (editingProduct) {
-        // Обновление
-        console.log('Обновляем товар:', editingProduct.id, productData)
-        
         const { data, error } = await supabase
           .from('products')
           .update(productData)
@@ -284,20 +294,15 @@ export default function ProductsPage() {
         
         if (error) {
           console.error('Ошибка Supabase:', error)
-          const errorMsg = error.message || 'Неизвестная ошибка'
-          alert(`Ошибка при обновлении: ${errorMsg}`)
+          alert(`Ошибка при обновлении: ${error.message}`)
           return
         }
         
-        console.log('Товар обновлён:', data)
-        
-        // Удаляем старые варианты
         await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', editingProduct.id)
         
-        // Создаём новые варианты
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -320,9 +325,6 @@ export default function ProductsPage() {
         
         alert('Товар обновлён! ✅')
       } else {
-        // Создание
-        console.log('Создаём товар:', productData)
-        
         const { data: newProduct, error } = await supabase
           .from('products')
           .insert(productData)
@@ -331,14 +333,10 @@ export default function ProductsPage() {
         
         if (error) {
           console.error('Ошибка Supabase:', error)
-          const errorMsg = error.message || 'Неизвестная ошибка'
-          alert(`Ошибка при создании: ${errorMsg}`)
+          alert(`Ошибка при создании: ${error.message}`)
           return
         }
         
-        console.log('Товар создан:', newProduct)
-        
-        // Создаём варианты
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -374,13 +372,11 @@ export default function ProductsPage() {
     if (!confirm('Удалить этот товар? Это действие нельзя отменить.')) return
     
     try {
-      // Удаляем варианты
       await supabase
         .from('product_variants')
         .delete()
         .eq('product_id', productId)
       
-      // Удаляем товар
       const { error } = await supabase
         .from('products')
         .delete()
@@ -435,6 +431,73 @@ export default function ProductsPage() {
     }))
   }
 
+  // ✅ Добавление нового бренда
+  const handleAddBrand = async () => {
+    if (!newBrandName.trim()) {
+      alert('Введите название бренда')
+      return
+    }
+
+    try {
+      const { data: brandData, error } = await supabase
+        .from('brands')
+        .insert({ name: newBrandName.trim() })
+        .select()
+        .single()
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('Такой бренд уже существует')
+        } else {
+          alert('Ошибка добавления бренда: ' + error.message)
+        }
+        return
+      }
+
+      setBrands(prev => [...prev, brandData])
+      setBrand(brandData.name)
+      setNewBrandName('')
+      setShowBrandModal(false)
+      alert('Бренд добавлен! ✅')
+    } catch (error: any) {
+      console.error('Ошибка:', error)
+      alert('Ошибка при добавлении бренда')
+    }
+  }
+
+  // ✅ При выборе подкатегории - устанавливаем правильные размеры
+  const handleSubcategoryChange = (newSubcategory: string) => {
+    setSubcategory(newSubcategory)
+    
+    const config = SUBCATEGORY_SIZE_CONFIG[newSubcategory]
+    if (config) {
+      setSizeType(config.type)
+      setSelectedSizes({}) // Сбрасываем выбранные размеры
+    }
+  }
+
+  // ✅ Получаем доступные размеры для текущей подкатегории
+  const getAvailableSizes = () => {
+    const config = SUBCATEGORY_SIZE_CONFIG[subcategory]
+    if (config && config.range.length > 0) {
+      return config.range
+    }
+    
+    // Fallback на стандартные размеры
+    if (sizeType === 'numeric') {
+      return ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
+    }
+    if (sizeType === 'alphabetical') {
+      return ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+    }
+    return []
+  }
+
+  const getSubcategories = () => {
+    const cat = CATEGORIES.find(c => c.value === category)
+    return cat?.subcategories || []
+  }
+
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name_ru.toLowerCase().includes(search.toLowerCase()) ||
                          p.name_uz.toLowerCase().includes(search.toLowerCase())
@@ -444,17 +507,6 @@ export default function ProductsPage() {
                              (visibilityFilter === 'hidden' && p.is_active === false)
     return matchesSearch && matchesCategory && matchesVisibility
   })
-
-  const getAvailableSizes = () => {
-    if (sizeType === 'numeric') return NUMERIC_SIZES
-    if (sizeType === 'alphabetical') return ALPHABETICAL_SIZES
-    return []
-  }
-
-  const getSubcategories = () => {
-    const cat = CATEGORIES.find(c => c.value === category)
-    return cat?.subcategories || []
-  }
 
   const activeCount = products.filter(p => p.is_active !== false).length
   const hiddenCount = products.filter(p => p.is_active === false).length
@@ -495,7 +547,6 @@ export default function ProductsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
-        {/* Фильтры и поиск */}
         <div className="bg-white p-4 rounded-xl mb-4">
           <div className="flex gap-4 flex-wrap mb-4">
             <div className="flex-1 min-w-[200px]">
@@ -512,7 +563,6 @@ export default function ProductsPage() {
             </div>
           </div>
           
-          {/* Фильтр по категориям */}
           <div className="flex gap-2 flex-wrap mb-3">
             <button
               onClick={() => setCategoryFilter('all')}
@@ -535,7 +585,6 @@ export default function ProductsPage() {
             ))}
           </div>
           
-          {/* Фильтр по видимости */}
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setVisibilityFilter('all')}
@@ -566,7 +615,6 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Список товаров */}
         <div className="space-y-4">
           {filteredProducts.map((product) => {
             const productVariants = variants.filter(v => v.product_id === product.id)
@@ -699,7 +747,6 @@ export default function ProductsPage() {
             </div>
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              {/* Названия */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -727,7 +774,6 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Описания */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -755,7 +801,6 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Категория, подкатегория и бренд */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -766,6 +811,7 @@ export default function ProductsPage() {
                     onChange={(e) => {
                       setCategory(e.target.value)
                       setSubcategory('')
+                      setSelectedSizes({})
                     }}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   >
@@ -780,7 +826,7 @@ export default function ProductsPage() {
                   </label>
                   <select
                     value={subcategory}
-                    onChange={(e) => setSubcategory(e.target.value)}
+                    onChange={(e) => handleSubcategoryChange(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   >
                     <option value="">Выберите подкатегорию</option>
@@ -793,20 +839,28 @@ export default function ProductsPage() {
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
                     Бренд
                   </label>
-                  <select
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-                  >
-                    <option value="">Не выбран</option>
-                    {BRANDS.map(b => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      value={brand}
+                      onChange={(e) => setBrand(e.target.value)}
+                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    >
+                      <option value="">Не выбран</option>
+                      {brands.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setShowBrandModal(true)}
+                      className="px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center gap-1"
+                      title="Добавить бренд"
+                    >
+                      <Plus size={20} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Цена и тип размеров */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -820,26 +874,8 @@ export default function ProductsPage() {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Тип размеров *
-                  </label>
-                  <select
-                    value={sizeType}
-                    onChange={(e) => {
-                      setSizeType(e.target.value)
-                      setSelectedSizes({})
-                    }}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-                  >
-                    {SIZE_TYPES.map(st => (
-                      <option key={st.value} value={st.value}>{st.label}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              {/* Загрузка фото */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">
                   Фото товара
@@ -882,11 +918,15 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              {/* Выбор размеров */}
               {sizeType !== 'one_size' && (
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Размеры и остатки
+                    {subcategory && SUBCATEGORY_SIZE_CONFIG[subcategory] && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        ({getSubcategories().find(s => s.value === subcategory)?.label})
+                      </span>
+                    )}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {getAvailableSizes().map(size => (
@@ -946,6 +986,60 @@ export default function ProductsPage() {
               >
                 {editingProduct ? 'Сохранить изменения' : 'Добавить товар'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка добавления бренда */}
+      {showBrandModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Добавить бренд</h2>
+              <button
+                onClick={() => {
+                  setShowBrandModal(false)
+                  setNewBrandName('')
+                }}
+                className="text-gray-500 hover:text-black"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Название бренда *
+                </label>
+                <input
+                  type="text"
+                  value={newBrandName}
+                  onChange={(e) => setNewBrandName(e.target.value)}
+                  placeholder="Например: Gucci"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowBrandModal(false)
+                    setNewBrandName('')
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleAddBrand}
+                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
+                >
+                  Добавить
+                </button>
+              </div>
             </div>
           </div>
         </div>
