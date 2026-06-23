@@ -43,6 +43,14 @@ const PICKUP_MESSAGES: Record<string, string> = {
   'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
+// ✅ Функция форматирования цены заказа с учётом сохранённой суммы
+const formatOrderPrice = (order: any) => {
+  if (order.total_price_uzs) {
+    return `${Number(order.total_price_uzs).toLocaleString()} сум`
+  }
+  return `$${order.total_price_usd}`
+}
+
 export default function OrdersPage() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<any[]>([])
@@ -104,14 +112,12 @@ export default function OrdersPage() {
     }
   }
 
-  // ✅ Подтверждение оплаты
   const handleConfirmPayment = async (order: any) => {
-    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: $${order.total_price_usd}`)
+    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)}`)
     if (!confirmed) return
     
     const success = await confirmPayment(order.id)
     if (success) {
-      // Отправляем уведомление клиенту
       if (order.user_chat_id) {
         const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Менеджер свяжется с вами в ближайшее время.`
         await sendClientNotification(order.user_chat_id, message)
@@ -199,7 +205,6 @@ export default function OrdersPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        {/* ✅ Блок заказов ожидающих оплаты */}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-orange-50 border-2 border-orange-300 p-4 rounded-xl mb-4">
             <h2 className="text-lg font-bold text-orange-900 mb-3 flex items-center gap-2">
@@ -277,7 +282,7 @@ export default function OrdersPage() {
 
         <div className="space-y-4">
           {filteredOrders
-            .filter(o => o.status !== 'Ожидает оплаты') // Не показываем ожидающие оплаты здесь
+            .filter(o => o.status !== 'Ожидает оплаты')
             .map((order) => (
               <OrderCard
                 key={order.id}
@@ -304,7 +309,6 @@ export default function OrdersPage() {
   )
 }
 
-// ✅ Компонент для заказов ожидающих оплаты
 function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
   const clientChatId = order.user_chat_id || order.user_id
 
@@ -326,7 +330,7 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
         <div>
           <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
+          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
           <p className="text-sm text-gray-600">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
         </div>
         <div>
@@ -343,7 +347,6 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
         </div>
       </div>
 
-      {/* ✅ Скриншот оплаты */}
       {order.payment_screenshot_url ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
           <p className="text-sm text-green-800 font-medium mb-2">
@@ -367,7 +370,6 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
         </div>
       )}
 
-      {/* ✅ Кнопки подтверждения */}
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => onConfirmPayment(order)}
@@ -450,7 +452,7 @@ function OrderCard({
         <div>
           <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> ${order.total_price_usd}</p>
+          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
           {clientChatId && (
             <p className="text-xs text-gray-500 mt-1">
               💬 Chat ID: <code className="bg-gray-100 px-1 rounded">{clientChatId}</code>
@@ -477,7 +479,6 @@ function OrderCard({
         </div>
       )}
 
-      {/* ✅ Скриншот оплаты (если есть) */}
       {order.payment_screenshot_url && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="font-medium text-sm text-blue-900 mb-2">
