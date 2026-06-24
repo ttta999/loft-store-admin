@@ -78,11 +78,13 @@ export default function SettingsPage() {
       const response = await fetch('/api/getExchangeRate')
       const data = await response.json()
       
-      if (data.rate) {
+      console.log('📊 Ответ API:', data)
+      
+      if (data.success && data.rate) {
         setExchangeRate(data.rate)
-        toast.success(`Курс получен: ${data.rate}`)
+        toast.success(`Курс получен: ${data.rate} (${data.source})`)
       } else {
-        toast.error('Не удалось получить курс')
+        toast.error(`Ошибка: ${data.error || 'Не удалось получить курс'}`)
       }
     } catch (error) {
       console.error('Ошибка получения курса:', error)
