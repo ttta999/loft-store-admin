@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
-import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3, Settings } from 'lucide-react'
+import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3, Settings, Tag } from 'lucide-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<any[]>([])
   const [chinaRequests, setChinaRequests] = useState<any[]>([])
   const [productsCount, setProductsCount] = useState(0)
+  const [brandsCount, setBrandsCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,13 +21,19 @@ export default function DashboardPage() {
       const ordersData = await getOrders()
       const chinaData = await getChinaRequests()
       
-      const { count } = await supabase
+      const { count: productsCountResult } = await supabase
         .from('products')
+        .select('*', { count: 'exact', head: true })
+      
+      // ✅ Загружаем количество брендов
+      const { count: brandsCountResult } = await supabase
+        .from('brands')
         .select('*', { count: 'exact', head: true })
       
       setOrders(ordersData)
       setChinaRequests(chinaData)
-      setProductsCount(count || 0)
+      setProductsCount(productsCountResult || 0)
+      setBrandsCount(brandsCountResult || 0)
     } catch (error) {
       console.error('Ошибка загрузки:', error)
     }
@@ -153,6 +160,19 @@ export default function DashboardPage() {
               <h2 className="text-xl font-bold">Настройки</h2>
             </div>
             <p className="text-gray-600">Курс валют и параметры</p>
+          </button>
+
+          {/* ✅ НОВАЯ КНОПКА: Бренды */}
+          <button
+            onClick={() => navigate('/brands')}
+            className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <Tag size={24} className="text-pink-600" />
+              <h2 className="text-xl font-bold">Бренды</h2>
+            </div>
+            <p className="text-gray-600">Управление брендами</p>
+            <p className="text-sm text-gray-500 mt-2">Всего: {brandsCount}</p>
           </button>
         </div>
       </div>
