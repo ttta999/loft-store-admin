@@ -6,6 +6,7 @@ import OrdersPage from './pages/OrdersPage'
 import ChinaPage from './pages/ChinaPage'
 import ProductsPage from './pages/ProductsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import SettingsPage from './pages/SettingsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -60,6 +61,12 @@ export default function App() {
         <Route path="/analytics" element={
           <ProtectedRoute>
             <AnalyticsPage />
+          </ProtectedRoute>
+        } />
+        {/* ✅ НОВЫЙ РОУТ: Настройки */}
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         } />
       </Routes>
