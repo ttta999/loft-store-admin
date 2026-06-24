@@ -11,6 +11,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [updatedBy, setUpdatedBy] = useState<string>('system')
+  const [currentVersion, setCurrentVersion] = useState<number>(0)
 
   useEffect(() => {
     loadSettings()
@@ -30,6 +31,7 @@ export default function SettingsPage() {
       if (data) {
         setExchangeRate((data.value as any)?.rate || 12100)
         setUpdatedBy((data.value as any)?.updated_by || 'system')
+        setCurrentVersion((data.value as any)?.version || 0)
         setLastUpdated(data.updated_at ? new Date(data.updated_at).toLocaleString('ru-RU') : '')
       }
     } catch (error) {
@@ -47,6 +49,9 @@ export default function SettingsPage() {
 
     setSaving(true)
     try {
+      // ✅ Добавляем version для отслеживания изменений
+      const newVersion = Date.now()
+      
       const { error } = await supabase
         .from('settings')
         .upsert({
@@ -54,7 +59,8 @@ export default function SettingsPage() {
           value: {
             rate: exchangeRate,
             updated_by: 'admin',
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            version: newVersion // ✅ Новая версия
           },
           updated_at: new Date().toISOString()
         }, {
@@ -63,7 +69,8 @@ export default function SettingsPage() {
 
       if (error) throw error
 
-      toast.success('Курс успешно обновлён!')
+      setCurrentVersion(newVersion)
+      toast.success(`Курс успешно обновлён! (версия: ${newVersion})`)
       await loadSettings()
     } catch (error) {
       console.error('Ошибка сохранения:', error)
@@ -133,6 +140,9 @@ export default function SettingsPage() {
             <p className="text-sm text-blue-800">
               💡 Этот курс используется для отображения цен в сумах в основном приложении.
             </p>
+            <p className="text-xs text-blue-600 mt-1">
+              🔄 Приложение проверяет обновления каждые 5 минут
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -179,6 +189,7 @@ export default function SettingsPage() {
               <div className="text-sm text-gray-500 pt-2 border-t">
                 <p>📅 Последнее обновление: {lastUpdated}</p>
                 <p>👤 Обновлено: {updatedBy === 'admin' ? 'Менеджером' : 'Автоматически'}</p>
+                <p>🔢 Версия курса: {currentVersion}</p>
               </div>
             )}
           </div>
@@ -200,6 +211,8 @@ export default function SettingsPage() {
               <li>При оформлении заказа курс фиксируется и сохраняется</li>
               <li>Клиенты видят цены в сумах по текущему курсу</li>
               <li>Исторические заказы сохраняют курс на момент оформления</li>
+              <li>✅ Приложение проверяет обновления курса каждые 5 минут</li>
+              <li>✅ При изменении курса в админке, приложение обновит его автоматически</li>
             </ul>
           </div>
         </div>
