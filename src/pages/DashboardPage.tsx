@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
 import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3, Settings, Tag } from 'lucide-react'
+import { logout } from '../lib/auth'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -40,8 +41,9 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminLoggedIn')
+  // ✅ ИСПРАВЛЕНО: Используем Supabase Auth logout
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 

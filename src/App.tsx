@@ -7,19 +7,27 @@ import ChinaPage from './pages/ChinaPage'
 import ProductsPage from './pages/ProductsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
-import BrandsPage from './pages/BrandsPage' // ✅ ИМПОРТ
+import BrandsPage from './pages/BrandsPage'
+import { getCurrentUser } from './lib/auth'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [checking, setChecking] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem('adminLoggedIn') === 'true'
-    setIsLoggedIn(loggedIn)
-    setChecking(false)
+    checkAuth()
   }, [])
 
-  if (checking) {
+  const checkAuth = async () => {
+    try {
+      const user = await getCurrentUser()
+      setIsLoggedIn(!!user)
+    } catch (error) {
+      console.error('Ошибка проверки авторизации:', error)
+      setIsLoggedIn(false)
+    }
+  }
+
+  if (isLoggedIn === null) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
@@ -38,7 +46,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage onLogin={() => window.location.href = '/'} />} />
+        <Route path="/login" element={<LoginPage onLogin={() => {}} />} />
         <Route path="/" element={
           <ProtectedRoute>
             <DashboardPage />
@@ -69,7 +77,6 @@ export default function App() {
             <SettingsPage />
           </ProtectedRoute>
         } />
-        {/* ✅ НОВЫЙ РОУТ: Бренды */}
         <Route path="/brands" element={
           <ProtectedRoute>
             <BrandsPage />
