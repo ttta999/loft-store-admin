@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabase'
 import { ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff } from 'lucide-react'
 
 const CATEGORIES = [
-  { 
-    value: 'shoes', 
+  {
+    value: 'shoes',
     label: 'Обувь 👟',
     subcategories: [
       { value: 'sneakers', label: 'Кроссовки' },
@@ -14,8 +14,8 @@ const CATEGORIES = [
       { value: 'sandals-shlapantsy', label: 'Сандали и Шлепанцы' },
     ]
   },
-  { 
-    value: 'clothes', 
+  {
+    value: 'clothes',
     label: 'Одежда 👕',
     subcategories: [
       { value: 't-shirts', label: 'Футболки' },
@@ -27,8 +27,8 @@ const CATEGORIES = [
       { value: 'outerwear', label: 'Верхняя одежда' },
     ]
   },
-  { 
-    value: 'accessories', 
+  {
+    value: 'accessories',
     label: 'Аксессуары 🧢',
     subcategories: [
       { value: 'belts', label: 'Ремни' },
@@ -68,6 +68,7 @@ interface Product {
   subcategory: string
   brand?: string
   price_usd: number
+  sale_price?: number | null // ✅ Цена со скидкой
   images: string[]
   size_type: string
   is_active: boolean
@@ -95,12 +96,10 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden'>('all')
-  
   const [showModal, setShowModal] = useState(false)
   const [showBrandModal, setShowBrandModal] = useState(false)
   const [newBrandName, setNewBrandName] = useState('')
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  
   const [nameRu, setNameRu] = useState('')
   const [nameUz, setNameUz] = useState('')
   const [descriptionRu, setDescriptionRu] = useState('')
@@ -109,6 +108,7 @@ export default function ProductsPage() {
   const [subcategory, setSubcategory] = useState('')
   const [brand, setBrand] = useState('')
   const [priceUsd, setPriceUsd] = useState('')
+  const [salePriceUsd, setSalePriceUsd] = useState('') // ✅ Цена со скидкой
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
   const [uploading, setUploading] = useState(false)
@@ -124,7 +124,6 @@ export default function ProductsPage() {
       .from('brands')
       .select('*')
       .order('name')
-    
     if (!error && data) {
       setBrands(data)
     }
@@ -137,15 +136,13 @@ export default function ProductsPage() {
         .from('products')
         .select('*')
         .order('created_at', { ascending: false })
-      
       if (productsError) throw productsError
-      
+
       const { data: variantsData, error: variantsError } = await supabase
         .from('product_variants')
         .select('*')
-      
       if (variantsError) throw variantsError
-      
+
       setProducts(productsData || [])
       setVariants(variantsData || [])
     } catch (error) {
@@ -158,29 +155,23 @@ export default function ProductsPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    
     setUploading(true)
-    
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         const fileExt = file.name.split('.').pop()
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-        
         const { error: uploadError } = await supabase.storage
           .from('product-images')
           .upload(fileName, file)
-        
         if (uploadError) {
           console.error('Ошибка загрузки:', uploadError)
           alert('Ошибка загрузки фото')
           continue
         }
-        
         const { data: urlData } = supabase.storage
           .from('product-images')
           .getPublicUrl(fileName)
-        
         if (urlData?.publicUrl) {
           setImages(prev => [...prev, urlData.publicUrl])
         }
@@ -189,7 +180,6 @@ export default function ProductsPage() {
       console.error('Ошибка:', error)
       alert('Ошибка при загрузке')
     }
-    
     setUploading(false)
   }
 
@@ -207,6 +197,7 @@ export default function ProductsPage() {
     setSubcategory('')
     setBrand('')
     setPriceUsd('')
+    setSalePriceUsd('') // ✅ сброс скидки
     setImages([])
     setSizeType('numeric')
     setSelectedSizes({})
@@ -223,16 +214,15 @@ export default function ProductsPage() {
     setSubcategory(product.subcategory || '')
     setBrand(product.brand || '')
     setPriceUsd(product.price_usd.toString())
+    setSalePriceUsd(product.sale_price ? String(product.sale_price) : '') // ✅ загрузка скидки
     setImages(product.images || [])
     setSizeType(product.size_type || 'numeric')
-    
     const productVariants = variants.filter(v => v.product_id === product.id)
     const sizesMap: Record<string, number> = {}
     productVariants.forEach(v => {
       sizesMap[v.size_value] = v.stock
     })
     setSelectedSizes(sizesMap)
-    
     setShowModal(true)
   }
 
@@ -241,7 +231,6 @@ export default function ProductsPage() {
       alert('Название (RU) и цена обязательны!')
       return
     }
-
     if (!subcategory) {
       alert('Выберите подкатегорию!')
       return
@@ -255,14 +244,13 @@ export default function ProductsPage() {
       category,
       subcategory,
       price_usd: parseFloat(priceUsd),
+      sale_price: salePriceUsd ? parseFloat(salePriceUsd) : null, // ✅ сохраняем скидку
       images,
       size_type: sizeType,
     }
-
     if (brand) {
       productData.brand = brand
     }
-
     if (!editingProduct) {
       productData.is_active = true
     }
@@ -274,18 +262,17 @@ export default function ProductsPage() {
           .update(productData)
           .eq('id', editingProduct.id)
           .select()
-        
         if (error) {
           console.error('Ошибка Supabase:', error)
           alert(`Ошибка при обновлении: ${error.message}`)
           return
         }
-        
+
         await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', editingProduct.id)
-        
+
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -293,19 +280,17 @@ export default function ProductsPage() {
             size_value,
             stock,
           }))
-        
+
         if (newVariants.length > 0) {
           const { error: variantsError } = await supabase
             .from('product_variants')
             .insert(newVariants)
-          
           if (variantsError) {
             console.error('Ошибка вариантов:', variantsError)
             alert(`Ошибка при сохранении размеров: ${variantsError.message}`)
             return
           }
         }
-        
         alert('Товар обновлён! ✅')
       } else {
         const { data: newProduct, error } = await supabase
@@ -313,13 +298,12 @@ export default function ProductsPage() {
           .insert(productData)
           .select()
           .single()
-        
         if (error) {
           console.error('Ошибка Supabase:', error)
           alert(`Ошибка при создании: ${error.message}`)
           return
         }
-        
+
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -327,22 +311,19 @@ export default function ProductsPage() {
             size_value,
             stock,
           }))
-        
+
         if (newVariants.length > 0) {
           const { error: variantsError } = await supabase
             .from('product_variants')
             .insert(newVariants)
-          
           if (variantsError) {
             console.error('Ошибка вариантов:', variantsError)
             alert(`Ошибка при сохранении размеров: ${variantsError.message}`)
             return
           }
         }
-        
         alert('Товар добавлен! ✅')
       }
-      
       setShowModal(false)
       await loadProducts()
     } catch (error: any) {
@@ -353,20 +334,17 @@ export default function ProductsPage() {
 
   const handleDelete = async (productId: string) => {
     if (!confirm('Удалить этот товар? Это действие нельзя отменить.')) return
-    
     try {
       await supabase
         .from('product_variants')
         .delete()
         .eq('product_id', productId)
-      
+
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', productId)
-      
       if (error) throw error
-      
       alert('Товар удалён! 🗑️')
       await loadProducts()
     } catch (error) {
@@ -381,13 +359,10 @@ export default function ProductsPage() {
         .from('products')
         .update({ is_active: !currentActive })
         .eq('id', productId)
-      
       if (error) throw error
-      
-      alert(currentActive 
-        ? 'Товар скрыт из основного приложения 🙈' 
+      alert(currentActive
+        ? 'Товар скрыт из основного приложения 🙈'
         : 'Товар снова виден в приложении ✅')
-      
       await loadProducts()
     } catch (error: any) {
       console.error('Ошибка:', error)
@@ -419,14 +394,12 @@ export default function ProductsPage() {
       alert('Введите название бренда')
       return
     }
-
     try {
       const { data, error } = await supabase
         .from('brands')
         .insert({ name: newBrandName.trim() })
         .select()
         .single()
-
       if (error) {
         if (error.code === '23505') {
           alert('Такой бренд уже существует')
@@ -435,16 +408,14 @@ export default function ProductsPage() {
         }
         return
       }
-
       if (data) {
         setBrands(prev => [...prev, data])
         setBrand(data.name)
       }
-      
       setNewBrandName('')
       setShowBrandModal(false)
       alert('Бренд добавлен! ✅')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Ошибка:', error)
       alert('Ошибка при добавлении бренда')
     }
@@ -452,7 +423,6 @@ export default function ProductsPage() {
 
   const handleSubcategoryChange = (newSubcategory: string) => {
     setSubcategory(newSubcategory)
-    
     const config = SUBCATEGORY_SIZE_CONFIG[newSubcategory]
     if (config) {
       setSizeType(config.type)
@@ -465,7 +435,6 @@ export default function ProductsPage() {
     if (config && config.range.length > 0) {
       return config.range
     }
-    
     if (sizeType === 'numeric') {
       return ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
     }
@@ -482,16 +451,17 @@ export default function ProductsPage() {
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name_ru.toLowerCase().includes(search.toLowerCase()) ||
-                         p.name_uz.toLowerCase().includes(search.toLowerCase())
+      p.name_uz.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
-    const matchesVisibility = visibilityFilter === 'all' || 
-                             (visibilityFilter === 'active' && p.is_active !== false) ||
-                             (visibilityFilter === 'hidden' && p.is_active === false)
+    const matchesVisibility = visibilityFilter === 'all' ||
+      (visibilityFilter === 'active' && p.is_active !== false) ||
+      (visibilityFilter === 'hidden' && p.is_active === false)
     return matchesSearch && matchesCategory && matchesVisibility
   })
 
   const activeCount = products.filter(p => p.is_active !== false).length
   const hiddenCount = products.filter(p => p.is_active === false).length
+  const saleCount = products.filter(p => p.sale_price != null && p.sale_price > 0).length
 
   if (loading) {
     return (
@@ -517,13 +487,21 @@ export default function ProductsPage() {
           </button>
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">📦 Управление товарами</h1>
-            <button
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
-            >
-              <Plus size={20} />
-              Добавить товар
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBrandModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+              >
+                🏷️ Бренд
+              </button>
+              <button
+                onClick={openAddModal}
+                className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
+              >
+                <Plus size={20} />
+                Добавить товар
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -544,7 +522,7 @@ export default function ProductsPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-2 flex-wrap mb-3">
             <button
               onClick={() => setCategoryFilter('all')}
@@ -566,7 +544,7 @@ export default function ProductsPage() {
               </button>
             ))}
           </div>
-          
+
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setVisibilityFilter('all')}
@@ -594,6 +572,10 @@ export default function ProductsPage() {
               <EyeOff size={16} />
               Скрытые ({hiddenCount})
             </button>
+            {/* ✅ Счётчик товаров со скидкой */}
+            <span className="px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 bg-red-100 text-red-800">
+              🏷️ Со скидкой ({saleCount})
+            </span>
           </div>
         </div>
 
@@ -602,10 +584,10 @@ export default function ProductsPage() {
             const productVariants = variants.filter(v => v.product_id === product.id)
             const totalStock = productVariants.reduce((sum, v) => sum + v.stock, 0)
             const isActive = product.is_active !== false
-            
+            const hasSale = product.sale_price != null && product.sale_price > 0
             return (
-              <div 
-                key={product.id} 
+              <div
+                key={product.id}
                 className={`bg-white rounded-xl p-4 shadow-sm ${!isActive ? 'opacity-60 border-2 border-yellow-200' : ''}`}
               >
                 <div className="flex gap-4">
@@ -626,6 +608,11 @@ export default function ProductsPage() {
                               🙈 Скрыт
                             </span>
                           )}
+                          {hasSale && (
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                              🏷️ Скидка
+                            </span>
+                          )}
                         </h3>
                         {product.name_uz && product.name_uz !== product.name_ru && (
                           <p className="text-sm text-gray-500">{product.name_uz}</p>
@@ -640,14 +627,22 @@ export default function ProductsPage() {
                           </p>
                         )}
                       </div>
+                      {/* ✅ Цена с учётом скидки */}
                       <div className="text-right">
-                        <p className="text-2xl font-bold">${product.price_usd}</p>
+                        {hasSale ? (
+                          <>
+                            <p className="text-sm text-gray-400 line-through">${product.price_usd}</p>
+                            <p className="text-2xl font-bold text-red-600">${product.sale_price}</p>
+                          </>
+                        ) : (
+                          <p className="text-2xl font-bold">${product.price_usd}</p>
+                        )}
                         <p className="text-sm text-gray-500">
                           Остаток: {totalStock} шт.
                         </p>
                       </div>
                     </div>
-                    
+
                     {productVariants.length > 0 && (
                       <div className="flex gap-2 flex-wrap mt-2">
                         {productVariants.map(v => (
@@ -660,7 +655,7 @@ export default function ProductsPage() {
                         ))}
                       </div>
                     )}
-                    
+
                     <div className="flex gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => openEditModal(product)}
@@ -702,7 +697,7 @@ export default function ProductsPage() {
               </div>
             )
           })}
-          
+
           {filteredProducts.length === 0 && (
             <div className="bg-white rounded-xl p-8 text-center text-gray-500">
               <Package size={48} className="mx-auto mb-4 text-gray-300" />
@@ -712,6 +707,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Модалка добавления/редактирования товара */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full my-8">
@@ -833,6 +829,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
+              {/* ✅ ЦЕНА + ЦЕНА СО СКИДКОЙ */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -845,6 +842,21 @@ export default function ProductsPage() {
                     placeholder="95"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    🏷️ Цена со скидкой (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={salePriceUsd}
+                    onChange={(e) => setSalePriceUsd(e.target.value)}
+                    placeholder="Пусто = без скидки"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-red-400"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Оставь пустым, если скидки нет
+                  </p>
                 </div>
               </div>
 
@@ -868,7 +880,6 @@ export default function ProductsPage() {
                     />
                   </label>
                 </div>
-                
                 {images.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mt-3">
                     {images.map((img, idx) => (
@@ -963,54 +974,36 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* Модалка добавления бренда */}
       {showBrandModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Добавить бренд</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Добавить бренд</h2>
+            <input
+              type="text"
+              value={newBrandName}
+              onChange={(e) => setNewBrandName(e.target.value)}
+              placeholder="Название бренда"
+              className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleAddBrand()}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddBrand}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium"
+              >
+                Добавить
+              </button>
               <button
                 onClick={() => {
                   setShowBrandModal(false)
                   setNewBrandName('')
                 }}
-                className="text-gray-500 hover:text-black"
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
               >
-                <X size={24} />
+                Отмена
               </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Название бренда *
-                </label>
-                <input
-                  type="text"
-                  value={newBrandName}
-                  onChange={(e) => setNewBrandName(e.target.value)}
-                  placeholder="Например: Gucci"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowBrandModal(false)
-                    setNewBrandName('')
-                  }}
-                  className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleAddBrand}
-                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
-                >
-                  Добавить
-                </button>
-              </div>
             </div>
           </div>
         </div>

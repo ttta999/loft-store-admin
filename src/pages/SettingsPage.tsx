@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Save, RefreshCw, DollarSign, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Save, RefreshCw, DollarSign, TrendingUp, Tag } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
 
 export default function SettingsPage() {
@@ -12,6 +12,10 @@ export default function SettingsPage() {
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [updatedBy, setUpdatedBy] = useState<string>('system')
   const [currentVersion, setCurrentVersion] = useState<number>(0)
+
+  // ✅ РЕЖИМ СКИДОК
+  const [saleMode, setSaleMode] = useState(false)
+  const [savingSaleMode, setSavingSaleMode] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -34,6 +38,17 @@ export default function SettingsPage() {
         setCurrentVersion((data.value as any)?.version || 0)
         setLastUpdated(data.updated_at ? new Date(data.updated_at).toLocaleString('ru-RU') : '')
       }
+
+      // ✅ Загружаем режим скидок
+      const { data: saleData, error: saleError } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', 'sale_mode_enabled')
+        .single()
+
+      if (!saleError && saleData) {
+        setSaleMode(Boolean((saleData.value as any)?.enabled))
+      }
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error)
       toast.error('Ошибка загрузки настроек')
@@ -49,9 +64,8 @@ export default function SettingsPage() {
 
     setSaving(true)
     try {
-      // ✅ Добавляем version для отслеживания изменений
       const newVersion = Date.now()
-      
+
       const { error } = await supabase
         .from('settings')
         .upsert({
@@ -60,7 +74,7 @@ export default function SettingsPage() {
             rate: exchangeRate,
             updated_by: 'admin',
             updated_at: new Date().toISOString(),
-            version: newVersion // ✅ Новая версия
+            version: newVersion
           },
           updated_at: new Date().toISOString()
         }, {
@@ -84,9 +98,8 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/getExchangeRate')
       const data = await response.json()
-      
       console.log('📊 Ответ API:', data)
-      
+
       if (data.success && data.rate) {
         setExchangeRate(data.rate)
         toast.success(`Курс получен: ${data.rate} (${data.source})`)
@@ -98,6 +111,40 @@ export default function SettingsPage() {
       toast.error('Ошибка получения курса')
     }
     setSaving(false)
+  }
+
+  // ✅ ПЕРЕКЛЮЧЕНИЕ РЕЖИМА СКИДОК
+  const handleToggleSaleMode = async () => {
+    setSavingSaleMode(true)
+    try {
+      const newValue = !saleMode
+
+      const { error } = await supabase
+        .from('settings')
+        .upsert({
+          key: 'sale_mode_enabled',
+          value: {
+            enabled: newValue,
+            updated_by: 'admin',
+            updated_at: new Date().toISOString(),
+            version: Date.now()
+          },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'key'
+        })
+
+      if (error) throw error
+
+      setSaleMode(newValue)
+      toast.success(newValue
+        ? '🏷️ Режим скидок ВКЛЮЧЁН — скидки видны в приложении'
+        : '🏷️ Режим скидок ВЫКЛЮЧЕН — цены обычные')
+    } catch (error) {
+      console.error('Ошибка переключения режима скидок:', error)
+      toast.error('Ошибка сохранения')
+    }
+    setSavingSaleMode(false)
   }
 
   if (loading) {
@@ -114,7 +161,6 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <Toaster position="top-center" richColors />
-      
       <div className="bg-white border-b p-4">
         <div className="max-w-4xl mx-auto">
           <button
@@ -129,6 +175,44 @@ export default function SettingsPage() {
       </div>
 
       <div className="max-w-4xl mx-auto p-4">
+        {/* ✅ РЕЖИМ СКИДОК */}
+        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Tag size={24} className="text-red-500" />
+            <h2 className="text-xl font-bold">Режим скидок</h2>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-red-800">
+              💡 Когда режим ВКЛЮЧЁН: товары со скидочной ценой показываются с перечёркнутой старой ценой,
+              и на главной появляется бокс «💰 Скидки».
+            </p>
+            <p className="text-xs text-red-600 mt-1">
+              🔄 Когда режим ВЫКЛЮЧЕН: все цены обычные, бокс «Скидки» скрыт.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div>
+              <p className="font-medium">Режим скидок в приложении</p>
+              <p className={`text-sm mt-1 ${saleMode ? 'text-green-600' : 'text-gray-500'}`}>
+                {saleMode ? '✅ Включён — скидки активны' : '⛔ Выключен — скидки скрыты'}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleSaleMode}
+              disabled={savingSaleMode}
+              className={`px-6 py-3 rounded-lg font-bold transition-colors disabled:opacity-50 ${
+                saleMode
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {savingSaleMode ? 'Сохранение...' : (saleMode ? 'Выключить' : 'Включить')}
+            </button>
+          </div>
+        </div>
+
         {/* Курс валют */}
         <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
           <div className="flex items-center gap-3 mb-4">
@@ -174,7 +258,6 @@ export default function SettingsPage() {
                 <RefreshCw size={20} className={saving ? 'animate-spin' : ''} />
                 Получить актуальный курс
               </button>
-
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -201,7 +284,6 @@ export default function SettingsPage() {
             <TrendingUp size={24} className="text-purple-600" />
             <h2 className="text-xl font-bold">Информация</h2>
           </div>
-
           <div className="space-y-3 text-sm text-gray-600">
             <p>
               <strong>Как это работает:</strong>
@@ -213,6 +295,8 @@ export default function SettingsPage() {
               <li>Исторические заказы сохраняют курс на момент оформления</li>
               <li>✅ Приложение проверяет обновления курса каждые 5 минут</li>
               <li>✅ При изменении курса в админке, приложение обновит его автоматически</li>
+              <li>🏷️ Режим скидок включает/выключает скидки во всём приложении</li>
+              <li>🏷️ Скидочная цена задаётся в карточке товара («Цена со скидкой»)</li>
             </ul>
           </div>
         </div>
