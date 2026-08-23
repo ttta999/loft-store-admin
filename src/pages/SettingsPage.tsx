@@ -98,7 +98,6 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/getExchangeRate')
       const data = await response.json()
-      console.log('📊 Ответ API:', data)
 
       if (data.success && data.rate) {
         setExchangeRate(data.rate)
@@ -170,7 +169,7 @@ export default function SettingsPage() {
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold">⚙️ Настройки</h1>
+          <h1 className="text-2xl font-bold">️ Настройки</h1>
         </div>
       </div>
 
@@ -184,8 +183,8 @@ export default function SettingsPage() {
 
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
             <p className="text-sm text-red-800">
-              💡 Когда режим ВКЛЮЧЁН: товары со скидочной ценой показываются с перечёркнутой старой ценой,
-              и на главной появляется бокс «💰 Скидки».
+              💡 Когда режим ВКЛЮЧЁН: товары со скидочной ценой показываются в приложении
+              с перечёркнутой старой ценой, и на главной появляется бокс «💰 Скидки».
             </p>
             <p className="text-xs text-red-600 mt-1">
               🔄 Когда режим ВЫКЛЮЧЕН: все цены обычные, бокс «Скидки» скрыт.
