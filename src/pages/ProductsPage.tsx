@@ -96,6 +96,8 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden' | 'sale'>('all')
   const [showModal, setShowModal] = useState(false)
+  const [showBrandModal, setShowBrandModal] = useState(false)
+  const [newBrandName, setNewBrandName] = useState('')
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [nameRu, setNameRu] = useState('')
   const [nameUz, setNameUz] = useState('')
@@ -105,7 +107,7 @@ export default function ProductsPage() {
   const [subcategory, setSubcategory] = useState('')
   const [brand, setBrand] = useState('')
   const [priceUsd, setPriceUsd] = useState('')
-  const [salePriceUsd, setSalePriceUsd] = useState('')
+  const [salePriceUsd, setSalePriceUsd] = useState('') // ✅ ЦЕНА СО СКИДКОЙ
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
   const [uploading, setUploading] = useState(false)
@@ -387,6 +389,38 @@ export default function ProductsPage() {
     }))
   }
 
+  const handleAddBrand = async () => {
+    if (!newBrandName.trim()) {
+      alert('Введите название бренда')
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('brands')
+        .insert({ name: newBrandName.trim() })
+        .select()
+        .single()
+      if (error) {
+        if (error.code === '23505') {
+          alert('Такой бренд уже существует')
+        } else {
+          alert('Ошибка добавления бренда: ' + error.message)
+        }
+        return
+      }
+      if (data) {
+        setBrands(prev => [...prev, data])
+        setBrand(data.name)
+      }
+      setNewBrandName('')
+      setShowBrandModal(false)
+      alert('Бренд добавлен! ✅')
+    } catch (error) {
+      console.error('Ошибка:', error)
+      alert('Ошибка при добавлении бренда')
+    }
+  }
+
   const handleSubcategoryChange = (newSubcategory: string) => {
     setSubcategory(newSubcategory)
     const config = SUBCATEGORY_SIZE_CONFIG[newSubcategory]
@@ -457,7 +491,6 @@ export default function ProductsPage() {
           </button>
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">📦 Управление товарами</h1>
-            {/* ✅ КНОПКА "БРЕНД" УБРАНА — бренды управляются на главной */}
             <button
               onClick={openAddModal}
               className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
@@ -674,7 +707,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Модалка добавления/редактирования товара */}
+      {/* Модалка товара */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full my-8">
@@ -935,6 +968,40 @@ export default function ProductsPage() {
                 className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
               >
                 {editingProduct ? 'Сохранить изменения' : 'Добавить товар'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка бренда */}
+      {showBrandModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Добавить бренд</h2>
+            <input
+              type="text"
+              value={newBrandName}
+              onChange={(e) => setNewBrandName(e.target.value)}
+              placeholder="Например: Gucci"
+              className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddBrand}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium"
+              >
+                Добавить
+              </button>
+              <button
+                onClick={() => {
+                  setShowBrandModal(false)
+                  setNewBrandName('')
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+              >
+                Отмена
               </button>
             </div>
           </div>
