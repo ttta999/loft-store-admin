@@ -119,7 +119,7 @@ export default function OrdersPage() {
     const success = await confirmPayment(order.id)
     if (success) {
       if (order.user_chat_id) {
-        const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Менеджер свяжется с вами в ближайшее время.`
+        const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
         await sendClientNotification(order.user_chat_id, message)
       }
       alert('✅ Оплата подтверждена! Заказ активирован.')
