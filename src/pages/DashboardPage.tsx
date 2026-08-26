@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
 import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3, Settings, Tag } from 'lucide-react'
 import { logout } from '../lib/auth'
+import NotificationBell from '../components/NotificationBell'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -21,16 +22,15 @@ export default function DashboardPage() {
     try {
       const ordersData = await getOrders()
       const chinaData = await getChinaRequests()
-      
+
       const { count: productsCountResult } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
-      
-      // ✅ Загружаем количество брендов
+
       const { count: brandsCountResult } = await supabase
         .from('brands')
         .select('*', { count: 'exact', head: true })
-      
+
       setOrders(ordersData)
       setChinaRequests(chinaData)
       setProductsCount(productsCountResult || 0)
@@ -41,7 +41,6 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // ✅ ИСПРАВЛЕНО: Используем Supabase Auth logout
   const handleLogout = async () => {
     await logout()
     navigate('/login')
@@ -67,13 +66,17 @@ export default function DashboardPage() {
       <div className="bg-white border-b p-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold">🔐 LOFT Admin Panel</h1>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-gray-600 hover:text-black"
-          >
-            <LogOut size={20} />
-            <span>Выйти</span>
-          </button>
+          {/* ✅ КОЛОКОЛЬЧИК + КНОПКА ВЫЙТИ */}
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-gray-600 hover:text-black"
+            >
+              <LogOut size={20} />
+              <span>Выйти</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -152,7 +155,6 @@ export default function DashboardPage() {
             <p className="text-gray-600">Статистика и отчёты</p>
           </button>
 
-          {/* ✅ НОВАЯ КНОПКА: Настройки */}
           <button
             onClick={() => navigate('/settings')}
             className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
@@ -164,7 +166,6 @@ export default function DashboardPage() {
             <p className="text-gray-600">Курс валют и параметры</p>
           </button>
 
-          {/* ✅ НОВАЯ КНОПКА: Бренды */}
           <button
             onClick={() => navigate('/brands')}
             className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow text-left"
