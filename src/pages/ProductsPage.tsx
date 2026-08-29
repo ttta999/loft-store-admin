@@ -107,7 +107,7 @@ export default function ProductsPage() {
   const [subcategory, setSubcategory] = useState('')
   const [brand, setBrand] = useState('')
   const [priceUsd, setPriceUsd] = useState('')
-  const [salePriceUsd, setSalePriceUsd] = useState('') // ✅ ЦЕНА СО СКИДКОЙ
+  const [salePriceUsd, setSalePriceUsd] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
   const [uploading, setUploading] = useState(false)
@@ -243,7 +243,6 @@ export default function ProductsPage() {
       category,
       subcategory,
       price_usd: parseFloat(priceUsd),
-      // ✅ СОХРАНЯЕМ СКИДОЧНУЮ ЦЕНУ (null если пусто)
       sale_price: salePriceUsd && parseFloat(salePriceUsd) > 0 ? parseFloat(salePriceUsd) : null,
       images,
       size_type: sizeType,
@@ -469,31 +468,31 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-500">Загрузка...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
+          <p className="text-[#8A8275]">Загрузка...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white border-b p-4">
+    <div className="min-h-screen bg-[#F5F1E8]">
+      <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
         <div className="max-w-7xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-gray-600 hover:text-black mb-4"
+            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">📦 Управление товарами</h1>
+            <h1 className="text-2xl font-bold text-[#1B2A4A]">📦 Управление товарами</h1>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1B2A4A] text-white rounded-lg font-medium hover:bg-[#142038]"
             >
               <Plus size={20} />
               Добавить товар
@@ -503,17 +502,17 @@ export default function ProductsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4">
-        <div className="bg-white p-4 rounded-xl mb-4">
+        <div className="bg-[#FBF9F4] p-4 rounded-xl mb-4 border border-[#E8E2D5]">
           <div className="flex gap-4 flex-wrap mb-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8275]" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Поиск по названию..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                  className="w-full pl-10 pr-4 py-2 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                 />
               </div>
             </div>
@@ -523,7 +522,7 @@ export default function ProductsPage() {
             <button
               onClick={() => setCategoryFilter('all')}
               className={`px-4 py-2 rounded-lg font-medium ${
-                categoryFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                categoryFilter === 'all' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               Все категории ({products.length})
@@ -533,7 +532,7 @@ export default function ProductsPage() {
                 key={cat.value}
                 onClick={() => setCategoryFilter(cat.value)}
                 className={`px-4 py-2 rounded-lg font-medium ${
-                  categoryFilter === cat.value ? 'bg-black text-white' : 'bg-gray-100'
+                  categoryFilter === cat.value ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
                 }`}
               >
                 {cat.label} ({products.filter(p => p.category === cat.value).length})
@@ -545,7 +544,7 @@ export default function ProductsPage() {
             <button
               onClick={() => setVisibilityFilter('all')}
               className={`px-4 py-2 rounded-lg font-medium text-sm ${
-                visibilityFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                visibilityFilter === 'all' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               Все ({products.length})
@@ -553,7 +552,7 @@ export default function ProductsPage() {
             <button
               onClick={() => setVisibilityFilter('active')}
               className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 ${
-                visibilityFilter === 'active' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                visibilityFilter === 'active' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               <Eye size={16} />
@@ -562,7 +561,7 @@ export default function ProductsPage() {
             <button
               onClick={() => setVisibilityFilter('hidden')}
               className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 ${
-                visibilityFilter === 'hidden' ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
+                visibilityFilter === 'hidden' ? 'bg-[#C9A961] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               <EyeOff size={16} />
@@ -571,7 +570,7 @@ export default function ProductsPage() {
             <button
               onClick={() => setVisibilityFilter('sale')}
               className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-1 ${
-                visibilityFilter === 'sale' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-800'
+                visibilityFilter === 'sale' ? 'bg-[#9B3B3B] text-white' : 'bg-[#9B3B3B]/10 text-[#9B3B3B]'
               }`}
             >
               🏷️ Со скидкой ({saleCount})
@@ -588,7 +587,7 @@ export default function ProductsPage() {
             return (
               <div
                 key={product.id}
-                className={`bg-white rounded-xl p-4 shadow-sm ${!isActive ? 'opacity-60 border-2 border-yellow-200' : ''}`}
+                className={`bg-[#FBF9F4] rounded-xl p-4 shadow-sm border border-[#E8E2D5] ${!isActive ? 'opacity-60 border-2 border-[#C9A961]' : ''}`}
               >
                 <div className="flex gap-4">
                   {product.images?.[0] && (
@@ -601,43 +600,42 @@ export default function ProductsPage() {
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-bold text-lg flex items-center gap-2">
+                        <h3 className="font-bold text-lg flex items-center gap-2 text-[#1B2A4A]">
                           {product.name_ru}
                           {!isActive && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                            <span className="text-xs bg-[#C9A961]/20 text-[#C9A961] px-2 py-1 rounded-full">
                               🙈 Скрыт
                             </span>
                           )}
                           {sale && (
-                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                            <span className="text-xs bg-[#9B3B3B]/10 text-[#9B3B3B] px-2 py-1 rounded-full">
                               🏷️ Скидка
                             </span>
                           )}
                         </h3>
                         {product.name_uz && product.name_uz !== product.name_ru && (
-                          <p className="text-sm text-gray-500">{product.name_uz}</p>
+                          <p className="text-sm text-[#8A8275]">{product.name_uz}</p>
                         )}
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-[#8A8275] mt-1">
                           {CATEGORIES.find(c => c.value === product.category)?.label || product.category}
                           {product.subcategory && ` → ${getSubcategories().find(s => s.value === product.subcategory)?.label || product.subcategory}`}
                         </p>
                         {product.brand && (
-                          <p className="text-sm text-purple-600 mt-1">
+                          <p className="text-sm text-[#C9A961] mt-1">
                             🏷️ {product.brand}
                           </p>
                         )}
                       </div>
-                      {/* ✅ ЦЕНА СО СКИДКОЙ В СПИСКЕ */}
                       <div className="text-right">
                         {sale ? (
                           <>
-                            <p className="text-sm text-gray-400 line-through">${product.price_usd}</p>
-                            <p className="text-2xl font-bold text-red-600">${product.sale_price}</p>
+                            <p className="text-sm text-[#8A8275] line-through">${product.price_usd}</p>
+                            <p className="text-2xl font-bold text-[#9B3B3B]">${product.sale_price}</p>
                           </>
                         ) : (
-                          <p className="text-2xl font-bold">${product.price_usd}</p>
+                          <p className="text-2xl font-bold text-[#1B2A4A]">${product.price_usd}</p>
                         )}
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-[#8A8275]">
                           Остаток: {totalStock} шт.
                         </p>
                       </div>
@@ -648,7 +646,7 @@ export default function ProductsPage() {
                         {productVariants.map(v => (
                           <span
                             key={v.id}
-                            className="px-2 py-1 bg-gray-100 rounded text-xs"
+                            className="px-2 py-1 bg-[#F5F1E8] rounded text-xs text-[#1B2A4A] border border-[#E8E2D5]"
                           >
                             {v.size_value}: {v.stock} шт.
                           </span>
@@ -659,7 +657,7 @@ export default function ProductsPage() {
                     <div className="flex gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => openEditModal(product)}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center gap-1"
+                        className="px-3 py-1 bg-[#1B2A4A]/10 text-[#1B2A4A] rounded-lg text-sm font-medium hover:bg-[#1B2A4A]/20 flex items-center gap-1"
                       >
                         <Edit size={16} />
                         Редактировать
@@ -668,8 +666,8 @@ export default function ProductsPage() {
                         onClick={() => toggleActive(product.id, isActive)}
                         className={`px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1 ${
                           isActive
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                            ? 'bg-[#C9A961]/10 text-[#C9A961] hover:bg-[#C9A961]/20'
+                            : 'bg-[#1B2A4A]/10 text-[#1B2A4A] hover:bg-[#1B2A4A]/20'
                         }`}
                       >
                         {isActive ? (
@@ -686,7 +684,7 @@ export default function ProductsPage() {
                       </button>
                       <button
                         onClick={() => handleDelete(product.id)}
-                        className="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 flex items-center gap-1"
+                        className="px-3 py-1 bg-[#9B3B3B]/10 text-[#9B3B3B] rounded-lg text-sm font-medium hover:bg-[#9B3B3B]/20 flex items-center gap-1"
                       >
                         <Trash2 size={16} />
                         Удалить
@@ -699,8 +697,8 @@ export default function ProductsPage() {
           })}
 
           {filteredProducts.length === 0 && (
-            <div className="bg-white rounded-xl p-8 text-center text-gray-500">
-              <Package size={48} className="mx-auto mb-4 text-gray-300" />
+            <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#8A8275] border border-[#E8E2D5]">
+              <Package size={48} className="mx-auto mb-4 text-[#E8E2D5]" />
               <p>Товары не найдены</p>
             </div>
           )}
@@ -710,14 +708,14 @@ export default function ProductsPage() {
       {/* Модалка товара */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full my-8">
+          <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-2xl w-full my-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">
+              <h2 className="text-xl font-bold text-[#1B2A4A]">
                 {editingProduct ? 'Редактировать товар' : 'Добавить товар'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-black"
+                className="text-[#8A8275] hover:text-[#1B2A4A]"
               >
                 <X size={24} />
               </button>
@@ -726,7 +724,7 @@ export default function ProductsPage() {
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Название (RU) *
                   </label>
                   <input
@@ -734,11 +732,11 @@ export default function ProductsPage() {
                     value={nameRu}
                     onChange={(e) => setNameRu(e.target.value)}
                     placeholder="Например: Loro Piana Summer Walk"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Название (UZ)
                   </label>
                   <input
@@ -746,14 +744,14 @@ export default function ProductsPage() {
                     value={nameUz}
                     onChange={(e) => setNameUz(e.target.value)}
                     placeholder="Masalan: Loro Piana Summer Walk"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Описание (RU)
                   </label>
                   <textarea
@@ -761,11 +759,11 @@ export default function ProductsPage() {
                     onChange={(e) => setDescriptionRu(e.target.value)}
                     placeholder="Описание товара..."
                     rows={2}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Описание (UZ)
                   </label>
                   <textarea
@@ -773,14 +771,14 @@ export default function ProductsPage() {
                     onChange={(e) => setDescriptionUz(e.target.value)}
                     placeholder="Mahsulot tavsifi..."
                     rows={2}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Категория *
                   </label>
                   <select
@@ -790,7 +788,7 @@ export default function ProductsPage() {
                       setSubcategory('')
                       setSelectedSizes({})
                     }}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   >
                     {CATEGORIES.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -798,13 +796,13 @@ export default function ProductsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Подкатегория *
                   </label>
                   <select
                     value={subcategory}
                     onChange={(e) => handleSubcategoryChange(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   >
                     <option value="">Выберите подкатегорию</option>
                     {getSubcategories().map(sub => (
@@ -813,13 +811,13 @@ export default function ProductsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Бренд
                   </label>
                   <select
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   >
                     <option value="">Не выбран</option>
                     {brands.map(b => (
@@ -829,10 +827,9 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* ✅ ЦЕНА + ЦЕНА СО СКИДКОЙ */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Цена (USD) *
                   </label>
                   <input
@@ -840,11 +837,11 @@ export default function ProductsPage() {
                     value={priceUsd}
                     onChange={(e) => setPriceUsd(e.target.value)}
                     placeholder="95"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     🏷️ Цена со скидкой (USD)
                   </label>
                   <input
@@ -852,22 +849,22 @@ export default function ProductsPage() {
                     value={salePriceUsd}
                     onChange={(e) => setSalePriceUsd(e.target.value)}
                     placeholder="Пусто = без скидки"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-red-400"
+                    className="w-full p-3 border border-[#9B3B3B]/40 rounded-lg focus:outline-none focus:border-[#9B3B3B] bg-white"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[#8A8275] mt-1">
                     Оставь пустым, если скидки нет
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                   Фото товара
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <div className="border-2 border-dashed border-[#E8E2D5] rounded-lg p-4 bg-white">
                   <label className="flex flex-col items-center justify-center cursor-pointer">
-                    <Upload size={32} className="text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-500">
+                    <Upload size={32} className="text-[#8A8275] mb-2" />
+                    <span className="text-sm text-[#8A8275]">
                       {uploading ? 'Загрузка...' : 'Нажмите для загрузки фото'}
                     </span>
                     <input
@@ -891,7 +888,7 @@ export default function ProductsPage() {
                         />
                         <button
                           onClick={() => removeImage(idx)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                          className="absolute -top-2 -right-2 bg-[#9B3B3B] text-white rounded-full p-1"
                         >
                           <X size={16} />
                         </button>
@@ -903,25 +900,25 @@ export default function ProductsPage() {
 
               {sizeType !== 'one_size' && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-2 block">
                     Размеры и остатки
                     {subcategory && SUBCATEGORY_SIZE_CONFIG[subcategory] && (
-                      <span className="text-xs text-gray-500 ml-2">
+                      <span className="text-xs text-[#8A8275] ml-2">
                         ({getSubcategories().find(s => s.value === subcategory)?.label})
                       </span>
                     )}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {getAvailableSizes().map(size => (
-                      <div key={size} className="border border-gray-300 rounded-lg p-2">
+                      <div key={size} className="border border-[#E8E2D5] rounded-lg p-2 bg-white">
                         <label className="flex items-center gap-2 mb-1">
                           <input
                             type="checkbox"
                             checked={selectedSizes[size] !== undefined}
                             onChange={() => toggleSize(size)}
-                            className="w-4 h-4"
+                            className="w-4 h-4 accent-[#1B2A4A]"
                           />
-                          <span className="text-sm font-medium">{size}</span>
+                          <span className="text-sm font-medium text-[#1B2A4A]">{size}</span>
                         </label>
                         {selectedSizes[size] !== undefined && (
                           <input
@@ -929,7 +926,7 @@ export default function ProductsPage() {
                             value={selectedSizes[size]}
                             onChange={(e) => updateStock(size, parseInt(e.target.value) || 0)}
                             placeholder="Остаток"
-                            className="w-full p-1 border border-gray-300 rounded text-sm"
+                            className="w-full p-1 border border-[#E8E2D5] rounded text-sm"
                             min="0"
                           />
                         )}
@@ -941,7 +938,7 @@ export default function ProductsPage() {
 
               {sizeType === 'one_size' && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                     Остаток (One Size)
                   </label>
                   <input
@@ -949,23 +946,23 @@ export default function ProductsPage() {
                     value={selectedSizes['One Size'] || 0}
                     onChange={(e) => updateStock('One Size', parseInt(e.target.value) || 0)}
                     placeholder="Количество"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                    className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                     min="0"
                   />
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2 mt-6 pt-4 border-t">
+            <div className="flex gap-2 mt-6 pt-4 border-t border-[#E8E2D5]">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
+                className="flex-1 px-4 py-3 bg-[#E8E2D5] rounded-lg font-medium text-[#1B2A4A]"
               >
                 Отмена
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
+                className="flex-1 px-4 py-3 bg-[#1B2A4A] text-white rounded-lg font-medium hover:bg-[#142038]"
               >
                 {editingProduct ? 'Сохранить изменения' : 'Добавить товар'}
               </button>
@@ -977,20 +974,20 @@ export default function ProductsPage() {
       {/* Модалка бренда */}
       {showBrandModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Добавить бренд</h2>
+          <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4 text-[#1B2A4A]">Добавить бренд</h2>
             <input
               type="text"
               value={newBrandName}
               onChange={(e) => setNewBrandName(e.target.value)}
               placeholder="Например: Gucci"
-              className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+              className="w-full p-3 border border-[#E8E2D5] rounded-lg mb-4 bg-white"
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 onClick={handleAddBrand}
-                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium"
+                className="flex-1 px-4 py-2 bg-[#1B2A4A] text-white rounded-lg font-medium"
               >
                 Добавить
               </button>
@@ -999,7 +996,7 @@ export default function ProductsPage() {
                   setShowBrandModal(false)
                   setNewBrandName('')
                 }}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+                className="flex-1 px-4 py-2 bg-[#E8E2D5] text-[#1B2A4A] rounded-lg font-medium"
               >
                 Отмена
               </button>

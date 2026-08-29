@@ -13,7 +13,6 @@ export default function SettingsPage() {
   const [updatedBy, setUpdatedBy] = useState<string>('system')
   const [currentVersion, setCurrentVersion] = useState<number>(0)
 
-  // ✅ РЕЖИМ СКИДОК
   const [saleMode, setSaleMode] = useState(false)
   const [savingSaleMode, setSavingSaleMode] = useState(false)
 
@@ -39,7 +38,6 @@ export default function SettingsPage() {
         setLastUpdated(data.updated_at ? new Date(data.updated_at).toLocaleString('ru-RU') : '')
       }
 
-      // ✅ Загружаем режим скидок
       const { data: saleData, error: saleError } = await supabase
         .from('settings')
         .select('*')
@@ -112,7 +110,6 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  // ✅ ПЕРЕКЛЮЧЕНИЕ РЕЖИМА СКИДОК
   const handleToggleSaleMode = async () => {
     setSavingSaleMode(true)
     try {
@@ -148,53 +145,53 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-500">Загрузка...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
+          <p className="text-[#8A8275]">Загрузка...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-[#F5F1E8]">
       <Toaster position="top-center" richColors />
-      <div className="bg-white border-b p-4">
+      <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-gray-600 hover:text-black mb-4"
+            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold">️ Настройки</h1>
+          <h1 className="text-2xl font-bold text-[#1B2A4A]">⚙️ Настройки</h1>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto p-4">
-        {/* ✅ РЕЖИМ СКИДОК */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+        {/* РЕЖИМ СКИДОК */}
+        <div className="bg-[#FBF9F4] rounded-xl p-6 shadow-sm border border-[#E8E2D5] mb-6">
           <div className="flex items-center gap-3 mb-4">
-            <Tag size={24} className="text-red-500" />
-            <h2 className="text-xl font-bold">Режим скидок</h2>
+            <Tag size={24} className="text-[#9B3B3B]" />
+            <h2 className="text-xl font-bold text-[#1B2A4A]">Режим скидок</h2>
           </div>
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-red-800">
+          <div className="bg-[#9B3B3B]/10 border border-[#9B3B3B]/30 rounded-lg p-4 mb-4">
+            <p className="text-sm text-[#9B3B3B]">
               💡 Когда режим ВКЛЮЧЁН: товары со скидочной ценой показываются в приложении
               с перечёркнутой старой ценой, и на главной появляется бокс «💰 Скидки».
             </p>
-            <p className="text-xs text-red-600 mt-1">
+            <p className="text-xs text-[#9B3B3B]/80 mt-1">
               🔄 Когда режим ВЫКЛЮЧЕН: все цены обычные, бокс «Скидки» скрыт.
             </p>
           </div>
 
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between p-4 border border-[#E8E2D5] rounded-lg bg-white">
             <div>
-              <p className="font-medium">Режим скидок в приложении</p>
-              <p className={`text-sm mt-1 ${saleMode ? 'text-green-600' : 'text-gray-500'}`}>
+              <p className="font-medium text-[#1B2A4A]">Режим скидок в приложении</p>
+              <p className={`text-sm mt-1 ${saleMode ? 'text-[#1B2A4A]' : 'text-[#8A8275]'}`}>
                 {saleMode ? '✅ Включён — скидки активны' : '⛔ Выключен — скидки скрыты'}
               </p>
             </div>
@@ -203,8 +200,8 @@ export default function SettingsPage() {
               disabled={savingSaleMode}
               className={`px-6 py-3 rounded-lg font-bold transition-colors disabled:opacity-50 ${
                 saleMode
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-green-600 text-white hover:bg-green-700'
+                  ? 'bg-[#9B3B3B] text-white hover:bg-[#7a2f2f]'
+                  : 'bg-[#1B2A4A] text-white hover:bg-[#142038]'
               }`}
             >
               {savingSaleMode ? 'Сохранение...' : (saleMode ? 'Выключить' : 'Включить')}
@@ -213,24 +210,24 @@ export default function SettingsPage() {
         </div>
 
         {/* Курс валют */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+        <div className="bg-[#FBF9F4] rounded-xl p-6 shadow-sm border border-[#E8E2D5] mb-6">
           <div className="flex items-center gap-3 mb-4">
-            <DollarSign size={24} className="text-green-600" />
-            <h2 className="text-xl font-bold">Курс валют</h2>
+            <DollarSign size={24} className="text-[#C9A961]" />
+            <h2 className="text-xl font-bold text-[#1B2A4A]">Курс валют</h2>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-blue-800">
+          <div className="bg-[#1B2A4A]/5 border border-[#1B2A4A]/20 rounded-lg p-4 mb-4">
+            <p className="text-sm text-[#1B2A4A]">
               💡 Этот курс используется для отображения цен в сумах в основном приложении.
             </p>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs text-[#8A8275] mt-1">
               🔄 Приложение проверяет обновления каждые 5 минут
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
+              <label className="text-sm font-medium text-[#1B2A4A] mb-2 block">
                 Курс USD к UZS
               </label>
               <div className="flex gap-2">
@@ -238,11 +235,11 @@ export default function SettingsPage() {
                   type="number"
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(Number(e.target.value))}
-                  className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-lg font-bold"
+                  className="flex-1 p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] text-lg font-bold bg-white text-[#1B2A4A]"
                   step="0.01"
                   min="0"
                 />
-                <span className="flex items-center px-4 bg-gray-100 rounded-lg text-gray-600 font-medium">
+                <span className="flex items-center px-4 bg-[#F5F1E8] rounded-lg text-[#8A8275] font-medium border border-[#E8E2D5]">
                   сум
                 </span>
               </div>
@@ -252,7 +249,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleFetchFromAPI}
                 disabled={saving}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1B2A4A] text-white rounded-lg font-medium hover:bg-[#142038] transition-colors disabled:opacity-50"
               >
                 <RefreshCw size={20} className={saving ? 'animate-spin' : ''} />
                 Получить актуальный курс
@@ -260,7 +257,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-[#C9A961] text-white rounded-lg font-medium hover:bg-[#b8954f] transition-colors disabled:opacity-50"
               >
                 <Save size={20} />
                 Сохранить изменения
@@ -268,7 +265,7 @@ export default function SettingsPage() {
             </div>
 
             {lastUpdated && (
-              <div className="text-sm text-gray-500 pt-2 border-t">
+              <div className="text-sm text-[#8A8275] pt-2 border-t border-[#E8E2D5]">
                 <p>📅 Последнее обновление: {lastUpdated}</p>
                 <p>👤 Обновлено: {updatedBy === 'admin' ? 'Менеджером' : 'Автоматически'}</p>
                 <p>🔢 Версия курса: {currentVersion}</p>
@@ -278,14 +275,14 @@ export default function SettingsPage() {
         </div>
 
         {/* Информация */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div className="bg-[#FBF9F4] rounded-xl p-6 shadow-sm border border-[#E8E2D5]">
           <div className="flex items-center gap-3 mb-4">
-            <TrendingUp size={24} className="text-purple-600" />
-            <h2 className="text-xl font-bold">Информация</h2>
+            <TrendingUp size={24} className="text-[#C9A961]" />
+            <h2 className="text-xl font-bold text-[#1B2A4A]">Информация</h2>
           </div>
-          <div className="space-y-3 text-sm text-gray-600">
+          <div className="space-y-3 text-sm text-[#8A8275]">
             <p>
-              <strong>Как это работает:</strong>
+              <strong className="text-[#1B2A4A]">Как это работает:</strong>
             </p>
             <ul className="list-disc list-inside space-y-1 ml-4">
               <li>Курс используется для конвертации цен из USD в UZS</li>

@@ -37,45 +37,45 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center p-4">
       <Toaster position="top-center" richColors />
-      
-      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl">
+
+      <div className="bg-[#FBF9F4] rounded-2xl p-8 w-full max-w-md shadow-xl border border-[#E8E2D5]">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">🔐 LOFT Admin</h1>
-          <p className="text-gray-600">Войдите для доступа к панели управления</p>
+          <h1 className="text-3xl font-bold mb-2 text-[#1B2A4A]">🔐 LOFT Admin</h1>
+          <p className="text-[#8A8275]">Войдите для доступа к панели управления</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-sm font-medium text-[#1B2A4A] mb-2 block">
               Email
             </label>
             <div className="relative">
-              <Mail size={20} className="absolute left-3 top-3.5 text-gray-400" />
+              <Mail size={20} className="absolute left-3 top-3.5 text-[#8A8275]" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@loft-store.uz"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full pl-10 pr-4 py-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-sm font-medium text-[#1B2A4A] mb-2 block">
               Пароль
             </label>
             <div className="relative">
-              <Lock size={20} className="absolute left-3 top-3.5 text-gray-400" />
+              <Lock size={20} className="absolute left-3 top-3.5 text-[#8A8275]" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full pl-10 pr-4 py-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
                 required
               />
             </div>
@@ -85,17 +85,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             type="submit"
             disabled={loading}
             className={`w-full py-3 rounded-lg font-bold text-white transition-colors ${
-              loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-black hover:bg-gray-800'
+              loading
+                ? 'bg-[#8A8275] cursor-not-allowed'
+                : 'bg-[#1B2A4A] hover:bg-[#142038]'
             }`}
           >
             {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
+        <div className="mt-6 p-4 bg-[#F5F1E8] rounded-lg border border-[#E8E2D5]">
+          <p className="text-sm text-[#1B2A4A]">
             💡 <strong>Важно:</strong> Используйте email и пароль, которые были созданы в Supabase Dashboard → Authentication → Users
           </p>
         </div>

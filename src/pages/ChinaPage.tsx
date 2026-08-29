@@ -15,7 +15,7 @@ const STATUS_MESSAGES: Record<string, string> = {
   'На рассмотрении': '📄 Принят: Ваш спецзаказ №{requestId} принят! Менеджер уже изучает детали, чтобы рассчитать точную стоимость. Обычно это занимает немного времени. Скоро вернемся с ответом 🔍',
   'Оценён': '💎 Оценён: Ваш спецзаказ №{requestId} оценён в ${managerPrice}! ✨\n\nКомментарий менеджера: {managerComment}\n\nВы можете принять условия и оплатить заказ или отменить заявку. 📲',
   'Оплачен': '✅ Оплачен: Оплата спецзаказа №{requestId} успешно принята, спасибо! 🎉 Менеджер уже приступил к оформлению и подготовке!',
-  'Отменён клиентом': '🙅‍♂️ Отменён вами: Заявка на спецзаказ №{requestId} отменена вами. 👋 Если вы захотите изменить параметры, вы всегда можете отправить новую заявку.',
+  'Отменён клиентом': '🙅‍️ Отменён вами: Заявка на спецзаказ №{requestId} отменена вами. 👋 Если вы захотите изменить параметры, вы всегда можете отправить новую заявку.',
   'Отклонён': '🛑 Отклонён: К сожалению, мы вынуждены отклонить заявку на спецзаказ №{requestId}. 😔\n\nПричина: {managerComment}\n\nПриносим извинения за неудобства. Наша поддержка всегда готова помочь вам подобрать альтернативу! ✉️',
 }
 
@@ -24,12 +24,10 @@ export default function ChinaPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
-  
-  // Модалка для оценки
+
   const [showPriceModal, setShowPriceModal] = useState(false)
-  // Модалка для отклонения
   const [showRejectModal, setShowRejectModal] = useState(false)
-  
+
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [managerPrice, setManagerPrice] = useState('')
   const [managerComment, setManagerComment] = useState('')
@@ -47,7 +45,6 @@ export default function ChinaPage() {
   }
 
   const handleStatusChange = async (requestId: string, newStatus: string, clientChatId: string) => {
-    // Если статус "Оценён" - показываем модалку для ввода цены
     if (newStatus === 'Оценён') {
       const request = requests.find(r => r.id === requestId)
       setSelectedRequest(request)
@@ -55,7 +52,6 @@ export default function ChinaPage() {
       return
     }
 
-    // Если статус "Отклонён" - показываем модалку для ввода причины
     if (newStatus === 'Отклонён') {
       const request = requests.find(r => r.id === requestId)
       setSelectedRequest(request)
@@ -65,13 +61,13 @@ export default function ChinaPage() {
 
     try {
       const updated = await updateChinaRequestStatus(requestId, newStatus)
-      
+
       if (updated) {
         const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
         const message = messageTemplate.replace('{requestId}', requestId)
-        
+
         console.log('Отправляем уведомление:', { clientChatId, message })
-        
+
         if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           console.log('Результат отправки:', sent)
@@ -83,7 +79,7 @@ export default function ChinaPage() {
         } else {
           alert(`Статус изменён на: ${newStatus}\n️ Chat ID клиента не найден в базе`)
         }
-        
+
         await loadRequests()
       } else {
         alert('Ошибка при обновлении статуса')
@@ -99,26 +95,26 @@ export default function ChinaPage() {
 
     try {
       console.log('Устанавливаем цену:', { requestId: selectedRequest.id, price: managerPrice, comment: managerComment })
-      
+
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Оценён', {
         manager_price: parseFloat(managerPrice),
         manager_comment: managerComment
       })
-      
+
       console.log('Результат обновления:', updated)
-      
+
       if (updated) {
         const message = STATUS_MESSAGES['Оценён']
           .replace('{requestId}', selectedRequest.id)
           .replace('{managerPrice}', managerPrice)
           .replace('{managerComment}', managerComment || 'Без комментария')
-        
+
         console.log('Отправляем уведомление об оценке:', { userId: selectedRequest.user_id, message })
-        
+
         if (selectedRequest.user_id) {
           const sent = await sendClientNotification(selectedRequest.user_id, message)
           console.log('Результат отправки уведомления:', sent)
-          
+
           if (sent) {
             alert(`Цена $${managerPrice} установлена и отправлена клиенту ✅`)
           } else {
@@ -127,7 +123,7 @@ export default function ChinaPage() {
         } else {
           alert(`Цена $${managerPrice} установлена\n⚠️ Chat ID клиента не найден в базе`)
         }
-        
+
         setShowPriceModal(false)
         setManagerPrice('')
         setManagerComment('')
@@ -146,24 +142,24 @@ export default function ChinaPage() {
 
     try {
       console.log('Отклоняем спецзаказ:', { requestId: selectedRequest.id, reason: rejectReason })
-      
+
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', {
         manager_comment: rejectReason
       })
-      
+
       console.log('Результат обновления:', updated)
-      
+
       if (updated) {
         const message = STATUS_MESSAGES['Отклонён']
           .replace('{requestId}', selectedRequest.id)
           .replace('{managerComment}', rejectReason || 'Не указана')
-        
+
         console.log('Отправляем уведомление об отклонении:', { userId: selectedRequest.user_id, message })
-        
+
         if (selectedRequest.user_id) {
           const sent = await sendClientNotification(selectedRequest.user_id, message)
           console.log('Результат отправки уведомления:', sent)
-          
+
           if (sent) {
             alert(`Спецзаказ отклонён и уведомление отправлено клиенту ✅`)
           } else {
@@ -172,7 +168,7 @@ export default function ChinaPage() {
         } else {
           alert(`Спецзаказ отклонён\n️ Chat ID клиента не найден в базе`)
         }
-        
+
         setShowRejectModal(false)
         setRejectReason('')
         await loadRequests()
@@ -185,43 +181,43 @@ export default function ChinaPage() {
     }
   }
 
-  const filteredRequests = filter === 'all' 
-    ? requests 
+  const filteredRequests = filter === 'all'
+    ? requests
     : requests.filter(r => r.status === filter)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-500">Загрузка...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
+          <p className="text-[#8A8275]">Загрузка...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white border-b p-4">
+    <div className="min-h-screen bg-[#F5F1E8]">
+      <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
         <div className="max-w-6xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-gray-600 hover:text-black mb-4"
+            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold">🌍 Управление спецзаказами</h1>
+          <h1 className="text-2xl font-bold text-[#1B2A4A]">🌍 Управление спецзаказами</h1>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        <div className="bg-white p-4 rounded-xl mb-4">
+        <div className="bg-[#FBF9F4] p-4 rounded-xl mb-4 border border-[#E8E2D5]">
           <div className="flex gap-2 overflow-x-auto">
             <button
               onClick={() => setFilter('all')}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
-                filter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                filter === 'all' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               Все ({requests.length})
@@ -231,7 +227,7 @@ export default function ChinaPage() {
                 key={old}
                 onClick={() => setFilter(old)}
                 className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
-                  filter === old ? 'bg-black text-white' : 'bg-gray-100'
+                  filter === old ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
                 }`}
               >
                 {newLabel} ({requests.filter(r => r.status === old).length})
@@ -242,62 +238,62 @@ export default function ChinaPage() {
 
         <div className="space-y-4">
           {filteredRequests.map((request) => (
-            <div key={request.id} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={request.id} className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border border-[#E8E2D5]">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-bold text-lg">Спецзаказ №{request.id}</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-bold text-lg text-[#1B2A4A]">Спецзаказ №{request.id}</h3>
+                  <p className="text-sm text-[#8A8275]">
                     {new Date(request.created_at).toLocaleString('ru-RU')}
                   </p>
                   {request.user_id && (
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-[#8A8275] mt-1">
                       Chat ID: {request.user_id}
                     </p>
                   )}
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  request.status === 'На рассмотрении' ? 'bg-yellow-100 text-yellow-800' :
-                  request.status === 'Оценён' ? 'bg-purple-100 text-purple-800' :
-                  request.status === 'Оплачен' ? 'bg-green-100 text-green-800' :
-                  request.status === 'Отменён клиентом' ? 'bg-orange-100 text-orange-800' :
-                  request.status === 'Отклонён' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
+                  request.status === 'На рассмотрении' ? 'bg-[#C9A961]/20 text-[#C9A961]' :
+                  request.status === 'Оценён' ? 'bg-[#C9A961]/10 text-[#C9A961]' :
+                  request.status === 'Оплачен' ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' :
+                  request.status === 'Отменён клиентом' ? 'bg-[#C9A961]/20 text-[#C9A961]' :
+                  request.status === 'Отклонён' ? 'bg-[#9B3B3B]/10 text-[#9B3B3B]' :
+                  'bg-[#E8E2D5] text-[#8A8275]'
                 }`}>
                   {STATUSES.find(s => s.old === request.status)?.new || request.status}
                 </span>
               </div>
 
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-1">
-                   <strong>Ссылка/Название:</strong> {request.link}
+                <p className="text-sm text-[#8A8275] mb-1">
+                   <strong className="text-[#1B2A4A]">Ссылка/Название:</strong> {request.link}
                 </p>
                 {request.size_color && (
-                  <p className="text-sm text-gray-600 mb-1">
-                    📏 <strong>Размер/Цвет:</strong> {request.size_color}
+                  <p className="text-sm text-[#8A8275] mb-1">
+                    📏 <strong className="text-[#1B2A4A]">Размер/Цвет:</strong> {request.size_color}
                   </p>
                 )}
                 {request.comment && (
-                  <p className="text-sm text-gray-600 mb-1">
-                    💬 <strong>Комментарий клиента:</strong> {request.comment}
+                  <p className="text-sm text-[#8A8275] mb-1">
+                    💬 <strong className="text-[#1B2A4A]">Комментарий клиента:</strong> {request.comment}
                   </p>
                 )}
                 {request.manager_price && (
-                  <p className="text-sm text-purple-600 mb-1 font-medium">
+                  <p className="text-sm text-[#C9A961] mb-1 font-medium">
                     💰 <strong>Цена менеджера:</strong> ${request.manager_price}
                   </p>
                 )}
                 {request.manager_comment && (
-                  <p className="text-sm text-gray-600 mb-1">
-                     <strong>Комментарий менеджера:</strong> {request.manager_comment}
+                  <p className="text-sm text-[#8A8275] mb-1">
+                     <strong className="text-[#1B2A4A]">Комментарий менеджера:</strong> {request.manager_comment}
                   </p>
                 )}
               </div>
 
               {request.image_url && (
                 <div className="mb-4">
-                  <img 
-                    src={request.image_url} 
-                    alt="Product" 
+                  <img
+                    src={request.image_url}
+                    alt="Product"
                     className="w-full max-w-xs rounded-lg"
                   />
                 </div>
@@ -308,7 +304,7 @@ export default function ChinaPage() {
                   <button
                     key={old}
                     onClick={() => handleStatusChange(request.id, old, request.user_id)}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                    className="px-3 py-1 bg-[#E8E2D5] hover:bg-[#E8E2D5]/70 rounded-lg text-sm font-medium transition-colors text-[#1B2A4A]"
                   >
                     {newLabel}
                   </button>
@@ -322,13 +318,13 @@ export default function ChinaPage() {
       {/* Модалка для ввода цены */}
       {showPriceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-4">
+          <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-4 text-[#1B2A4A]">
               Оценить спецзаказ №{selectedRequest?.id}
             </h3>
-            
+
             <div className="mb-4">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
+              <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Цена в USD *
               </label>
               <input
@@ -336,12 +332,12 @@ export default function ChinaPage() {
                 value={managerPrice}
                 onChange={(e) => setManagerPrice(e.target.value)}
                 placeholder="200"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
               />
             </div>
 
             <div className="mb-4">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
+              <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Комментарий (необязательно)
               </label>
               <textarea
@@ -349,7 +345,7 @@ export default function ChinaPage() {
                 onChange={(e) => setManagerComment(e.target.value)}
                 placeholder="Например: Доставка займёт 2-3 недели"
                 rows={3}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
               />
             </div>
 
@@ -360,13 +356,13 @@ export default function ChinaPage() {
                   setManagerPrice('')
                   setManagerComment('')
                 }}
-                className="flex-1 px-4 py-2 bg-gray-100 rounded-lg"
+                className="flex-1 px-4 py-2 bg-[#E8E2D5] rounded-lg text-[#1B2A4A]"
               >
                 Отмена
               </button>
               <button
                 onClick={handlePriceSubmit}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                className="flex-1 px-4 py-2 bg-[#C9A961] text-white rounded-lg hover:bg-[#b8954f]"
               >
                 Отправить оценку
               </button>
@@ -378,16 +374,16 @@ export default function ChinaPage() {
       {/* Модалка для отклонения с причиной */}
       {showRejectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-2 text-red-600">
+          <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-2 text-[#9B3B3B]">
               Отклонить спецзаказ №{selectedRequest?.id}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-[#8A8275] mb-4">
               Укажите причину отклонения. Это сообщение будет отправлено клиенту.
             </p>
-            
+
             <div className="mb-4">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
+              <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Причина отклонения *
               </label>
               <textarea
@@ -395,9 +391,9 @@ export default function ChinaPage() {
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Например: Товар снят с производства / Не можем найти поставщика / Слишком долгая доставка"
                 rows={4}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                className="w-full p-3 border border-[#9B3B3B]/40 rounded-lg focus:outline-none focus:border-[#9B3B3B] bg-white"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[#8A8275] mt-1">
                 Минимум 5 символов
               </p>
             </div>
@@ -408,7 +404,7 @@ export default function ChinaPage() {
                   setShowRejectModal(false)
                   setRejectReason('')
                 }}
-                className="flex-1 px-4 py-2 bg-gray-100 rounded-lg"
+                className="flex-1 px-4 py-2 bg-[#E8E2D5] rounded-lg text-[#1B2A4A]"
               >
                 Отмена
               </button>
@@ -416,9 +412,9 @@ export default function ChinaPage() {
                 onClick={handleRejectSubmit}
                 disabled={rejectReason.trim().length < 5}
                 className={`flex-1 px-4 py-2 rounded-lg text-white ${
-                  rejectReason.trim().length < 5 
-                    ? 'bg-red-300 cursor-not-allowed' 
-                    : 'bg-red-600 hover:bg-red-700'
+                  rejectReason.trim().length < 5
+                    ? 'bg-[#9B3B3B]/40 cursor-not-allowed'
+                    : 'bg-[#9B3B3B] hover:bg-[#7a2f2f]'
                 }`}
               >
                 Отклонить
