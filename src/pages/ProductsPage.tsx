@@ -136,12 +136,10 @@ export default function ProductsPage() {
         .select('*')
         .order('created_at', { ascending: false })
       if (productsError) throw productsError
-
       const { data: variantsData, error: variantsError } = await supabase
         .from('product_variants')
         .select('*')
       if (variantsError) throw variantsError
-
       setProducts(productsData || [])
       setVariants(variantsData || [])
     } catch (error) {
@@ -234,7 +232,6 @@ export default function ProductsPage() {
       alert('Выберите подкатегорию!')
       return
     }
-
     const productData: any = {
       name_ru: nameRu,
       name_uz: nameUz || nameRu,
@@ -253,7 +250,6 @@ export default function ProductsPage() {
     if (!editingProduct) {
       productData.is_active = true
     }
-
     try {
       if (editingProduct) {
         const { error } = await supabase
@@ -266,12 +262,10 @@ export default function ProductsPage() {
           alert(`Ошибка при обновлении: ${error.message}`)
           return
         }
-
         await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', editingProduct.id)
-
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -279,7 +273,6 @@ export default function ProductsPage() {
             size_value,
             stock,
           }))
-
         if (newVariants.length > 0) {
           const { error: variantsError } = await supabase
             .from('product_variants')
@@ -302,7 +295,6 @@ export default function ProductsPage() {
           alert(`Ошибка при создании: ${error.message}`)
           return
         }
-
         const newVariants = Object.entries(selectedSizes)
           .filter(([_, stock]) => stock > 0)
           .map(([size_value, stock]) => ({
@@ -310,7 +302,6 @@ export default function ProductsPage() {
             size_value,
             stock,
           }))
-
         if (newVariants.length > 0) {
           const { error: variantsError } = await supabase
             .from('product_variants')
@@ -338,7 +329,6 @@ export default function ProductsPage() {
         .from('product_variants')
         .delete()
         .eq('product_id', productId)
-
       const { error } = await supabase
         .from('products')
         .delete()
@@ -414,7 +404,7 @@ export default function ProductsPage() {
       setNewBrandName('')
       setShowBrandModal(false)
       alert('Бренд добавлен! ✅')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка:', error)
       alert('Ошибка при добавлении бренда')
     }
@@ -454,11 +444,10 @@ export default function ProductsPage() {
     const matchesSearch = p.name_ru.toLowerCase().includes(search.toLowerCase()) ||
       p.name_uz.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
-    const matchesVisibility =
-      visibilityFilter === 'all' ? true :
-      visibilityFilter === 'active' ? p.is_active !== false :
-      visibilityFilter === 'hidden' ? p.is_active === false :
-      hasSale(p)
+    const matchesVisibility = visibilityFilter === 'all' ||
+      (visibilityFilter === 'active' && p.is_active !== false) ||
+      (visibilityFilter === 'hidden' && p.is_active === false) ||
+      (visibilityFilter === 'sale' && hasSale(p))
     return matchesSearch && matchesCategory && matchesVisibility
   })
 
@@ -471,7 +460,7 @@ export default function ProductsPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -483,12 +472,12 @@ export default function ProductsPage() {
         <div className="max-w-7xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-[#1B2A4A]">📦 Управление товарами</h1>
             <button
               onClick={openAddModal}
@@ -506,7 +495,7 @@ export default function ProductsPage() {
           <div className="flex gap-4 flex-wrap mb-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8275]" />
+                <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1B2A4A]" />
                 <input
                   type="text"
                   value={search}
@@ -614,9 +603,9 @@ export default function ProductsPage() {
                           )}
                         </h3>
                         {product.name_uz && product.name_uz !== product.name_ru && (
-                          <p className="text-sm text-[#8A8275]">{product.name_uz}</p>
+                          <p className="text-sm text-[#1B2A4A]">{product.name_uz}</p>
                         )}
-                        <p className="text-sm text-[#8A8275] mt-1">
+                        <p className="text-sm text-[#1B2A4A] mt-1">
                           {CATEGORIES.find(c => c.value === product.category)?.label || product.category}
                           {product.subcategory && ` → ${getSubcategories().find(s => s.value === product.subcategory)?.label || product.subcategory}`}
                         </p>
@@ -629,13 +618,13 @@ export default function ProductsPage() {
                       <div className="text-right">
                         {sale ? (
                           <>
-                            <p className="text-sm text-[#8A8275] line-through">${product.price_usd}</p>
+                            <p className="text-sm text-[#1B2A4A] line-through">${product.price_usd}</p>
                             <p className="text-2xl font-bold text-[#9B3B3B]">${product.sale_price}</p>
                           </>
                         ) : (
                           <p className="text-2xl font-bold text-[#1B2A4A]">${product.price_usd}</p>
                         )}
-                        <p className="text-sm text-[#8A8275]">
+                        <p className="text-sm text-[#1B2A4A]">
                           Остаток: {totalStock} шт.
                         </p>
                       </div>
@@ -646,7 +635,7 @@ export default function ProductsPage() {
                         {productVariants.map(v => (
                           <span
                             key={v.id}
-                            className="px-2 py-1 bg-[#F5F1E8] rounded text-xs text-[#1B2A4A] border border-[#E8E2D5]"
+                            className="px-2 py-1 bg-[#E8E2D5] rounded text-xs text-[#1B2A4A]"
                           >
                             {v.size_value}: {v.stock} шт.
                           </span>
@@ -697,7 +686,7 @@ export default function ProductsPage() {
           })}
 
           {filteredProducts.length === 0 && (
-            <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#8A8275] border border-[#E8E2D5]">
+            <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#1B2A4A] border border-[#E8E2D5]">
               <Package size={48} className="mx-auto mb-4 text-[#E8E2D5]" />
               <p>Товары не найдены</p>
             </div>
@@ -705,7 +694,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Модалка товара */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-2xl w-full my-8">
@@ -715,7 +703,7 @@ export default function ProductsPage() {
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-[#8A8275] hover:text-[#1B2A4A]"
+                className="text-[#1B2A4A] hover:text-[#C9A961]"
               >
                 <X size={24} />
               </button>
@@ -851,7 +839,7 @@ export default function ProductsPage() {
                     placeholder="Пусто = без скидки"
                     className="w-full p-3 border border-[#9B3B3B]/40 rounded-lg focus:outline-none focus:border-[#9B3B3B] bg-white"
                   />
-                  <p className="text-xs text-[#8A8275] mt-1">
+                  <p className="text-xs text-[#1B2A4A] mt-1">
                     Оставь пустым, если скидки нет
                   </p>
                 </div>
@@ -863,8 +851,8 @@ export default function ProductsPage() {
                 </label>
                 <div className="border-2 border-dashed border-[#E8E2D5] rounded-lg p-4 bg-white">
                   <label className="flex flex-col items-center justify-center cursor-pointer">
-                    <Upload size={32} className="text-[#8A8275] mb-2" />
-                    <span className="text-sm text-[#8A8275]">
+                    <Upload size={32} className="text-[#1B2A4A] mb-2" />
+                    <span className="text-sm text-[#1B2A4A]">
                       {uploading ? 'Загрузка...' : 'Нажмите для загрузки фото'}
                     </span>
                     <input
@@ -903,7 +891,7 @@ export default function ProductsPage() {
                   <label className="text-sm font-medium text-[#1B2A4A] mb-2 block">
                     Размеры и остатки
                     {subcategory && SUBCATEGORY_SIZE_CONFIG[subcategory] && (
-                      <span className="text-xs text-[#8A8275] ml-2">
+                      <span className="text-xs text-[#1B2A4A] ml-2">
                         ({getSubcategories().find(s => s.value === subcategory)?.label})
                       </span>
                     )}
@@ -971,35 +959,52 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Модалка бренда */}
       {showBrandModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4 text-[#1B2A4A]">Добавить бренд</h2>
-            <input
-              type="text"
-              value={newBrandName}
-              onChange={(e) => setNewBrandName(e.target.value)}
-              placeholder="Например: Gucci"
-              className="w-full p-3 border border-[#E8E2D5] rounded-lg mb-4 bg-white"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleAddBrand}
-                className="flex-1 px-4 py-2 bg-[#1B2A4A] text-white rounded-lg font-medium"
-              >
-                Добавить
-              </button>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1B2A4A]">Добавить бренд</h2>
               <button
                 onClick={() => {
                   setShowBrandModal(false)
                   setNewBrandName('')
                 }}
-                className="flex-1 px-4 py-2 bg-[#E8E2D5] text-[#1B2A4A] rounded-lg font-medium"
+                className="text-[#1B2A4A] hover:text-[#C9A961]"
               >
-                Отмена
+                <X size={24} />
               </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
+                  Название бренда *
+                </label>
+                <input
+                  type="text"
+                  value={newBrandName}
+                  onChange={(e) => setNewBrandName(e.target.value)}
+                  placeholder="Например: Gucci"
+                  className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowBrandModal(false)
+                    setNewBrandName('')
+                  }}
+                  className="flex-1 px-4 py-3 bg-[#E8E2D5] rounded-lg font-medium text-[#1B2A4A]"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleAddBrand}
+                  className="flex-1 px-4 py-3 bg-[#1B2A4A] text-white rounded-lg font-medium hover:bg-[#142038]"
+                >
+                  Добавить
+                </button>
+              </div>
             </div>
           </div>
         </div>

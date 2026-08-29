@@ -77,7 +77,6 @@ export default function OrdersPage() {
     try {
       const oldStatus = order.status
       const updated = await updateOrderStatus(orderId, newStatus)
-
       if (updated) {
         if (newStatus === 'Отменён' && oldStatus !== 'Отменён') {
           console.log('🔄 Заказ отменён, возвращаем остатки')
@@ -85,11 +84,9 @@ export default function OrdersPage() {
             await restoreStockAfterCancel(order.items)
           }
         }
-
         const messages = deliveryMethod === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
         const messageTemplate = messages[newStatus] || `Статус заказа №${orderId} изменён на: ${newStatus}`
         const message = messageTemplate.replace('{orderId}', orderId)
-
         if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           if (sent) {
@@ -100,7 +97,6 @@ export default function OrdersPage() {
         } else {
           alert(`Статус изменён на: ${newStatus}\n⚠️ Chat ID клиента не найден`)
         }
-
         await loadOrders()
       } else {
         alert('Ошибка при обновлении статуса')
@@ -114,7 +110,6 @@ export default function OrdersPage() {
   const handleConfirmPayment = async (order: any) => {
     const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)}`)
     if (!confirmed) return
-
     const success = await confirmPayment(order.id)
     if (success) {
       if (order.user_chat_id) {
@@ -133,16 +128,13 @@ export default function OrdersPage() {
       alert('Введите сообщение')
       return
     }
-
     if (!clientChatId) {
       alert('⚠️ Chat ID клиента не найден')
       return
     }
-
     try {
       const message = `📩 <b>Сообщение по заказу №${orderId}:</b>\n\n${customMessageText}`
       const sent = await sendClientNotification(clientChatId, message)
-
       if (sent) {
         alert('Сообщение отправлено клиенту ✅')
         setShowCustomMessage(null)
@@ -182,7 +174,7 @@ export default function OrdersPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -194,7 +186,7 @@ export default function OrdersPage() {
         <div className="max-w-6xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
@@ -205,7 +197,7 @@ export default function OrdersPage() {
 
       <div className="max-w-6xl mx-auto p-4">
         {pendingPaymentOrders.length > 0 && (
-          <div className="bg-[#C9A961]/10 border-2 border-[#C9A961]/40 p-4 rounded-xl mb-4">
+          <div className="bg-[#C9A961]/10 border-2 border-[#C9A961]/30 p-4 rounded-xl mb-4">
             <h2 className="text-lg font-bold text-[#1B2A4A] mb-3 flex items-center gap-2">
               ⏳ Ожидают оплаты ({pendingPaymentOrders.length})
             </h2>
@@ -299,7 +291,7 @@ export default function OrdersPage() {
         </div>
 
         {filteredOrders.filter(o => o.status !== 'Ожидает оплаты').length === 0 && (
-          <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#8A8275] border border-[#E8E2D5]">
+          <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#1B2A4A] border border-[#E8E2D5]">
             <p>Заказов не найдено</p>
           </div>
         )}
@@ -310,13 +302,12 @@ export default function OrdersPage() {
 
 function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
   const clientChatId = order.user_chat_id || order.user_id
-
   return (
-    <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border-2 border-[#C9A961]/40">
+    <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border-2 border-[#C9A961]/30">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
-          <p className="text-sm text-[#8A8275]">
+          <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
         </div>
@@ -327,15 +318,15 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-[#8A8275]">👤 <strong className="text-[#1B2A4A]">Клиент:</strong> {order.client_name}</p>
-          <p className="text-sm text-[#8A8275]">📞 <strong className="text-[#1B2A4A]">Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-[#8A8275]">💰 <strong className="text-[#1B2A4A]">Сумма:</strong> {formatOrderPrice(order)}</p>
-          <p className="text-sm text-[#8A8275]">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+          <p className="text-sm text-[#1B2A4A]">👤 <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-[#1B2A4A]">📞 <strong>Телефон:</strong> {order.client_phone}</p>
+          <p className="text-sm text-[#1B2A4A]">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
+          <p className="text-sm text-[#1B2A4A]">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
         </div>
         <div>
           {order.items && (
-            <div className="text-sm text-[#8A8275]">
-              <strong className="text-[#1B2A4A]">Товары:</strong>
+            <div className="text-sm text-[#1B2A4A]">
+              <strong>Товары:</strong>
               {order.items.map((item: any, idx: number) => (
                 <div key={idx} className="text-xs mt-1">
                   • {item.name} ({item.size}) × {item.quantity}
@@ -347,22 +338,22 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
       </div>
 
       {order.payment_screenshot_url ? (
-        <div className="bg-[#1B2A4A]/5 border border-[#1B2A4A]/20 rounded-lg p-3 mb-3">
-          <p className="text-sm text-[#1B2A4A] font-medium mb-2">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+          <p className="text-sm text-green-800 font-medium mb-2">
             ✅ Скриншот оплаты получен
           </p>
           <a
             href={order.payment_screenshot_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#E8E2D5] rounded-lg text-sm text-[#1B2A4A] hover:bg-[#F5F1E8]"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-green-300 rounded-lg text-sm text-green-700 hover:bg-green-100"
           >
             <Eye size={16} />
             Открыть скриншот
           </a>
         </div>
       ) : (
-        <div className="bg-[#C9A961]/10 border border-[#C9A961]/30 rounded-lg p-3 mb-3">
+        <div className="bg-[#C9A961]/10 border border-[#C9A961]/20 rounded-lg p-3 mb-3">
           <p className="text-sm text-[#C9A961]">
             ⏳ Клиент ещё не загрузил скриншот оплаты
           </p>
@@ -377,7 +368,6 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
           <CheckCircle size={16} />
           ✅ Подтвердить оплату
         </button>
-
         <button
           onClick={() => {
             if (confirm(`🚫 Отменить заказ №${order.id}?`)) {
@@ -419,13 +409,12 @@ function OrderCard({
 }: OrderCardProps) {
   const availableStatuses = getAvailableStatuses(order.delivery_method)
   const clientChatId = order.user_chat_id || order.user_id
-
   return (
     <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border border-[#E8E2D5]">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
-          <p className="text-sm text-[#8A8275]">
+          <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
           {order.special_order_id && (
@@ -435,13 +424,13 @@ function OrderCard({
           )}
         </div>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-          order.status === 'Активный' ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' :
-          order.status === 'В обработке' ? 'bg-[#C9A961]/20 text-[#C9A961]' :
-          order.status === 'Готов' ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' :
-          order.status === 'Выдан' ? 'bg-[#E8E2D5] text-[#8A8275]' :
-          order.status === 'Доставлен' ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' :
-          order.status === 'Отменён' ? 'bg-[#9B3B3B]/10 text-[#9B3B3B]' :
-          'bg-[#C9A961]/20 text-[#C9A961]'
+          order.status === 'Активный' ? 'bg-blue-100 text-blue-800' :
+          order.status === 'В обработке' ? 'bg-yellow-100 text-yellow-800' :
+          order.status === 'Готов' ? 'bg-green-100 text-green-800' :
+          order.status === 'Выдан' ? 'bg-[#E8E2D5] text-[#1B2A4A]' :
+          order.status === 'Доставлен' ? 'bg-emerald-100 text-emerald-800' :
+          order.status === 'Отменён' ? 'bg-red-100 text-red-800' :
+          'bg-yellow-100 text-yellow-800'
         }`}>
           {getStatusLabel(order.status, order.delivery_method)}
         </span>
@@ -449,29 +438,29 @@ function OrderCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-[#8A8275]">👤 <strong className="text-[#1B2A4A]">Клиент:</strong> {order.client_name}</p>
-          <p className="text-sm text-[#8A8275]">📞 <strong className="text-[#1B2A4A]">Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-[#8A8275]">💰 <strong className="text-[#1B2A4A]">Сумма:</strong> {formatOrderPrice(order)}</p>
+          <p className="text-sm text-[#1B2A4A]">👤 <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-[#1B2A4A]">📞 <strong>Телефон:</strong> {order.client_phone}</p>
+          <p className="text-sm text-[#1B2A4A]">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
           {clientChatId && (
-            <p className="text-xs text-[#8A8275] mt-1">
-              💬 Chat ID: <code className="bg-[#F5F1E8] px-1 rounded text-[#1B2A4A]">{clientChatId}</code>
+            <p className="text-xs text-[#1B2A4A] mt-1">
+              💬 Chat ID: <code className="bg-[#E8E2D5] px-1 rounded text-[#1B2A4A]">{clientChatId}</code>
             </p>
           )}
         </div>
         <div>
-          <p className="text-sm text-[#8A8275]">🚚 <strong className="text-[#1B2A4A]">Доставка:</strong> {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+          <p className="text-sm text-[#1B2A4A]">🚚 <strong>Доставка:</strong> {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
           {order.delivery_address && (
-            <p className="text-sm text-[#8A8275]">📍 <strong className="text-[#1B2A4A]">Адрес:</strong> {order.delivery_address}</p>
+            <p className="text-sm text-[#1B2A4A]">📍 <strong>Адрес:</strong> {order.delivery_address}</p>
           )}
-          <p className="text-sm text-[#8A8275]">💳 <strong className="text-[#1B2A4A]">Оплата:</strong> {order.payment_method === 'online_card' ? 'Картой' : 'При получении'}</p>
+          <p className="text-sm text-[#1B2A4A]">💳 <strong>Оплата:</strong> {order.payment_method === 'online_card' ? 'Картой' : 'При получении'}</p>
         </div>
       </div>
 
       {order.items && (
-        <div className="mb-4 p-3 bg-[#F5F1E8] rounded-lg border border-[#E8E2D5]">
+        <div className="mb-4 p-3 bg-[#E8E2D5]/50 rounded-lg">
           <h4 className="font-medium mb-2 text-[#1B2A4A]">Товары:</h4>
           {order.items.map((item: any, idx: number) => (
-            <div key={idx} className="text-sm text-[#8A8275] mb-1">
+            <div key={idx} className="text-sm text-[#1B2A4A] mb-1">
               {idx + 1}. {item.name} — {item.size} — {item.quantity} шт. — ${item.priceUsd}
             </div>
           ))}
@@ -479,15 +468,15 @@ function OrderCard({
       )}
 
       {order.payment_screenshot_url && (
-        <div className="mb-4 p-3 bg-[#1B2A4A]/5 border border-[#1B2A4A]/20 rounded-lg">
-          <h4 className="font-medium text-sm text-[#1B2A4A] mb-2">
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-medium text-sm text-blue-900 mb-2">
             📸 Скриншот оплаты:
           </h4>
           <a
             href={order.payment_screenshot_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E8E2D5] rounded-lg text-sm text-[#1B2A4A] hover:bg-[#F5F1E8]"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm text-blue-700 hover:bg-blue-100"
           >
             <Eye size={16} />
             Открыть скриншот
@@ -504,7 +493,6 @@ function OrderCard({
             <MessageCircle size={16} />
             Написать клиенту
           </button>
-
           {showCustomMessage === order.id && (
             <div className="mt-2 p-3 bg-[#C9A961]/5 border border-[#C9A961]/20 rounded-lg">
               <textarea

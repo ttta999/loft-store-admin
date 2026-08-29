@@ -148,7 +148,7 @@ export default function SettingsPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -161,7 +161,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
@@ -178,7 +178,7 @@ export default function SettingsPage() {
             <h2 className="text-xl font-bold text-[#1B2A4A]">Режим скидок</h2>
           </div>
 
-          <div className="bg-[#9B3B3B]/10 border border-[#9B3B3B]/30 rounded-lg p-4 mb-4">
+          <div className="bg-[#9B3B3B]/10 border border-[#9B3B3B]/20 rounded-lg p-4 mb-4">
             <p className="text-sm text-[#9B3B3B]">
               💡 Когда режим ВКЛЮЧЁН: товары со скидочной ценой показываются в приложении
               с перечёркнутой старой ценой, и на главной появляется бокс «💰 Скидки».
@@ -191,7 +191,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between p-4 border border-[#E8E2D5] rounded-lg bg-white">
             <div>
               <p className="font-medium text-[#1B2A4A]">Режим скидок в приложении</p>
-              <p className={`text-sm mt-1 ${saleMode ? 'text-[#1B2A4A]' : 'text-[#8A8275]'}`}>
+              <p className={`text-sm mt-1 ${saleMode ? 'text-[#1B2A4A]' : 'text-[#1B2A4A]'}`}>
                 {saleMode ? '✅ Включён — скидки активны' : '⛔ Выключен — скидки скрыты'}
               </p>
             </div>
@@ -216,11 +216,11 @@ export default function SettingsPage() {
             <h2 className="text-xl font-bold text-[#1B2A4A]">Курс валют</h2>
           </div>
 
-          <div className="bg-[#1B2A4A]/5 border border-[#1B2A4A]/20 rounded-lg p-4 mb-4">
+          <div className="bg-[#1B2A4A]/5 border border-[#1B2A4A]/10 rounded-lg p-4 mb-4">
             <p className="text-sm text-[#1B2A4A]">
               💡 Этот курс используется для отображения цен в сумах в основном приложении.
             </p>
-            <p className="text-xs text-[#8A8275] mt-1">
+            <p className="text-xs text-[#1B2A4A] mt-1">
               🔄 Приложение проверяет обновления каждые 5 минут
             </p>
           </div>
@@ -239,7 +239,7 @@ export default function SettingsPage() {
                   step="0.01"
                   min="0"
                 />
-                <span className="flex items-center px-4 bg-[#F5F1E8] rounded-lg text-[#8A8275] font-medium border border-[#E8E2D5]">
+                <span className="flex items-center px-4 bg-[#E8E2D5] rounded-lg text-[#1B2A4A] font-medium">
                   сум
                 </span>
               </div>
@@ -265,7 +265,7 @@ export default function SettingsPage() {
             </div>
 
             {lastUpdated && (
-              <div className="text-sm text-[#8A8275] pt-2 border-t border-[#E8E2D5]">
+              <div className="text-sm text-[#1B2A4A] pt-2 border-t border-[#E8E2D5]">
                 <p>📅 Последнее обновление: {lastUpdated}</p>
                 <p>👤 Обновлено: {updatedBy === 'admin' ? 'Менеджером' : 'Автоматически'}</p>
                 <p>🔢 Версия курса: {currentVersion}</p>
@@ -280,9 +280,9 @@ export default function SettingsPage() {
             <TrendingUp size={24} className="text-[#C9A961]" />
             <h2 className="text-xl font-bold text-[#1B2A4A]">Информация</h2>
           </div>
-          <div className="space-y-3 text-sm text-[#8A8275]">
+          <div className="space-y-3 text-sm text-[#1B2A4A]">
             <p>
-              <strong className="text-[#1B2A4A]">Как это работает:</strong>
+              <strong>Как это работает:</strong>
             </p>
             <ul className="list-disc list-inside space-y-1 ml-4">
               <li>Курс используется для конвертации цен из USD в UZS</li>

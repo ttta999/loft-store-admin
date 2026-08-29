@@ -61,13 +61,10 @@ export default function ChinaPage() {
 
     try {
       const updated = await updateChinaRequestStatus(requestId, newStatus)
-
       if (updated) {
         const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
         const message = messageTemplate.replace('{requestId}', requestId)
-
         console.log('Отправляем уведомление:', { clientChatId, message })
-
         if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           console.log('Результат отправки:', sent)
@@ -79,7 +76,6 @@ export default function ChinaPage() {
         } else {
           alert(`Статус изменён на: ${newStatus}\n️ Chat ID клиента не найден в базе`)
         }
-
         await loadRequests()
       } else {
         alert('Ошибка при обновлении статуса')
@@ -92,29 +88,22 @@ export default function ChinaPage() {
 
   const handlePriceSubmit = async () => {
     if (!managerPrice || !selectedRequest) return
-
     try {
       console.log('Устанавливаем цену:', { requestId: selectedRequest.id, price: managerPrice, comment: managerComment })
-
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Оценён', {
         manager_price: parseFloat(managerPrice),
         manager_comment: managerComment
       })
-
       console.log('Результат обновления:', updated)
-
       if (updated) {
         const message = STATUS_MESSAGES['Оценён']
           .replace('{requestId}', selectedRequest.id)
           .replace('{managerPrice}', managerPrice)
           .replace('{managerComment}', managerComment || 'Без комментария')
-
         console.log('Отправляем уведомление об оценке:', { userId: selectedRequest.user_id, message })
-
         if (selectedRequest.user_id) {
           const sent = await sendClientNotification(selectedRequest.user_id, message)
           console.log('Результат отправки уведомления:', sent)
-
           if (sent) {
             alert(`Цена $${managerPrice} установлена и отправлена клиенту ✅`)
           } else {
@@ -123,7 +112,6 @@ export default function ChinaPage() {
         } else {
           alert(`Цена $${managerPrice} установлена\n⚠️ Chat ID клиента не найден в базе`)
         }
-
         setShowPriceModal(false)
         setManagerPrice('')
         setManagerComment('')
@@ -139,27 +127,20 @@ export default function ChinaPage() {
 
   const handleRejectSubmit = async () => {
     if (!selectedRequest) return
-
     try {
       console.log('Отклоняем спецзаказ:', { requestId: selectedRequest.id, reason: rejectReason })
-
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', {
         manager_comment: rejectReason
       })
-
       console.log('Результат обновления:', updated)
-
       if (updated) {
         const message = STATUS_MESSAGES['Отклонён']
           .replace('{requestId}', selectedRequest.id)
           .replace('{managerComment}', rejectReason || 'Не указана')
-
         console.log('Отправляем уведомление об отклонении:', { userId: selectedRequest.user_id, message })
-
         if (selectedRequest.user_id) {
           const sent = await sendClientNotification(selectedRequest.user_id, message)
           console.log('Результат отправки уведомления:', sent)
-
           if (sent) {
             alert(`Спецзаказ отклонён и уведомление отправлено клиенту ✅`)
           } else {
@@ -168,7 +149,6 @@ export default function ChinaPage() {
         } else {
           alert(`Спецзаказ отклонён\n️ Chat ID клиента не найден в базе`)
         }
-
         setShowRejectModal(false)
         setRejectReason('')
         await loadRequests()
@@ -190,7 +170,7 @@ export default function ChinaPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -202,7 +182,7 @@ export default function ChinaPage() {
         <div className="max-w-6xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
@@ -242,39 +222,39 @@ export default function ChinaPage() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-bold text-lg text-[#1B2A4A]">Спецзаказ №{request.id}</h3>
-                  <p className="text-sm text-[#8A8275]">
+                  <p className="text-sm text-[#1B2A4A]">
                     {new Date(request.created_at).toLocaleString('ru-RU')}
                   </p>
                   {request.user_id && (
-                    <p className="text-xs text-[#8A8275] mt-1">
+                    <p className="text-xs text-[#1B2A4A] mt-1">
                       Chat ID: {request.user_id}
                     </p>
                   )}
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  request.status === 'На рассмотрении' ? 'bg-[#C9A961]/20 text-[#C9A961]' :
-                  request.status === 'Оценён' ? 'bg-[#C9A961]/10 text-[#C9A961]' :
-                  request.status === 'Оплачен' ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' :
-                  request.status === 'Отменён клиентом' ? 'bg-[#C9A961]/20 text-[#C9A961]' :
-                  request.status === 'Отклонён' ? 'bg-[#9B3B3B]/10 text-[#9B3B3B]' :
-                  'bg-[#E8E2D5] text-[#8A8275]'
+                  request.status === 'На рассмотрении' ? 'bg-yellow-100 text-yellow-800' :
+                  request.status === 'Оценён' ? 'bg-purple-100 text-purple-800' :
+                  request.status === 'Оплачен' ? 'bg-green-100 text-green-800' :
+                  request.status === 'Отменён клиентом' ? 'bg-orange-100 text-orange-800' :
+                  request.status === 'Отклонён' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
                 }`}>
                   {STATUSES.find(s => s.old === request.status)?.new || request.status}
                 </span>
               </div>
 
               <div className="mb-4">
-                <p className="text-sm text-[#8A8275] mb-1">
-                   <strong className="text-[#1B2A4A]">Ссылка/Название:</strong> {request.link}
+                <p className="text-sm text-[#1B2A4A] mb-1">
+                  <strong>Ссылка/Название:</strong> {request.link}
                 </p>
                 {request.size_color && (
-                  <p className="text-sm text-[#8A8275] mb-1">
-                    📏 <strong className="text-[#1B2A4A]">Размер/Цвет:</strong> {request.size_color}
+                  <p className="text-sm text-[#1B2A4A] mb-1">
+                    📏 <strong>Размер/Цвет:</strong> {request.size_color}
                   </p>
                 )}
                 {request.comment && (
-                  <p className="text-sm text-[#8A8275] mb-1">
-                    💬 <strong className="text-[#1B2A4A]">Комментарий клиента:</strong> {request.comment}
+                  <p className="text-sm text-[#1B2A4A] mb-1">
+                    💬 <strong>Комментарий клиента:</strong> {request.comment}
                   </p>
                 )}
                 {request.manager_price && (
@@ -283,8 +263,8 @@ export default function ChinaPage() {
                   </p>
                 )}
                 {request.manager_comment && (
-                  <p className="text-sm text-[#8A8275] mb-1">
-                     <strong className="text-[#1B2A4A]">Комментарий менеджера:</strong> {request.manager_comment}
+                  <p className="text-sm text-[#1B2A4A] mb-1">
+                    <strong>Комментарий менеджера:</strong> {request.manager_comment}
                   </p>
                 )}
               </div>
@@ -322,7 +302,6 @@ export default function ChinaPage() {
             <h3 className="text-lg font-bold mb-4 text-[#1B2A4A]">
               Оценить спецзаказ №{selectedRequest?.id}
             </h3>
-
             <div className="mb-4">
               <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Цена в USD *
@@ -335,7 +314,6 @@ export default function ChinaPage() {
                 className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
               />
             </div>
-
             <div className="mb-4">
               <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Комментарий (необязательно)
@@ -348,7 +326,6 @@ export default function ChinaPage() {
                 className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white"
               />
             </div>
-
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -378,10 +355,9 @@ export default function ChinaPage() {
             <h3 className="text-lg font-bold mb-2 text-[#9B3B3B]">
               Отклонить спецзаказ №{selectedRequest?.id}
             </h3>
-            <p className="text-sm text-[#8A8275] mb-4">
+            <p className="text-sm text-[#1B2A4A] mb-4">
               Укажите причину отклонения. Это сообщение будет отправлено клиенту.
             </p>
-
             <div className="mb-4">
               <label className="text-sm font-medium text-[#1B2A4A] mb-1 block">
                 Причина отклонения *
@@ -393,11 +369,10 @@ export default function ChinaPage() {
                 rows={4}
                 className="w-full p-3 border border-[#9B3B3B]/40 rounded-lg focus:outline-none focus:border-[#9B3B3B] bg-white"
               />
-              <p className="text-xs text-[#8A8275] mt-1">
+              <p className="text-xs text-[#1B2A4A] mt-1">
                 Минимум 5 символов
               </p>
             </div>
-
             <div className="flex gap-2">
               <button
                 onClick={() => {

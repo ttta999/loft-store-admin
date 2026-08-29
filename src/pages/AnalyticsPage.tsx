@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
         <div className="max-w-7xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-[#C9A961]">
               ${orderStats?.totalRevenue.toLocaleString() || 0}
             </p>
-            <p className="text-sm text-[#8A8275] mt-1">Общая выручка</p>
+            <p className="text-sm text-[#1B2A4A] mt-1">Общая выручка</p>
           </div>
 
           <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
@@ -205,7 +205,7 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-[#1B2A4A]">
               {orderStats?.totalOrders || 0}
             </p>
-            <p className="text-sm text-[#8A8275] mt-1">Всего заказов</p>
+            <p className="text-sm text-[#1B2A4A] mt-1">Всего заказов</p>
           </div>
 
           <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
@@ -216,18 +216,18 @@ export default function AnalyticsPage() {
             <p className="text-3xl font-bold text-[#C9A961]">
               ${Math.round(orderStats?.averageOrderValue || 0)}
             </p>
-            <p className="text-sm text-[#8A8275] mt-1">На заказ</p>
+            <p className="text-sm text-[#1B2A4A] mt-1">На заказ</p>
           </div>
 
           <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
             <div className="flex items-center gap-3 mb-2">
-              <Users size={24} className="text-[#1B2A4A]" />
+              <Users size={24} className="text-[#C9A961]" />
               <h3 className="font-bold text-[#1B2A4A]">Активные</h3>
             </div>
-            <p className="text-3xl font-bold text-[#1B2A4A]">
+            <p className="text-3xl font-bold text-[#C9A961]">
               {orderStats?.activeOrders || 0}
             </p>
-            <p className="text-sm text-[#8A8275] mt-1">В работе</p>
+            <p className="text-sm text-[#1B2A4A] mt-1">В работе</p>
           </div>
         </div>
 
@@ -240,7 +240,7 @@ export default function AnalyticsPage() {
           <div className="space-y-3">
             {dailyStats.map((day) => (
               <div key={day.date} className="flex items-center gap-4">
-                <div className="w-20 text-sm font-medium text-[#8A8275]">
+                <div className="w-20 text-sm font-medium text-[#1B2A4A]">
                   {day.date}
                 </div>
                 <div className="flex-1">
@@ -255,7 +255,7 @@ export default function AnalyticsPage() {
                       ${day.revenue}
                     </span>
                   </div>
-                  <p className="text-xs text-[#8A8275]">{day.orders} заказов</p>
+                  <p className="text-xs text-[#1B2A4A]">{day.orders} заказов</p>
                 </div>
               </div>
             ))}
@@ -269,20 +269,20 @@ export default function AnalyticsPage() {
             {topProducts.map((product, index) => (
               <div
                 key={product.product_id}
-                className="flex items-center justify-between p-3 bg-[#F5F1E8] rounded-lg border border-[#E8E2D5]"
+                className="flex items-center justify-between p-3 bg-[#E8E2D5]/50 rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                     index === 0 ? 'bg-[#C9A961] text-white' :
                     index === 1 ? 'bg-[#E8E2D5] text-[#1B2A4A]' :
                     index === 2 ? 'bg-[#C9A961]/60 text-white' :
-                    'bg-[#E8E2D5] text-[#8A8275]'
+                    'bg-[#E8E2D5] text-[#1B2A4A]'
                   }`}>
                     {index + 1}
                   </div>
                   <div>
                     <p className="font-medium text-[#1B2A4A]">{product.product_name}</p>
-                    <p className="text-sm text-[#8A8275]">
+                    <p className="text-sm text-[#1B2A4A]">
                       Продано: {product.total_sold} шт.
                     </p>
                   </div>

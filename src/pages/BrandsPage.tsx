@@ -30,7 +30,6 @@ export default function BrandsPage() {
         .from('brands')
         .select('*')
         .order('name')
-
       if (error) throw error
       setBrands(data || [])
     } catch (error) {
@@ -45,7 +44,6 @@ export default function BrandsPage() {
       toast.error('Введите название бренда')
       return
     }
-
     try {
       const { error } = await supabase
         .from('brands')
@@ -53,9 +51,7 @@ export default function BrandsPage() {
           name: newBrandName.trim(),
           is_active: true
         })
-
       if (error) throw error
-
       toast.success('Бренд добавлен!')
       setNewBrandName('')
       setShowAddModal(false)
@@ -76,9 +72,7 @@ export default function BrandsPage() {
         .from('brands')
         .update({ is_active: !brand.is_active })
         .eq('id', brand.id)
-
       if (error) throw error
-
       toast.success(brand.is_active ? 'Бренд деактивирован' : 'Бренд активирован')
       await loadBrands()
     } catch (error) {
@@ -89,15 +83,12 @@ export default function BrandsPage() {
 
   const handleDeleteBrand = async (brand: Brand) => {
     if (!confirm(`Удалить бренд "${brand.name}"?`)) return
-
     try {
       const { error } = await supabase
         .from('brands')
         .delete()
         .eq('id', brand.id)
-
       if (error) throw error
-
       toast.success('Бренд удалён')
       await loadBrands()
     } catch (error) {
@@ -111,15 +102,12 @@ export default function BrandsPage() {
       toast.error('Введите название бренда')
       return
     }
-
     try {
       const { error } = await supabase
         .from('brands')
         .update({ name: editingBrand.name.trim() })
         .eq('id', editingBrand.id)
-
       if (error) throw error
-
       toast.success('Бренд обновлён')
       setEditingBrand(null)
       await loadBrands()
@@ -138,7 +126,7 @@ export default function BrandsPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -147,12 +135,11 @@ export default function BrandsPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8]">
       <Toaster position="top-center" richColors />
-
       <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A] mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
@@ -176,7 +163,7 @@ export default function BrandsPage() {
 
           <div className="space-y-2">
             {brands.length === 0 ? (
-              <p className="text-center text-[#8A8275] py-8">
+              <p className="text-center text-[#1B2A4A] py-8">
                 Брендов пока нет. Добавьте первый!
               </p>
             ) : (
@@ -184,13 +171,13 @@ export default function BrandsPage() {
                 <div
                   key={brand.id}
                   className={`flex items-center justify-between p-4 rounded-lg border ${
-                    brand.is_active ? 'bg-white border-[#E8E2D5]' : 'bg-[#F5F1E8] border-[#E8E2D5]'
+                    brand.is_active ? 'bg-white border-[#E8E2D5]' : 'bg-[#E8E2D5] border-[#E8E2D5]'
                   }`}
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <div className="flex-1">
                       <h3 className="font-medium text-[#1B2A4A]">{brand.name}</h3>
-                      <p className="text-sm text-[#8A8275]">
+                      <p className="text-sm text-[#1B2A4A]">
                         Создан: {new Date(brand.created_at).toLocaleDateString('ru-RU')}
                       </p>
                     </div>
@@ -202,7 +189,7 @@ export default function BrandsPage() {
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium ${
                         brand.is_active
                           ? 'bg-[#1B2A4A]/10 text-[#1B2A4A] hover:bg-[#1B2A4A]/20'
-                          : 'bg-[#E8E2D5] text-[#8A8275] hover:bg-[#E8E2D5]/70'
+                          : 'bg-[#E8E2D5] text-[#1B2A4A] hover:bg-[#E8E2D5]/70'
                       }`}
                     >
                       {brand.is_active ? (
@@ -240,7 +227,7 @@ export default function BrandsPage() {
 
         <div className="bg-[#FBF9F4] rounded-xl p-6 shadow-sm border border-[#E8E2D5]">
           <h3 className="font-bold mb-2 text-[#1B2A4A]">💡 Подсказка</h3>
-          <ul className="text-sm text-[#8A8275] space-y-1">
+          <ul className="text-sm text-[#1B2A4A] space-y-1">
             <li>• Активные бренды показываются в приложении</li>
             <li>• Неактивные бренды скрыты, но товары остаются</li>
             <li>• Удаление бренда не удаляет товары</li>
