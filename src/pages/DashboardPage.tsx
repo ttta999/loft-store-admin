@@ -55,7 +55,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#8A8275]">Загрузка...</p>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
@@ -70,7 +70,7 @@ export default function DashboardPage() {
             <NotificationBell />
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-[#8A8275] hover:text-[#1B2A4A]"
+              className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961]"
             >
               <LogOut size={20} />
               <span>Выйти</span>
@@ -115,8 +115,8 @@ export default function DashboardPage() {
               <Package size={24} className="text-[#1B2A4A]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Заказы</h2>
             </div>
-            <p className="text-[#8A8275]">Управление заказами клиентов</p>
-            <p className="text-sm text-[#8A8275] mt-2">Всего: {orders.length}</p>
+            <p className="text-[#1B2A4A]">Управление заказами клиентов</p>
+            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {orders.length}</p>
           </button>
 
           <button
@@ -127,8 +127,8 @@ export default function DashboardPage() {
               <Globe size={24} className="text-[#C9A961]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Спецзаказы</h2>
             </div>
-            <p className="text-[#8A8275]">Заявки на спецзаказы</p>
-            <p className="text-sm text-[#8A8275] mt-2">Всего: {chinaRequests.length}</p>
+            <p className="text-[#1B2A4A]">Заявки на спецзаказы</p>
+            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {chinaRequests.length}</p>
           </button>
 
           <button
@@ -139,8 +139,8 @@ export default function DashboardPage() {
               <ShoppingBag size={24} className="text-[#1B2A4A]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Товары</h2>
             </div>
-            <p className="text-[#8A8275]">Управление каталогом</p>
-            <p className="text-sm text-[#8A8275] mt-2">Всего: {productsCount}</p>
+            <p className="text-[#1B2A4A]">Управление каталогом</p>
+            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {productsCount}</p>
           </button>
 
           <button
@@ -151,7 +151,7 @@ export default function DashboardPage() {
               <BarChart3 size={24} className="text-[#C9A961]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Аналитика</h2>
             </div>
-            <p className="text-[#8A8275]">Статистика и отчёты</p>
+            <p className="text-[#1B2A4A]">Статистика и отчёты</p>
           </button>
 
           <button
@@ -162,7 +162,7 @@ export default function DashboardPage() {
               <Settings size={24} className="text-[#1B2A4A]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Настройки</h2>
             </div>
-            <p className="text-[#8A8275]">Курс валют и параметры</p>
+            <p className="text-[#1B2A4A]">Курс валют и параметры</p>
           </button>
 
           <button
@@ -173,8 +173,8 @@ export default function DashboardPage() {
               <Tag size={24} className="text-[#C9A961]" />
               <h2 className="text-xl font-bold text-[#1B2A4A]">Бренды</h2>
             </div>
-            <p className="text-[#8A8275]">Управление брендами</p>
-            <p className="text-sm text-[#8A8275] mt-2">Всего: {brandsCount}</p>
+            <p className="text-[#1B2A4A]">Управление брендами</p>
+            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {brandsCount}</p>
           </button>
         </div>
       </div>
