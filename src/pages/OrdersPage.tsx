@@ -128,7 +128,7 @@ export default function OrdersPage() {
     }
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
+  const handleStatusChange = async (_orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
     // ✅ ЕСЛИ "ПЕРЕДАН КУРЬЕРУ" ДЛЯ ДОСТАВКИ — сначала запрашиваем ссылку на трек
     if (newStatus === 'Выдан' && deliveryMethod === 'delivery') {
       setCourierModalOrder(order)
