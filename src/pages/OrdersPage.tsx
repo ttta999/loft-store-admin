@@ -59,10 +59,9 @@ export default function OrdersPage() {
   const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
   const [customMessageText, setCustomMessageText] = useState('')
 
-  // ✅ МОДАЛКА ССЫЛКИ НА ТРЕК КУРЬЕРА
-  const [showCourierModal, setShowCourierModal] = useState(false)
+  // ✅ МОДАЛКА ССЫЛКИ НА КУРЬЕРА
+  const [courierModalOrder, setCourierModalOrder] = useState<any>(null)
   const [courierLink, setCourierLink] = useState('')
-  const [pendingCourierOrder, setPendingCourierOrder] = useState<any>(null)
 
   useEffect(() => {
     loadOrders()
@@ -78,18 +77,24 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
-    // ✅ ЕСЛИ "ПЕРЕДАН КУРЬЕРУ" ДЛЯ ДОСТАВКИ — запрашиваем ссылку на трек
-    if (newStatus === 'Выдан' && deliveryMethod === 'delivery') {
-      setPendingCourierOrder(order)
-      setCourierLink('')
-      setShowCourierModal(true)
-      return
-    }
-
+  // ✅ Применение смены статуса (+ опционально ссылка курьера)
+  const applyStatusChange = async (order: any, newStatus: string, clientChatId: string, courierLinkValue: string | null) => {
     try {
       const oldStatus = order.status
-      const updated = await updateOrderStatus(orderId, newStatus)
+      let updated: any = null
+
+      if (courierLinkValue) {
+        const { data, error } = await supabase
+          .from('orders')
+          .update({ status: newStatus, courier_link: courierLinkValue })
+          .eq('id', order.id)
+          .select()
+        if (error) throw error
+        updated = data?.[0] || null
+      } else {
+        updated = await updateOrderStatus(order.id, newStatus)
+      }
+
       if (updated) {
         if (newStatus === 'Отменён' && oldStatus !== 'Отменён') {
           console.log('🔄 Заказ отменён, возвращаем остатки')
@@ -97,9 +102,12 @@ export default function OrdersPage() {
             await restoreStockAfterCancel(order.items)
           }
         }
-        const messages = deliveryMethod === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
-        const messageTemplate = messages[newStatus] || `Статус заказа №${orderId} изменён на: ${newStatus}`
-        const message = messageTemplate.replace('{orderId}', orderId)
+        const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
+        let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
+        if (courierLinkValue) {
+          messageTemplate += `\n\n🔗 Отследить курьера: ${courierLinkValue}`
+        }
+        const message = messageTemplate.replace('{orderId}', order.id)
         if (clientChatId) {
           const sent = await sendClientNotification(clientChatId, message)
           if (sent) {
@@ -120,12 +128,18 @@ export default function OrdersPage() {
     }
   }
 
-  // ✅ СОХРАНЕНИЕ ССЫЛКИ НА ТРЕК + УВЕДОМЛЕНИЕ КЛИЕНТУ
+  const handleStatusChange = async (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
+    // ✅ ЕСЛИ "ПЕРЕДАН КУРЬЕРУ" ДЛЯ ДОСТАВКИ — сначала запрашиваем ссылку на трек
+    if (newStatus === 'Выдан' && deliveryMethod === 'delivery') {
+      setCourierModalOrder(order)
+      setCourierLink('')
+      return
+    }
+    await applyStatusChange(order, newStatus, clientChatId, null)
+  }
+
   const handleCourierSubmit = async () => {
     const link = courierLink.trim()
-    const order = pendingCourierOrder
-    if (!order) return
-
     if (!link) {
       alert('Вставьте ссылку на отслеживание курьера')
       return
@@ -134,36 +148,11 @@ export default function OrdersPage() {
       alert('Ссылка должна начинаться с http:// или https://')
       return
     }
-
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'Выдан', courier_link: link })
-        .eq('id', order.id)
-
-      if (error) throw error
-
-      const clientChatId = order.user_chat_id || order.user_id
-      if (clientChatId) {
-        const message = `🚀 <b>Передан курьеру:</b> Ваш заказ №${order.id} передан курьеру и уже в пути к вам!\n\n🔗 <a href="${link}">Отследить курьера</a>`
-        const sent = await sendClientNotification(clientChatId, message)
-        if (sent) {
-          alert('Статус изменён на: Передан курьеру\nСсылка отправлена клиенту ✅')
-        } else {
-          alert('Статус изменён на: Передан курьеру\n⚠️ Уведомление не отправлено')
-        }
-      } else {
-        alert('Статус изменён на: Передан курьеру\n⚠️ Chat ID клиента не найден')
-      }
-
-      setShowCourierModal(false)
-      setPendingCourierOrder(null)
-      setCourierLink('')
-      await loadOrders()
-    } catch (error) {
-      console.error('Ошибка:', error)
-      alert('Произошла ошибка при сохранении')
-    }
+    const order = courierModalOrder
+    if (!order) return
+    const clientChatId = order.user_chat_id || order.user_id
+    setCourierModalOrder(null)
+    await applyStatusChange(order, 'Выдан', clientChatId, link)
   }
 
   const handleConfirmPayment = async (order: any) => {
@@ -230,34 +219,34 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-500">Загрузка...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
+          <p className="text-[#1B2A4A]">Загрузка...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white border-b p-4">
+    <div className="min-h-screen bg-[#F5F1E8]">
+      <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
         <div className="max-w-6xl mx-auto">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-gray-600 hover:text-black mb-4"
+            className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961] mb-4"
           >
             <ArrowLeft size={20} />
             <span>На главную</span>
           </button>
-          <h1 className="text-2xl font-bold">📦 Управление заказами</h1>
+          <h1 className="text-2xl font-bold text-[#1B2A4A]">📦 Управление заказами</h1>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
         {pendingPaymentOrders.length > 0 && (
-          <div className="bg-orange-50 border-2 border-orange-300 p-4 rounded-xl mb-4">
-            <h2 className="text-lg font-bold text-orange-900 mb-3 flex items-center gap-2">
+          <div className="bg-[#C9A961]/10 border-2 border-[#C9A961]/30 p-4 rounded-xl mb-4">
+            <h2 className="text-lg font-bold text-[#1B2A4A] mb-3 flex items-center gap-2">
               ⏳ Ожидают оплаты ({pendingPaymentOrders.length})
             </h2>
             <div className="space-y-3">
@@ -273,12 +262,12 @@ export default function OrdersPage() {
           </div>
         )}
 
-        <div className="bg-white p-4 rounded-xl mb-4">
+        <div className="bg-[#FBF9F4] p-4 rounded-xl mb-4 border border-[#E8E2D5]">
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => { setFilter('all'); setStatusFilter('all') }}
               className={`px-4 py-2 rounded-lg font-medium ${
-                filter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                filter === 'all' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               Все заказы ({orders.length})
@@ -286,7 +275,7 @@ export default function OrdersPage() {
             <button
               onClick={() => { setFilter('delivery'); setStatusFilter('all') }}
               className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
-                filter === 'delivery' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                filter === 'delivery' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               <Truck size={18} />
@@ -295,7 +284,7 @@ export default function OrdersPage() {
             <button
               onClick={() => { setFilter('pickup'); setStatusFilter('all') }}
               className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
-                filter === 'pickup' ? 'bg-green-600 text-white' : 'bg-gray-100'
+                filter === 'pickup' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
               }`}
             >
               <Store size={18} />
@@ -305,12 +294,12 @@ export default function OrdersPage() {
         </div>
 
         {filter !== 'all' && (
-          <div className="bg-white p-4 rounded-xl mb-4">
+          <div className="bg-[#FBF9F4] p-4 rounded-xl mb-4 border border-[#E8E2D5]">
             <div className="flex gap-2 overflow-x-auto">
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
-                  statusFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100'
+                  statusFilter === 'all' ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
                 }`}
               >
                 Все ({filteredOrders.length})
@@ -320,7 +309,7 @@ export default function OrdersPage() {
                   key={statusItem.old}
                   onClick={() => setStatusFilter(statusItem.old)}
                   className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
-                    statusFilter === statusItem.old ? 'bg-black text-white' : 'bg-gray-100'
+                    statusFilter === statusItem.old ? 'bg-[#1B2A4A] text-white' : 'bg-[#E8E2D5] text-[#1B2A4A]'
                   }`}
                 >
                   {statusItem.new} ({filteredOrders.filter(o => o.status === statusItem.old).length})
@@ -350,42 +339,38 @@ export default function OrdersPage() {
         </div>
 
         {filteredOrders.filter(o => o.status !== 'Ожидает оплаты').length === 0 && (
-          <div className="bg-white rounded-xl p-8 text-center text-gray-500">
+          <div className="bg-[#FBF9F4] rounded-xl p-8 text-center text-[#1B2A4A] border border-[#E8E2D5]">
             <p>Заказов не найдено</p>
           </div>
         )}
       </div>
 
       {/* ✅ МОДАЛКА: ССЫЛКА НА ТРЕК КУРЬЕРА */}
-      {showCourierModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-2">🚀 Передан курьеру</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Заказ №{pendingCourierOrder?.id}. Вставьте ссылку на отслеживание курьера — она будет отправлена клиенту в Telegram и появится в приложении в виде кнопки «Отследить курьера».
+      {courierModalOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FBF9F4] rounded-xl p-6 max-w-md w-full border border-[#E8E2D5]">
+            <h3 className="text-lg font-bold mb-2 text-[#1B2A4A]">🚀 Передан курьеру</h3>
+            <p className="text-sm text-[#1B2A4A] mb-4">
+              Заказ №{courierModalOrder.id}. Вставьте ссылку на отслеживание курьера — клиент получит её в уведомлении и увидит кнопку «Отследить курьера» в приложении.
             </p>
             <input
               type="text"
               value={courierLink}
               onChange={(e) => setCourierLink(e.target.value)}
               placeholder="https://..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black mb-4"
+              className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#C9A961] bg-white mb-4"
               autoFocus
             />
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowCourierModal(false)
-                  setPendingCourierOrder(null)
-                  setCourierLink('')
-                }}
-                className="flex-1 px-4 py-2 bg-gray-100 rounded-lg"
+                onClick={() => setCourierModalOrder(null)}
+                className="flex-1 px-4 py-2 bg-[#E8E2D5] text-[#1B2A4A] rounded-lg font-medium"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCourierSubmit}
-                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                className="flex-1 px-4 py-2 bg-[#1B2A4A] text-white rounded-lg font-medium hover:bg-[#142038]"
               >
                 Сохранить
               </button>
@@ -400,29 +385,29 @@ export default function OrdersPage() {
 function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
   const clientChatId = order.user_chat_id || order.user_id
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border-2 border-orange-200">
+    <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border-2 border-[#C9A961]/30">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-bold text-lg">Заказ №{order.id}</h3>
-          <p className="text-sm text-gray-500">
+          <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
+          <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
         </div>
-        <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+        <span className="px-3 py-1 rounded-full text-sm font-medium bg-[#C9A961]/20 text-[#C9A961]">
           ⏳ Ожидает оплаты
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
-          <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
-          <p className="text-sm text-gray-600">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+          <p className="text-sm text-[#1B2A4A]">👤 <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-[#1B2A4A]">📞 <strong>Телефон:</strong> {order.client_phone}</p>
+          <p className="text-sm text-[#1B2A4A]">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
+          <p className="text-sm text-[#1B2A4A]">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
         </div>
         <div>
           {order.items && (
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-[#1B2A4A]">
               <strong>Товары:</strong>
               {order.items.map((item: any, idx: number) => (
                 <div key={idx} className="text-xs mt-1">
@@ -450,8 +435,8 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
           </a>
         </div>
       ) : (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-          <p className="text-sm text-yellow-800">
+        <div className="bg-[#C9A961]/10 border border-[#C9A961]/20 rounded-lg p-3 mb-3">
+          <p className="text-sm text-[#C9A961]">
             ⏳ Клиент ещё не загрузил скриншот оплаты
           </p>
         </div>
@@ -460,7 +445,7 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => onConfirmPayment(order)}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-1"
+          className="px-4 py-2 bg-[#1B2A4A] text-white rounded-lg text-sm font-medium hover:bg-[#142038] flex items-center gap-1"
         >
           <CheckCircle size={16} />
           ✅ Подтвердить оплату
@@ -471,7 +456,7 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
               onStatusChange(order.id, 'Отменён', clientChatId, order.delivery_method, order)
             }
           }}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-1"
+          className="px-4 py-2 bg-[#9B3B3B] text-white rounded-lg text-sm font-medium hover:bg-[#7a2f2f] flex items-center gap-1"
         >
           <XCircle size={16} />
           🚫 Отменить
@@ -507,15 +492,15 @@ function OrderCard({
   const availableStatuses = getAvailableStatuses(order.delivery_method)
   const clientChatId = order.user_chat_id || order.user_id
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm">
+    <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border border-[#E8E2D5]">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-bold text-lg">Заказ №{order.id}</h3>
-          <p className="text-sm text-gray-500">
+          <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
+          <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
           {order.special_order_id && (
-            <p className="text-xs text-purple-600 font-medium mt-1">
+            <p className="text-xs text-[#C9A961] font-medium mt-1">
               🌍 Заказ из спецзаказа
             </p>
           )}
@@ -524,7 +509,7 @@ function OrderCard({
           order.status === 'Активный' ? 'bg-blue-100 text-blue-800' :
           order.status === 'В обработке' ? 'bg-yellow-100 text-yellow-800' :
           order.status === 'Готов' ? 'bg-green-100 text-green-800' :
-          order.status === 'Выдан' ? 'bg-gray-100 text-gray-800' :
+          order.status === 'Выдан' ? 'bg-[#E8E2D5] text-[#1B2A4A]' :
           order.status === 'Доставлен' ? 'bg-emerald-100 text-emerald-800' :
           order.status === 'Отменён' ? 'bg-red-100 text-red-800' :
           'bg-yellow-100 text-yellow-800'
@@ -535,34 +520,34 @@ function OrderCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-gray-600">👤 <strong>Клиент:</strong> {order.client_name}</p>
-          <p className="text-sm text-gray-600">📞 <strong>Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-gray-600">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
+          <p className="text-sm text-[#1B2A4A]">👤 <strong>Клиент:</strong> {order.client_name}</p>
+          <p className="text-sm text-[#1B2A4A]">📞 <strong>Телефон:</strong> {order.client_phone}</p>
+          <p className="text-sm text-[#1B2A4A]">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
           {clientChatId && (
-            <p className="text-xs text-gray-500 mt-1">
-              💬 Chat ID: <code className="bg-gray-100 px-1 rounded">{clientChatId}</code>
+            <p className="text-xs text-[#1B2A4A] mt-1">
+              💬 Chat ID: <code className="bg-[#E8E2D5] px-1 rounded text-[#1B2A4A]">{clientChatId}</code>
             </p>
           )}
         </div>
         <div>
-          <p className="text-sm text-gray-600">🚚 <strong>Доставка:</strong> {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
+          <p className="text-sm text-[#1B2A4A]">🚚 <strong>Доставка:</strong> {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
           {order.delivery_address && (
-            <p className="text-sm text-gray-600">📍 <strong>Адрес:</strong> {order.delivery_address}</p>
+            <p className="text-sm text-[#1B2A4A]">📍 <strong>Адрес:</strong> {order.delivery_address}</p>
           )}
-          <p className="text-sm text-gray-600">💳 <strong>Оплата:</strong> {order.payment_method === 'online_card' ? 'Картой' : 'При получении'}</p>
-          {order.delivery_method === 'delivery' && order.courier_link && (
-            <p className="text-xs text-green-600 mt-1">
-              🚀 Трек: <a href={order.courier_link} target="_blank" rel="noopener noreferrer" className="underline">ссылка добавлена</a>
+          <p className="text-sm text-[#1B2A4A]">💳 <strong>Оплата:</strong> {order.payment_method === 'online_card' ? 'Картой' : 'При получении'}</p>
+          {order.courier_link && (
+            <p className="text-sm text-[#1B2A4A] mt-1">
+              🔗 <a href={order.courier_link} target="_blank" rel="noopener noreferrer" className="text-[#C9A961] underline">Трек курьера</a>
             </p>
           )}
         </div>
       </div>
 
       {order.items && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <h4 className="font-medium mb-2">Товары:</h4>
+        <div className="mb-4 p-3 bg-[#E8E2D5]/50 rounded-lg">
+          <h4 className="font-medium mb-2 text-[#1B2A4A]">Товары:</h4>
           {order.items.map((item: any, idx: number) => (
-            <div key={idx} className="text-sm text-gray-600 mb-1">
+            <div key={idx} className="text-sm text-[#1B2A4A] mb-1">
               {idx + 1}. {item.name} — {item.size} — {item.quantity} шт. — ${item.priceUsd}
             </div>
           ))}
@@ -590,24 +575,24 @@ function OrderCard({
         <div className="mb-3">
           <button
             onClick={() => setShowCustomMessage(showCustomMessage === order.id ? null : order.id)}
-            className="px-3 py-1 bg-purple-100 text-purple-800 hover:bg-purple-200 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+            className="px-3 py-1 bg-[#C9A961]/10 text-[#C9A961] hover:bg-[#C9A961]/20 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
           >
             <MessageCircle size={16} />
             Написать клиенту
           </button>
           {showCustomMessage === order.id && (
-            <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="mt-2 p-3 bg-[#C9A961]/5 border border-[#C9A961]/20 rounded-lg">
               <textarea
                 value={customMessageText}
                 onChange={(e) => setCustomMessageText(e.target.value)}
                 placeholder="Введите сообщение для клиента..."
                 rows={3}
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                className="w-full p-2 border border-[#E8E2D5] rounded-lg text-sm focus:outline-none focus:border-[#C9A961] bg-white"
               />
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => onSendCustomMessage(order.id, clientChatId)}
-                  className="px-3 py-1 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+                  className="px-3 py-1 bg-[#C9A961] text-white rounded-lg text-sm font-medium hover:bg-[#b8954f]"
                 >
                   Отправить
                 </button>
@@ -616,7 +601,7 @@ function OrderCard({
                     setShowCustomMessage(null)
                     setCustomMessageText('')
                   }}
-                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                  className="px-3 py-1 bg-[#E8E2D5] text-[#1B2A4A] rounded-lg text-sm font-medium hover:bg-[#E8E2D5]/70"
                 >
                   Отмена
                 </button>
@@ -633,7 +618,7 @@ function OrderCard({
             <button
               key={s.old}
               onClick={() => onStatusChange(order.id, s.old, clientChatId, order.delivery_method, order)}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+              className="px-3 py-1 bg-[#E8E2D5] hover:bg-[#E8E2D5]/70 rounded-lg text-sm font-medium transition-colors text-[#1B2A4A]"
             >
               {s.new}
             </button>
