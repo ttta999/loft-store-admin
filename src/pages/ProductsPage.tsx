@@ -141,8 +141,6 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden' | 'sale'>('all')
   const [showModal, setShowModal] = useState(false)
-  const [showBrandModal, setShowBrandModal] = useState(false)
-  const [newBrandName, setNewBrandName] = useState('')
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [nameRu, setNameRu] = useState('')
   const [nameUz, setNameUz] = useState('')
@@ -159,28 +157,11 @@ export default function ProductsPage() {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, number>>({})
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [exchangeRate, setExchangeRate] = useState(12100)
 
   useEffect(() => {
     loadProducts()
     loadBrands()
-    loadExchangeRate()
   }, [])
-
-  // ✅ Курс из настроек — для live-превью цены в сумах
-  const loadExchangeRate = async () => {
-    try {
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'exchange_rate')
-        .single()
-      const rate = (data?.value as any)?.rate
-      if (rate && rate > 0) setExchangeRate(rate)
-    } catch (error) {
-      console.error('Ошибка загрузки курса:', error)
-    }
-  }
 
   const loadBrands = async () => {
     const { data, error } = await supabase
@@ -507,38 +488,6 @@ export default function ProductsPage() {
     }))
   }
 
-  const handleAddBrand = async () => {
-    if (!newBrandName.trim()) {
-      alert('Введите название бренда')
-      return
-    }
-    try {
-      const { data, error } = await supabase
-        .from('brands')
-        .insert({ name: newBrandName.trim() })
-        .select()
-        .single()
-      if (error) {
-        if (error.code === '23505') {
-          alert('Такой бренд уже существует')
-        } else {
-          alert('Ошибка добавления бренда: ' + error.message)
-        }
-        return
-      }
-      if (data) {
-        setBrands(prev => [...prev, data])
-        setBrand(data.name)
-      }
-      setNewBrandName('')
-      setShowBrandModal(false)
-      alert('Бренд добавлен! ✅')
-    } catch (error) {
-      console.error('Ошибка:', error)
-      alert('Ошибка при добавлении бренда')
-    }
-  }
-
   const handleSubcategoryChange = (newSubcategory: string) => {
     setSubcategory(newSubcategory)
     clearError('subcategory')
@@ -585,11 +534,14 @@ export default function ProductsPage() {
   const hiddenCount = products.filter(p => p.is_active === false).length
   const saleCount = products.filter(p => hasSale(p)).length
 
-  // ✅ Превью цены в модалке
-  const previewBase = parseFloat(priceUsd) > 0 ? parseFloat(priceUsd) : null
-  const previewSale = parseFloat(salePriceUsd) > 0 ? parseFloat(salePriceUsd) : null
-  const previewEffective = previewSale ?? previewBase
-  const toSums = (usd: number) => `${Math.round(usd * exchangeRate).toLocaleString('ru-RU')} сум`
+  // ✅ Компактный бейдж скидки вместо большого блока предпросмотра
+  const baseNum = parseFloat(priceUsd) > 0 ? parseFloat(priceUsd) : null
+  const saleNum = parseFloat(salePriceUsd) > 0 ? parseFloat(salePriceUsd) : null
+  const discountPercent =
+    baseNum && saleNum && saleNum < baseNum
+      ? Math.round((1 - saleNum / baseNum) * 100)
+      : null
+
   const totalStock = Object.values(selectedSizes).reduce((sum, s) => sum + s, 0)
 
   if (loading) {
@@ -831,15 +783,21 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* ✅ НОВАЯ МОДАЛКА ТОВАРА — секции, превью цены, sticky-футер */}
+      {/* ✅ МОДАЛКА ТОВАРА — секции, sticky-футер */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#FBF9F4] rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl">
             {/* Шапка */}
             <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[#E8E2D5] flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[#1B2A4A] text-white flex items-center justify-center flex-shrink-0">
-                  {editingProduct ? <Edit size={18} /> : <Plus size={18} />}
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#1B2A4A] text-white flex items-center justify-center flex-shrink-0">
+                  {editingProduct?.images?.[0] ? (
+                    <img src={editingProduct.images[0]} alt="" className="w-full h-full object-cover" />
+                  ) : editingProduct ? (
+                    <Edit size={18} />
+                  ) : (
+                    <Plus size={18} />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-[#1B2A4A] leading-tight">
@@ -881,7 +839,7 @@ export default function ProductsPage() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <FieldLabel text="Название" flag="🇷" required />
+                    <FieldLabel text="Название" flag="🇷🇺" required />
                     <input
                       type="text"
                       value={nameRu}
@@ -894,7 +852,7 @@ export default function ProductsPage() {
                     {errors.nameRu && <p className="text-xs text-[#9B3B3B] mt-1">{errors.nameRu}</p>}
                   </div>
                   <div>
-                    <FieldLabel text="Название" flag="🇺🇿" hint="если пусто, будет как RU" />
+                    <FieldLabel text="Название" flag="🇺" hint="если пусто, будет как RU" />
                     <input
                       type="text"
                       value={nameUz}
@@ -907,7 +865,7 @@ export default function ProductsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <FieldLabel text="Описание" flag="🇷" />
+                    <FieldLabel text="Описание" flag="🇷🇺" />
                     <textarea
                       value={descriptionRu}
                       onChange={(e) => setDescriptionRu(e.target.value)}
@@ -933,7 +891,7 @@ export default function ProductsPage() {
               <Section
                 icon={<Tag size={18} />}
                 title="Категория и бренд"
-                subtitle="От неё зависит набор размеров"
+                subtitle="От подкатегории зависит набор размеров"
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
@@ -970,25 +928,16 @@ export default function ProductsPage() {
                   </div>
                   <div>
                     <FieldLabel text="Бренд" />
-                    <div className="flex gap-2">
-                      <select
-                        value={brand}
-                        onChange={(e) => setBrand(e.target.value)}
-                        className="flex-1 p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white text-[#1B2A4A]"
-                      >
-                        <option value="">Не выбран</option>
-                        {brands.map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => setShowBrandModal(true)}
-                        title="Добавить бренд"
-                        className="w-12 rounded-lg bg-[#1B2A4A]/5 text-[#1B2A4A] hover:bg-[#1B2A4A]/10 flex items-center justify-center flex-shrink-0 transition-colors"
-                      >
-                        <Plus size={18} />
-                      </button>
-                    </div>
+                    <select
+                      value={brand}
+                      onChange={(e) => setBrand(e.target.value)}
+                      className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white text-[#1B2A4A]"
+                    >
+                      <option value="">Не выбран</option>
+                      {brands.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </Section>
@@ -997,7 +946,7 @@ export default function ProductsPage() {
               <Section
                 icon={<DollarSign size={18} />}
                 title="Цены"
-                subtitle={`Курс: 1$ = ${exchangeRate.toLocaleString('ru-RU')} сум`}
+                subtitle="Основная цена и цена со скидкой, в USD"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1019,7 +968,7 @@ export default function ProductsPage() {
                     {errors.priceUsd && <p className="text-xs text-[#9B3B3B] mt-1">{errors.priceUsd}</p>}
                   </div>
                   <div>
-                    <FieldLabel text="🏷️ Цена со скидкой" hint="пусто = без скидки" />
+                    <FieldLabel text="Цена со скидкой" hint="пусто = без скидки" />
                     <div className="relative">
                       <input
                         type="number"
@@ -1034,41 +983,15 @@ export default function ProductsPage() {
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8275] font-medium">$</span>
                     </div>
-                    {errors.salePriceUsd && <p className="text-xs text-[#9B3B3B] mt-1">{errors.salePriceUsd}</p>}
+                    {errors.salePriceUsd ? (
+                      <p className="text-xs text-[#9B3B3B] mt-1">{errors.salePriceUsd}</p>
+                    ) : discountPercent !== null ? (
+                      <p className="text-xs text-[#9B3B3B] mt-1 font-medium">
+                        🏷️ Скидка {discountPercent}% от основной цены
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-
-                {/* ✅ Live-превью цены в обеих валютах */}
-                {previewBase !== null && (
-                  <div className="mt-4 rounded-xl bg-gradient-to-br from-[#1B2A4A] to-[#142038] p-4 text-white">
-                    <p className="text-[10px] font-semibold tracking-[0.2em] text-[#C9A961] mb-2">
-                      ПРЕДПРОСМОТР В ПРИЛОЖЕНИИ
-                    </p>
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        {previewSale !== null && (
-                          <p className="text-sm text-white/50 line-through">${previewBase}</p>
-                        )}
-                        <p className={`font-bold ${previewSale !== null ? 'text-2xl text-[#C9A961]' : 'text-2xl'}`}>
-                          ${previewEffective}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        {previewSale !== null && (
-                          <p className="text-xs text-white/50 line-through">{toSums(previewBase)}</p>
-                        )}
-                        <p className={`font-bold ${previewSale !== null ? 'text-lg text-[#C9A961]' : 'text-lg'}`}>
-                          {toSums(previewEffective!)}
-                        </p>
-                      </div>
-                    </div>
-                    {previewSale !== null && (
-                      <p className="text-xs text-white/60 mt-2">
-                        🏷️ Скидка {Math.round((1 - previewSale / previewBase) * 100)}% от основной цены
-                      </p>
-                    )}
-                  </div>
-                )}
               </Section>
 
               {/* 4. Фото */}
@@ -1257,56 +1180,6 @@ export default function ProductsPage() {
                   </>
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Модалка добавления бренда */}
-      {showBrandModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-[#FBF9F4] rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Добавить бренд</h2>
-              <button
-                onClick={() => {
-                  setShowBrandModal(false)
-                  setNewBrandName('')
-                }}
-                className="p-2 rounded-lg text-[#1B2A4A] hover:bg-[#E8E2D5] transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <FieldLabel text="Название бренда" required />
-                <input
-                  type="text"
-                  value={newBrandName}
-                  onChange={(e) => setNewBrandName(e.target.value)}
-                  placeholder="Например: Gucci"
-                  className="w-full p-3 border border-[#E8E2D5] rounded-lg focus:outline-none focus:border-[#1B2A4A] bg-white text-[#1B2A4A]"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowBrandModal(false)
-                    setNewBrandName('')
-                  }}
-                  className="flex-1 px-4 py-3 bg-[#E8E2D5] rounded-xl font-medium text-[#1B2A4A]"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleAddBrand}
-                  className="flex-1 px-4 py-3 bg-[#1B2A4A] text-white rounded-xl font-bold hover:bg-[#142038]"
-                >
-                  Добавить
-                </button>
-              </div>
             </div>
           </div>
         </div>
