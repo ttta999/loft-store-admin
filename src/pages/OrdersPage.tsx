@@ -43,11 +43,35 @@ const PICKUP_MESSAGES: Record<string, string> = {
   'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
 }
 
+// ✅ Валюта заказа: берём из поля order_currency (USD/UZS), для старых заказов фолбэк UZS
+const getOrderCurrency = (order: any): 'USD' | 'UZS' => {
+  if (order?.order_currency === 'USD') return 'USD'
+  if (order?.order_currency === 'UZS') return 'UZS'
+  return 'UZS'
+}
+
+// ✅ Форматирование цены заказа — в ВАЛЮТЕ ЗАКАЗА
 const formatOrderPrice = (order: any) => {
-  if (order.total_price_uzs) {
-    return `${Number(order.total_price_uzs).toLocaleString()} сум`
+  const cur = getOrderCurrency(order)
+  if (cur === 'USD') {
+    return `$${Number(order.total_price_usd || 0).toLocaleString()}`
   }
-  return `$${order.total_price_usd}`
+  const uzs = order.total_price_uzs != null
+    ? Number(order.total_price_uzs)
+    : Math.round((order.total_price_usd || 0) * (order.exchange_rate_at_order || 12100))
+  return `${uzs.toLocaleString()} сум`
+}
+
+// ✅ Форматирование цены товара в заказе — в ВАЛЮТЕ ЗАКАЗА
+const formatItemPrice = (item: any, order: any) => {
+  const cur = getOrderCurrency(order)
+  if (cur === 'USD') {
+    return `$${Number(item.priceUsd || 0)}`
+  }
+  const uzs = item.priceUzs != null
+    ? Number(item.priceUzs)
+    : Math.round((item.priceUsd || 0) * (order.exchange_rate_at_order || 12100))
+  return `${uzs.toLocaleString()} сум`
 }
 
 export default function OrdersPage() {
@@ -156,7 +180,7 @@ export default function OrdersPage() {
   }
 
   const handleConfirmPayment = async (order: any) => {
-    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)}`)
+    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
     if (!confirmed) return
     const success = await confirmPayment(order.id)
     if (success) {
@@ -384,11 +408,21 @@ export default function OrdersPage() {
 
 function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
   const clientChatId = order.user_chat_id || order.user_id
+  const orderCurrency = getOrderCurrency(order)
   return (
     <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border-2 border-[#C9A961]/30">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
+          <h3 className="font-bold text-lg text-[#1B2A4A]">
+            Заказ №{order.id}
+            <span className={`ml-2 inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              orderCurrency === 'USD'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              {orderCurrency}
+            </span>
+          </h3>
           <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
@@ -402,7 +436,9 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
         <div>
           <p className="text-sm text-[#1B2A4A]">👤 <strong>Клиент:</strong> {order.client_name}</p>
           <p className="text-sm text-[#1B2A4A]">📞 <strong>Телефон:</strong> {order.client_phone}</p>
-          <p className="text-sm text-[#1B2A4A]">💰 <strong>Сумма:</strong> {formatOrderPrice(order)}</p>
+          <p className="text-sm text-[#1B2A4A]">
+            💰 <strong>Сумма:</strong> {formatOrderPrice(order)}
+          </p>
           <p className="text-sm text-[#1B2A4A]">🚚 {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</p>
         </div>
         <div>
@@ -411,7 +447,7 @@ function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
               <strong>Товары:</strong>
               {order.items.map((item: any, idx: number) => (
                 <div key={idx} className="text-xs mt-1">
-                  • {item.name} ({item.size}) × {item.quantity}
+                  • {item.name} ({item.size}) × {item.quantity} — {formatItemPrice(item, order)}
                 </div>
               ))}
             </div>
@@ -491,11 +527,21 @@ function OrderCard({
 }: OrderCardProps) {
   const availableStatuses = getAvailableStatuses(order.delivery_method)
   const clientChatId = order.user_chat_id || order.user_id
+  const orderCurrency = getOrderCurrency(order)
   return (
     <div className="bg-[#FBF9F4] rounded-xl p-4 shadow-sm border border-[#E8E2D5]">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-bold text-lg text-[#1B2A4A]">Заказ №{order.id}</h3>
+          <h3 className="font-bold text-lg text-[#1B2A4A]">
+            Заказ №{order.id}
+            <span className={`ml-2 inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              orderCurrency === 'USD'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              {orderCurrency}
+            </span>
+          </h3>
           <p className="text-sm text-[#1B2A4A]">
             {new Date(order.created_at).toLocaleString('ru-RU')}
           </p>
@@ -548,7 +594,7 @@ function OrderCard({
           <h4 className="font-medium mb-2 text-[#1B2A4A]">Товары:</h4>
           {order.items.map((item: any, idx: number) => (
             <div key={idx} className="text-sm text-[#1B2A4A] mb-1">
-              {idx + 1}. {item.name} — {item.size} — {item.quantity} шт. — ${item.priceUsd}
+              {idx + 1}. {item.name} — {item.size} — {item.quantity} шт. — {formatItemPrice(item, order)}
             </div>
           ))}
         </div>
