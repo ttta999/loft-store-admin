@@ -6,6 +6,7 @@ import {
   Copy, Star, Loader2, CheckCircle2, Circle, Info, Tag, DollarSign, Ruler,
   Image as ImageIcon, Save,
 } from 'lucide-react'
+import { sortSizes, sortSizeStrings } from '../lib/sortSizes'
 
 const CATEGORIES = [
   {
@@ -92,7 +93,6 @@ interface Brand {
   name: string
 }
 
-// ✅ Секция модалки: карточка с иконкой, заголовком и подзаголовком
 function Section({ icon, title, subtitle, right, children }: {
   icon: React.ReactNode
   title: string
@@ -119,7 +119,6 @@ function Section({ icon, title, subtitle, right, children }: {
   )
 }
 
-// ✅ Подпись поля с флажком и звёздочкой обязательности
 function FieldLabel({ text, flag, required, hint }: { text: string; flag?: string; required?: boolean; hint?: string }) {
   return (
     <label className="flex items-center gap-1.5 text-sm font-medium text-[#1B2A4A] mb-1.5">
@@ -241,7 +240,6 @@ export default function ProductsPage() {
     setImages(prev => prev.filter((_, i) => i !== index))
   }
 
-  // ✅ Сделать фото обложкой (переместить первым)
   const makeCover = (index: number) => {
     setImages(prev => [prev[index], ...prev.filter((_, i) => i !== index)])
   }
@@ -291,7 +289,6 @@ export default function ProductsPage() {
     setShowModal(true)
   }
 
-  // ✅ Дублировать товар — открывает форму создания с предзаполненными данными
   const openDuplicateModal = (product: Product) => {
     setEditingProduct(null)
     setNameRu(`${product.name_ru} (копия)`)
@@ -325,7 +322,6 @@ export default function ProductsPage() {
   }
 
   const handleSave = async () => {
-    // ✅ Инлайн-валидация
     const newErrors: Record<string, string> = {}
     if (!nameRu.trim()) newErrors.nameRu = 'Укажите название (RU)'
     if (!priceUsd || parseFloat(priceUsd) <= 0) newErrors.priceUsd = 'Укажите цену больше 0'
@@ -500,16 +496,15 @@ export default function ProductsPage() {
 
   const getAvailableSizes = () => {
     const config = SUBCATEGORY_SIZE_CONFIG[subcategory]
+    let raw: string[] = []
     if (config && config.range.length > 0) {
-      return config.range
+      raw = config.range
+    } else if (sizeType === 'numeric') {
+      raw = ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
+    } else if (sizeType === 'alphabetical') {
+      raw = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
     }
-    if (sizeType === 'numeric') {
-      return ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
-    }
-    if (sizeType === 'alphabetical') {
-      return ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-    }
-    return []
+    return sortSizeStrings(raw)
   }
 
   const getSubcategories = () => {
@@ -534,7 +529,6 @@ export default function ProductsPage() {
   const hiddenCount = products.filter(p => p.is_active === false).length
   const saleCount = products.filter(p => hasSale(p)).length
 
-  // ✅ Компактный бейдж скидки вместо большого блока предпросмотра
   const baseNum = parseFloat(priceUsd) > 0 ? parseFloat(priceUsd) : null
   const saleNum = parseFloat(salePriceUsd) > 0 ? parseFloat(salePriceUsd) : null
   const discountPercent =
@@ -658,7 +652,10 @@ export default function ProductsPage() {
 
         <div className="space-y-4">
           {filteredProducts.map((product) => {
-            const productVariants = variants.filter(v => v.product_id === product.id)
+            const productVariants = sortSizes(
+              variants.filter(v => v.product_id === product.id),
+              v => v.size_value
+            )
             const totalStockList = productVariants.reduce((sum, v) => sum + v.stock, 0)
             const isActive = product.is_active !== false
             const sale = hasSale(product)
