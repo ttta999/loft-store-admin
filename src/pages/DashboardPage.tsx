@@ -1,9 +1,73 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
-import { Package, Globe, LogOut, TrendingUp, ShoppingBag, BarChart3, Settings, Tag } from 'lucide-react'
+import {
+  Package,
+  Globe,
+  LogOut,
+  TrendingUp,
+  ShoppingBag,
+  BarChart3,
+  Settings,
+  Tag,
+  ChevronRight,
+  Store,
+} from 'lucide-react'
 import { logout } from '../lib/auth'
 import NotificationBell from '../components/NotificationBell'
+
+// ✅ KPI-карточка в стиле страницы заказа (десктоп)
+function KpiCard({ icon, iconColor, label, value, subtitle }: {
+  icon: React.ReactNode
+  iconColor: string
+  label: string
+  value: string
+  subtitle: string
+}) {
+  return (
+    <div className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-5 flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] ${iconColor}`}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-[#8A8275] truncate">{label}</p>
+        <p className="text-3xl font-bold text-[#1B2A4A] truncate mt-0.5">{value}</p>
+        <p className="text-xs text-[#8A8275] mt-0.5 truncate">{subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+// ✅ Карточка-ссылка на раздел (десктоп)
+function NavCard({ icon, iconBg, title, description, count, onClick }: {
+  icon: React.ReactNode
+  iconBg: string
+  title: string
+  description: string
+  count?: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-5 text-left hover:shadow-md hover:border-[#C9A961] transition-all group"
+    >
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] ${iconBg}`}>
+          {icon}
+        </div>
+        <ChevronRight size={18} className="text-[#8A8275] group-hover:text-[#C9A961] group-hover:translate-x-0.5 transition-all" />
+      </div>
+      <h2 className="text-lg font-bold text-[#1B2A4A]">{title}</h2>
+      <p className="text-xs text-[#8A8275] mt-1">{description}</p>
+      {count !== undefined && (
+        <span className="inline-block mt-3 px-2.5 py-1 rounded-full bg-[#F5F1E8] border border-[#E8E2D5] text-xs font-bold text-[#1B2A4A]">
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -53,9 +117,9 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
-        <div className="text-center">
+        <div className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-10 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A]">Загрузка...</p>
+          <p className="text-[#1B2A4A] font-medium">Загрузка панели...</p>
         </div>
       </div>
     )
@@ -63,119 +127,105 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8]">
-      <div className="bg-[#FBF9F4] border-b border-[#E8E2D5] p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[#1B2A4A]">🔐 LOFT Admin Panel</h1>
-          <div className="flex items-center gap-3">
+      {/* ✅ Sticky-шапка (десктоп): лого слева, действия справа */}
+      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 backdrop-blur-sm border-b border-[#E8E2D5] px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-full bg-[#1B2A4A] flex items-center justify-center flex-shrink-0">
+              <Store size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold text-[#1B2A4A] truncate">LOFT Admin Panel</h1>
+              <p className="text-xs text-[#8A8275] mt-0.5 truncate">Панель управления магазином</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
             <NotificationBell />
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-[#1B2A4A] hover:text-[#C9A961]"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#E8E2D5] bg-[#FBF9F4] text-sm font-bold text-[#9B3B3B] hover:bg-red-50 hover:border-red-200 transition-colors"
             >
-              <LogOut size={20} />
-              <span>Выйти</span>
+              <LogOut size={16} />
+              Выйти
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="max-w-6xl mx-auto p-6">
+        {/* ✅ KPI-строка: 3 карточки со счётчиками */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
-            <div className="flex items-center gap-3 mb-2">
-              <Package size={24} className="text-[#1B2A4A]" />
-              <h3 className="font-bold text-[#1B2A4A]">Активные заказы</h3>
-            </div>
-            <p className="text-3xl font-bold text-[#1B2A4A]">{activeOrders}</p>
-          </div>
-
-          <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
-            <div className="flex items-center gap-3 mb-2">
-              <Globe size={24} className="text-[#C9A961]" />
-              <h3 className="font-bold text-[#1B2A4A]">Спецзаказы</h3>
-            </div>
-            <p className="text-3xl font-bold text-[#1B2A4A]">{pendingRequests}</p>
-          </div>
-
-          <div className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5]">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp size={24} className="text-[#C9A961]" />
-              <h3 className="font-bold text-[#1B2A4A]">Выручка</h3>
-            </div>
-            <p className="text-3xl font-bold text-[#1B2A4A]">${totalRevenue.toLocaleString()}</p>
-          </div>
+          <KpiCard
+            icon={<Package size={20} className="text-[#1B2A4A]" />}
+            iconColor="bg-[#F5F1E8]"
+            label="Активные заказы"
+            value={String(activeOrders)}
+            subtitle={`Всего заказов: ${orders.length}`}
+          />
+          <KpiCard
+            icon={<Globe size={20} className="text-[#C9A961]" />}
+            iconColor="bg-[#F5F1E8]"
+            label="Спецзаказы на рассмотрении"
+            value={String(pendingRequests)}
+            subtitle={`Всего заявок: ${chinaRequests.length}`}
+          />
+          <KpiCard
+            icon={<TrendingUp size={20} className="text-[#C9A961]" />}
+            iconColor="bg-[#F5F1E8]"
+            label="Выручка"
+            value={`$${totalRevenue.toLocaleString()}`}
+            subtitle="По всем заказам"
+          />
         </div>
 
+        {/* ✅ Сетка разделов: карточки-ссылки */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <button
+          <NavCard
+            icon={<Package size={20} className="text-[#1B2A4A]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Заказы"
+            description="Управление заказами клиентов"
+            count={`Всего: ${orders.length}`}
             onClick={() => navigate('/orders')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Package size={24} className="text-[#1B2A4A]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Заказы</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Управление заказами клиентов</p>
-            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {orders.length}</p>
-          </button>
-
-          <button
+          />
+          <NavCard
+            icon={<Globe size={20} className="text-[#C9A961]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Спецзаказы"
+            description="Заявки на спецзаказы из Китая"
+            count={`Всего: ${chinaRequests.length}`}
             onClick={() => navigate('/china')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Globe size={24} className="text-[#C9A961]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Спецзаказы</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Заявки на спецзаказы</p>
-            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {chinaRequests.length}</p>
-          </button>
-
-          <button
+          />
+          <NavCard
+            icon={<ShoppingBag size={20} className="text-[#1B2A4A]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Товары"
+            description="Управление каталогом и остатками"
+            count={`Всего: ${productsCount}`}
             onClick={() => navigate('/products')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <ShoppingBag size={24} className="text-[#1B2A4A]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Товары</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Управление каталогом</p>
-            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {productsCount}</p>
-          </button>
-
-          <button
+          />
+          <NavCard
+            icon={<BarChart3 size={20} className="text-[#C9A961]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Аналитика"
+            description="Статистика и отчёты продаж"
             onClick={() => navigate('/analytics')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <BarChart3 size={24} className="text-[#C9A961]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Аналитика</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Статистика и отчёты</p>
-          </button>
-
-          <button
+          />
+          <NavCard
+            icon={<Settings size={20} className="text-[#1B2A4A]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Настройки"
+            description="Курс валют, скидки, доставка"
             onClick={() => navigate('/settings')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Settings size={24} className="text-[#1B2A4A]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Настройки</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Курс валют и параметры</p>
-          </button>
-
-          <button
+          />
+          <NavCard
+            icon={<Tag size={20} className="text-[#C9A961]" />}
+            iconBg="bg-[#F5F1E8]"
+            title="Бренды"
+            description="Управление списком брендов"
+            count={`Всего: ${brandsCount}`}
             onClick={() => navigate('/brands')}
-            className="bg-[#FBF9F4] p-6 rounded-xl shadow-sm border border-[#E8E2D5] hover:shadow-md transition-shadow text-left"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Tag size={24} className="text-[#C9A961]" />
-              <h2 className="text-xl font-bold text-[#1B2A4A]">Бренды</h2>
-            </div>
-            <p className="text-[#1B2A4A]">Управление брендами</p>
-            <p className="text-sm text-[#1B2A4A] mt-2">Всего: {brandsCount}</p>
-          </button>
+          />
         </div>
       </div>
     </div>
