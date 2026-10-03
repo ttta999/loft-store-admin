@@ -1,25 +1,54 @@
 // ✅ Единый файл кеша для всей админки.
 // Module-level переменные переживают размонтирование компонентов.
-// Типобезопасные get/set/invalidate функции для каждого типа данных.
+
+// ========== ТИПЫ АНАЛИТИКИ ==========
+export interface OrderStatsEntry {
+  totalRevenue: number
+  totalOrders: number
+  averageOrderValue: number
+  activeOrders: number
+  cancelledOrders: number
+  pendingPaymentOrders: number
+  uniqueCustomers: number
+  deliveryOrders: number
+  pickupOrders: number
+  onlinePaymentOrders: number
+  receiptPaymentOrders: number
+}
+
+export interface DailyStatsEntry {
+  dateKey: string   // "2026-10-03" — для сортировки
+  dateLabel: string // "03.10" — для отображения
+  revenue: number
+  orders: number
+}
+
+export interface ProductStatsEntry {
+  product_id: string
+  product_name: string
+  total_sold: number
+  revenue: number
+}
+
+export interface CategoryStat {
+  key: string
+  label: string
+  revenue: number
+  sold: number
+}
+
+export interface BrandStat {
+  name: string
+  revenue: number
+  sold: number
+}
 
 export interface AnalyticsCacheEntry {
-  orderStats: {
-    totalRevenue: number
-    totalOrders: number
-    averageOrderValue: number
-    activeOrders: number
-  }
-  dailyStats: Array<{
-    date: string
-    revenue: number
-    orders: number
-  }>
-  topProducts: Array<{
-    product_id: string
-    product_name: string
-    total_sold: number
-    revenue: number
-  }>
+  orderStats: OrderStatsEntry
+  dailyStats: DailyStatsEntry[]
+  topProducts: ProductStatsEntry[]
+  categoryStats: CategoryStat[]
+  brandStats: BrandStat[]
   timestamp: number
 }
 
@@ -27,10 +56,9 @@ export type AnalyticsPeriod = 'week' | 'month' | 'year' | 'all'
 
 const DEFAULT_TTL = 5 * 60 * 1000 // 5 минут
 
-// ✅ Кеш аналитики: Map<period, entry> — храним данные по каждому периоду отдельно
+// ✅ Кеш аналитики: Map<period, entry>
 const analyticsCache = new Map<AnalyticsPeriod, AnalyticsCacheEntry>()
 
-// ========== АНАЛИТИКА ==========
 export const analyticsCacheApi = {
   get(period: AnalyticsPeriod, ttl: number = DEFAULT_TTL): AnalyticsCacheEntry | null {
     const entry = analyticsCache.get(period)
@@ -49,7 +77,6 @@ export const analyticsCacheApi = {
     })
   },
 
-  /** Сбросить кеш одного периода */
   invalidate(period?: AnalyticsPeriod) {
     if (period) {
       analyticsCache.delete(period)
@@ -79,7 +106,7 @@ export const ordersCacheApi = {
   invalidate() {
     ordersCache = null
     ordersCacheTimestamp = 0
-    // При изменении заказа — сбрасываем и аналитику (она зависит от заказов)
+    // При изменении заказа — сбрасываем и аналитику
     analyticsCacheApi.invalidate()
   },
 }
@@ -127,7 +154,6 @@ export const productsCacheApi = {
   invalidate() {
     productsCache = null
     productsCacheTimestamp = 0
-    // Товары влияют на топ-товары аналитики
     analyticsCacheApi.invalidate()
   },
 }
@@ -156,7 +182,6 @@ export const brandsCacheApi = {
 }
 
 // ========== ОБЩИЙ СБРОС ==========
-/** Сбросить весь кеш админки (использовать при logout) */
 export function invalidateAllCaches() {
   analyticsCacheApi.invalidate()
   ordersCacheApi.invalidate()
