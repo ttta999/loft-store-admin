@@ -14,10 +14,11 @@ import {
   Image as ImageIcon,
   DollarSign,
   X,
-  Clock,
   Send,
   XCircle,
   Info,
+  Search,
+  ChevronDown,
 } from 'lucide-react'
 
 const STATUSES = [
@@ -46,12 +47,29 @@ const getStatusColor = (status: string) => {
   }[status] || 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
 }
 
+// ✅ Компактная мини-строка информации внутри раскрытой карточки (как в OrdersPage)
+function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5 p-2.5 bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border">
+      <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{label}</p>
+        <div className="text-xs font-medium text-[#1B2A4A] dark:text-white mt-0.5 break-all">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function ChinaPage() {
   const navigate = useNavigate()
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const [showPriceModal, setShowPriceModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -240,9 +258,20 @@ export default function ChinaPage() {
     }
   }
 
-  const filteredRequests = filter === 'all'
-    ? requests
-    : requests.filter(r => r.status === filter)
+  // ✅ ПОИСК: по номеру заявки, названию товара, ссылке, комментарию
+  const q = searchQuery.trim().toLowerCase()
+  const searchFiltered = q
+    ? requests.filter(r => {
+        if (String(r.id).includes(q)) return true
+        if ((r.product_name || '').toLowerCase().includes(q)) return true
+        if ((r.link || '').toLowerCase().includes(q)) return true
+        if ((r.comment || '').toLowerCase().includes(q)) return true
+        if ((r.size_color || '').toLowerCase().includes(q)) return true
+        return false
+      })
+    : requests
+
+  const filteredRequests = searchFiltered.filter(r => filter === 'all' || r.status === filter)
 
   if (loading) {
     return (
@@ -259,9 +288,9 @@ export default function ChinaPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       <Toaster position="top-center" richColors />
 
-      {/* ✅ Sticky-шапка: назад слева, заголовок+иконка по центру, кнопка refresh справа */}
+      {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-4">
             <button
               onClick={() => navigate('/')}
@@ -291,232 +320,235 @@ export default function ChinaPage() {
             </button>
           </div>
 
-          {/* ✅ Переключатель фильтров — pills со счётчиками */}
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
-                filter === 'all'
-                  ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
-                  : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
-              }`}
-            >
-              Все <span className="opacity-70">({requests.length})</span>
-            </button>
-            {STATUSES.map(({ old, new: newLabel }) => {
-              const count = requests.filter(r => r.status === old).length
-              return (
-                <button
-                  key={old}
-                  onClick={() => setFilter(old)}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
-                    filter === old
-                      ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
-                      : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
-                  }`}
-                >
-                  {newLabel} <span className="opacity-70">({count})</span>
-                </button>
-              )
-            })}
+          {/* ✅ Поиск по номеру / названию / ссылке / комментарию */}
+          <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border flex items-center gap-3 p-3">
+            <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+              <Search size={16} className="text-[#1B2A4A] dark:text-white" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск: № заявки, название, ссылка..."
+              className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-1.5 rounded-lg text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* ✅ Фильтр статусов — компактный селект */}
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider flex-shrink-0">
+                Статус:
+              </span>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold truncate"
+              >
+                <option value="all">Все ({searchFiltered.length})</option>
+                {STATUSES.map(s => {
+                  const count = searchFiltered.filter(r => r.status === s.old).length
+                  return (
+                    <option key={s.old} value={s.old}>
+                      {s.new} ({count})
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+            <span className="px-3 py-2 rounded-xl bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-sm font-bold text-[#1B2A4A] dark:text-white flex-shrink-0">
+              Показано: <span className="text-[#C9A961]">{filteredRequests.length}</span>
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-6">
         {filteredRequests.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">
               <Globe size={28} className="text-[#8A8275] dark:text-gray-300" />
             </div>
             <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">
-              {filter === 'all' ? 'Спецзаказов пока нет' : 'Нет заявок с таким статусом'}
+              {q ? 'Спецзаказов не найдено' : filter === 'all' ? 'Спецзаказов пока нет' : 'Нет заявок с таким статусом'}
             </p>
             <p className="text-sm text-[#8A8275] dark:text-gray-300">
-              {filter === 'all'
-                ? 'Когда клиенты начнут отправлять заявки — они появятся здесь'
-                : 'Попробуйте выбрать другой фильтр'}
+              {q
+                ? `По запросу «${searchQuery}» ничего нет`
+                : filter === 'all'
+                  ? 'Когда клиенты начнут отправлять заявки — они появятся здесь'
+                  : 'Попробуйте выбрать другой фильтр'}
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          /* ✅ СПИСОК СПЕЦЗАКАЗОВ — компактные строки-аккордеон */
+          <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden divide-y divide-[#E8E2D5] dark:divide-dark-border">
             {filteredRequests.map((request) => {
-              // ✅ Разделяем ссылку и название (как в приложении)
               const requestLink =
                 typeof request.link === 'string' && request.link.startsWith('http') ? request.link : null
               const requestName =
                 request.product_name || (request.link && !requestLink ? request.link : null)
+              const isOpen = expandedId === String(request.id)
+              const priceInSums = request.manager_price
+                ? Math.round(request.manager_price * (request.exchange_rate_at_order || 12100))
+                : 0
 
               return (
-                <div
-                  key={request.id}
-                  className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden"
-                >
-                  {/* ✅ Шапка карточки: номер + дата + статус-пилла */}
-                  <div className="flex items-start justify-between gap-3 p-5 pb-4 border-b border-[#E8E2D5] dark:border-dark-border">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <h3 className="text-lg font-bold text-[#1B2A4A] dark:text-white truncate">
-                          Спецзаказ №{request.id}
-                        </h3>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[#8A8275] dark:text-gray-300">
-                        <Clock size={12} />
-                        <span>{new Date(request.created_at).toLocaleString('ru-RU')}</span>
-                      </div>
-                      {request.user_id && (
-                        <div className="flex items-center gap-2 text-xs text-[#8A8275] dark:text-gray-300 mt-1">
-                          <span className="font-mono">Chat ID: {request.user_id}</span>
-                        </div>
-                      )}
+                <div key={request.id}>
+                  {/* ✅ Компактная строка */}
+                  <button
+                    onClick={() => setExpandedId(isOpen ? null : String(request.id))}
+                    className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                      <Globe size={16} className="text-[#C9A961]" />
                     </div>
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getStatusColor(request.status)}`}>
-                      {STATUSES.find(s => s.old === request.status)?.new || request.status}
-                    </span>
-                  </div>
 
-                  {/* ✅ Строки-иконки с данными (как в приложении) */}
-                  <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
-                    {requestName && (
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                          <Tag size={16} className="text-[#1B2A4A] dark:text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8A8275] dark:text-gray-300 mb-0.5">
-                            Название товара
-                          </p>
-                          <p className="text-sm font-medium text-[#1B2A4A] dark:text-white break-words">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
+                          Спецзаказ №{request.id}
+                        </p>
+                        {request.image_url && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
+                            📷
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
+                        {new Date(request.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {requestName ? ` · ${requestName}` : ''}
+                      </p>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      {priceInSums > 0 ? (
+                        <p className="text-sm font-bold text-[#C9A961]">
+                          {priceInSums.toLocaleString('ru-RU')} сум
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[#8A8275] dark:text-gray-400">не оценён</p>
+                      )}
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(request.status)}`}>
+                        {STATUSES.find(s => s.old === request.status)?.new || request.status}
+                      </span>
+                    </div>
+
+                    <ChevronDown
+                      size={18}
+                      className={`text-[#8A8275] dark:text-gray-300 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {/* ✅ Раскрытые детали */}
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-3 bg-[#F5F1E8]/40 dark:bg-dark-accent/30 border-t border-[#E8E2D5] dark:border-dark-border space-y-3">
+                      {/* Инфо-сетка */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {requestName && (
+                          <InfoMini icon={<Tag size={14} className="text-[#1B2A4A] dark:text-white" />} label="Название товара">
                             {requestName}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {requestLink && (
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                          <Link2 size={16} className="text-[#1B2A4A] dark:text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8A8275] dark:text-gray-300 mb-0.5">
-                            Ссылка на товар
-                          </p>
-                          <a
-                            href={requestLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold hover:underline break-all"
-                          >
-                            {requestLink}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {request.size_color && (
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                          <Ruler size={16} className="text-[#1B2A4A] dark:text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8A8275] dark:text-gray-300 mb-0.5">
-                            Размер / Цвет
-                          </p>
-                          <p className="text-sm font-medium text-[#1B2A4A] dark:text-white">
+                          </InfoMini>
+                        )}
+                        {requestLink && (
+                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label="Ссылка на товар">
+                            <a
+                              href={requestLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#C9A961] hover:underline break-all"
+                            >
+                              {requestLink}
+                            </a>
+                          </InfoMini>
+                        )}
+                        {request.size_color && (
+                          <InfoMini icon={<Ruler size={14} className="text-[#1B2A4A] dark:text-white" />} label="Размер / Цвет">
                             {request.size_color}
-                          </p>
-                        </div>
+                          </InfoMini>
+                        )}
+                        {request.comment && (
+                          <InfoMini icon={<MessageCircle size={14} className="text-[#1B2A4A] dark:text-white" />} label="Комментарий">
+                            <span className="break-words whitespace-pre-wrap">{request.comment}</span>
+                          </InfoMini>
+                        )}
+                        {request.user_id && (
+                          <InfoMini icon={<MessageCircle size={14} className="text-[#1B2A4A] dark:text-white" />} label="Chat ID">
+                            <span className="font-mono">{request.user_id}</span>
+                          </InfoMini>
+                        )}
+                        {request.image_url && (
+                          <InfoMini icon={<ImageIcon size={14} className="text-[#1B2A4A] dark:text-white" />} label="Фото товара">
+                            <a
+                              href={request.image_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block"
+                            >
+                              <img
+                                src={request.image_url}
+                                alt="Product"
+                                className="w-20 h-20 object-cover rounded-lg border border-[#E8E2D5] dark:border-dark-border hover:opacity-80 transition-opacity"
+                              />
+                            </a>
+                          </InfoMini>
+                        )}
                       </div>
-                    )}
 
-                    {request.comment && (
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                          <MessageCircle size={16} className="text-[#1B2A4A] dark:text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8A8275] dark:text-gray-300 mb-0.5">
-                            Комментарий клиента
-                          </p>
-                          <p className="text-sm font-medium text-[#1B2A4A] dark:text-white break-words">
-                            {request.comment}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {request.image_url && (
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                          <ImageIcon size={16} className="text-[#1B2A4A] dark:text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#8A8275] dark:text-gray-300 mb-1.5">
-                            Фото товара
-                          </p>
-                          <a
-                            href={request.image_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block"
-                          >
-                            <img
-                              src={request.image_url}
-                              alt="Product"
-                              className="w-28 h-28 object-cover rounded-xl border border-[#E8E2D5] dark:border-dark-border hover:opacity-80 transition-opacity"
-                            />
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ✅ Оценка менеджера */}
-                    {request.manager_price && (
-                      <div className="flex items-start gap-3 p-4 bg-[#C9A961]/5 dark:bg-gold/10">
-                        <div className="w-9 h-9 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 border border-[#C9A961]/30 dark:border-gold/50 flex items-center justify-center flex-shrink-0">
-                          <DollarSign size={16} className="text-[#C9A961]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-[#C9A961] mb-0.5">
-                            Цена менеджера
-                          </p>
-                          <p className="text-lg font-bold text-[#C9A961]">
-                            ${request.manager_price}
-                          </p>
+                      {/* Оценка менеджера */}
+                      {request.manager_price && (
+                        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#C9A961]/30 dark:border-gold/40 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 border border-[#C9A961]/40 dark:border-gold/50 flex items-center justify-center flex-shrink-0">
+                                <DollarSign size={14} className="text-[#C9A961]" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] text-[#C9A961] uppercase tracking-wider font-bold">
+                                  Оценка менеджера
+                                </p>
+                                <p className="text-sm font-bold text-[#C9A961]">
+                                  ${request.manager_price} ≈ {priceInSums.toLocaleString('ru-RU')} сум
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                           {request.manager_comment && (
-                            <p className="text-sm text-[#1B2A4A] dark:text-white mt-2 italic">
+                            <p className="mt-2 text-xs text-[#1B2A4A] dark:text-white bg-[#C9A961]/5 dark:bg-gold/10 border border-[#C9A961]/20 dark:border-gold/30 rounded-lg p-2 italic">
                               💬 {request.manager_comment}
                             </p>
                           )}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
 
-                  {/* ✅ Кнопки смены статуса — футер с flex-wrap */}
-                  <div className="p-4 pt-3 border-t border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/40 dark:bg-dark-accent/30">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-7 h-7 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                        <Send size={12} className="text-[#8A8275] dark:text-gray-300" />
+                      {/* Кнопки смены статуса */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
+                          Статус:
+                        </span>
+                        {STATUSES
+                          .filter(({ old }) => old !== request.status)
+                          .map(({ old, new: newLabel }) => (
+                            <button
+                              key={old}
+                              onClick={() => handleStatusChange(request.id, old, request.user_id)}
+                              disabled={submitting}
+                              className="px-3 py-1.5 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors disabled:opacity-50"
+                            >
+                              {newLabel}
+                            </button>
+                          ))}
                       </div>
-                      <p className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
-                        Сменить статус
-                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {STATUSES.filter(({ old }) => old !== request.status).map(({ old, new: newLabel }) => (
-                        <button
-                          key={old}
-                          onClick={() => handleStatusChange(request.id, old, request.user_id)}
-                          disabled={submitting}
-                          className="px-3.5 py-2 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold hover:bg-white dark:hover:bg-dark-border rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {newLabel}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
               )
             })}
