@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { productsCacheApi, brandsCacheApi } from '../lib/cache'
+import { productsCacheApi, brandsCacheApi, variantsCacheApi } from '../lib/cache'
 import { Toaster, toast } from 'sonner'
 import {
   ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
@@ -166,87 +166,91 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // ✅ Единая загрузка всех трёх таблиц при монтировании
   useEffect(() => {
-    loadProducts(false)
-    loadBrands(false)
+    loadAll(false)
   }, [])
 
-  const loadBrands = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      const cached = brandsCacheApi.get()
-      if (cached && isFullProductRows(cached as any[])) {
-        setBrands(cached as Brand[])
-        return
-      }
-      // ✅ Если кеш «битый» (например, только {id} из DashboardPage) — сбрасываем
-      if (cached) brandsCacheApi.invalidate()
-    }
-    const { data, error } = await supabase
-      .from('brands')
-      .select('*')
-      .order('name')
-    if (!error && data) {
-      setBrands(data)
-      brandsCacheApi.set(data)
-    }
-  }
+  const loadAll = async (forceRefresh = false) => {
+    // 1. Читаем все три кеша
+    const cachedProducts = !forceRefresh ? productsCacheApi.get() : null
+    const cachedVariants = !forceRefresh ? variantsCacheApi.get() : null
+    const cachedBrands = !forceRefresh ? brandsCacheApi.get() : null
 
-  const loadProducts = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      const cached = productsCacheApi.get()
-      if (cached && isFullProductRows(cached as any[])) {
-        setProducts(cached as Product[])
-        // Variants загружаем всегда, чтобы модалка работала
-        await loadVariants()
-        setLoading(false)
-        return
-      }
-      // ✅ Если кеш «битый» — сбрасываем
-      if (cached) productsCacheApi.invalidate()
+    // 2. ✅ Если все три кеша свежие и валидные — МГНОВЕННАЯ отрисовка без спиннера
+    const productsValid = cachedProducts && isFullProductRows(cachedProducts as any[])
+    const variantsValid = !!cachedVariants
+    const brandsValid = cachedBrands && isFullProductRows(cachedBrands as any[])
+
+    if (productsValid && variantsValid && brandsValid) {
+      setProducts(cachedProducts as Product[])
+      setVariants(cachedVariants as ProductVariant[])
+      setBrands(cachedBrands as Brand[])
+      setLoading(false)
+      return
     }
 
-    if (forceRefresh) {
+    // 3. Сбрасываем битые кеши (если есть)
+    if (cachedProducts && !isFullProductRows(cachedProducts as any[])) productsCacheApi.invalidate()
+    if (cachedBrands && !isFullProductRows(cachedBrands as any[])) brandsCacheApi.invalidate()
+
+    // 4. Если есть хотя бы частичный кеш — рисуем что есть, остальное в фоне
+    if (productsValid || variantsValid || brandsValid) {
+      if (productsValid) setProducts(cachedProducts as Product[])
+      if (variantsValid) setVariants(cachedVariants as ProductVariant[])
+      if (brandsValid) setBrands(cachedBrands as Brand[])
+      setLoading(false)
+    } else if (forceRefresh) {
       setRefreshing(true)
     } else {
       setLoading(true)
     }
+
     try {
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (productsError) throw productsError
+      // 5. ✅ ПАРАЛЛЕЛЬНАЯ загрузка всех трёх таблиц — в 3 раза быстрее
+      const [productsRes, variantsRes, brandsRes] = await Promise.all([
+        productsValid
+          ? Promise.resolve({ data: cachedProducts, error: null })
+          : supabase.from('products').select('*').order('created_at', { ascending: false }),
+        variantsValid
+          ? Promise.resolve({ data: cachedVariants, error: null })
+          : supabase.from('product_variants').select('*'),
+        brandsValid
+          ? Promise.resolve({ data: cachedBrands, error: null })
+          : supabase.from('brands').select('*').order('name'),
+      ])
 
-      const productsList = productsData || []
+      if (productsRes.error) throw productsRes.error
+
+      const productsList = (productsRes.data || []) as Product[]
+      const variantsList = (variantsRes.data || []) as ProductVariant[]
+      const brandsList = (brandsRes.data || []) as Brand[]
+
       setProducts(productsList)
-      productsCacheApi.set(productsList)
+      setVariants(variantsList)
+      setBrands(brandsList)
 
-      await loadVariants()
+      // 6. Сохраняем всё в кеш
+      productsCacheApi.set(productsList)
+      variantsCacheApi.set(variantsList)
+      brandsCacheApi.set(brandsList)
     } catch (error) {
       console.error('Ошибка загрузки:', error)
-      toast.error('Ошибка при загрузке товаров')
+      // Тост только если совсем ничего не показали
+      if (!productsValid && !variantsValid && !brandsValid) {
+        toast.error('Ошибка при загрузке товаров')
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
   }
 
-  const loadVariants = async () => {
-    const { data: variantsData, error: variantsError } = await supabase
-      .from('product_variants')
-      .select('*')
-    if (variantsError) {
-      console.error('Ошибка variants:', variantsError)
-      return
-    }
-    setVariants(variantsData || [])
-  }
-
   const handleRefresh = () => {
     productsCacheApi.invalidate()
     brandsCacheApi.invalidate()
-    loadProducts(true)
-    loadBrands(true)
+    variantsCacheApi.invalidate()
+    loadAll(true)
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -480,7 +484,7 @@ export default function ProductsPage() {
       setShowModal(false)
       // ✅ Сбрасываем кеш и перезагружаем
       productsCacheApi.invalidate()
-      await loadProducts(true)
+      await loadAll(true)
     } catch (error: any) {
       console.error('Полная ошибка:', error)
       toast.error('Ошибка при сохранении: ' + (error?.message || error || 'Неизвестная ошибка'))
@@ -503,7 +507,7 @@ export default function ProductsPage() {
       if (error) throw error
       toast.success('Товар удалён! 🗑️')
       productsCacheApi.invalidate()
-      await loadProducts(true)
+      await loadAll(true)
     } catch (error) {
       console.error('Ошибка:', error)
       toast.error('Ошибка при удалении')
@@ -521,7 +525,7 @@ export default function ProductsPage() {
         ? 'Товар скрыт из приложения 🙈'
         : 'Товар снова виден ✅')
       productsCacheApi.invalidate()
-      await loadProducts(true)
+      await loadAll(true)
     } catch (error: any) {
       console.error('Ошибка:', error)
       toast.error('Ошибка: ' + (error?.message || 'Неизвестная ошибка'))

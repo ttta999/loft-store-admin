@@ -4,6 +4,7 @@ import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
 import {
   ordersCacheApi,
   chinaCacheApi,
+  dashboardCountsCacheApi,
   invalidateAllCaches,
 } from '../lib/cache'
 import {
@@ -93,52 +94,63 @@ export default function DashboardPage() {
   }, [])
 
   const loadData = async (forceRefresh = false) => {
-    // ✅ Проверяем кеш заказов и спецзаказов (только для этих двух — полные строки)
-    // Кеш товаров и брендов дашборд НЕ использует — чтобы не загрязнять его «огрызками» {id}
-    if (!forceRefresh) {
-      const cachedOrders = ordersCacheApi.get()
-      const cachedChina = chinaCacheApi.get()
+    // 1. Читаем все три кеша
+    const cachedOrders = !forceRefresh ? ordersCacheApi.get() : null
+    const cachedChina = !forceRefresh ? chinaCacheApi.get() : null
+    const cachedCounts = !forceRefresh ? dashboardCountsCacheApi.get() : null
 
-      if (cachedOrders && cachedChina) {
-        setOrders(cachedOrders as any[])
-        setChinaRequests(cachedChina as any[])
-        // Для счётчиков товаров и брендов всё равно делаем head-запрос (мгновенный)
-        const [pCount, bCount] = await fetchCounts()
-        setProductsCount(pCount)
-        setBrandsCount(bCount)
+    const hasAllCached = cachedOrders && cachedChina && cachedCounts
+
+    // 2. ✅ МГНОВЕННАЯ отрисовка — если есть все кеши, loading=false сразу
+    if (hasAllCached) {
+      setOrders(cachedOrders as any[])
+      setChinaRequests(cachedChina as any[])
+      setProductsCount(cachedCounts!.productsCount)
+      setBrandsCount(cachedCounts!.brandsCount)
+      setLoading(false)
+      // Продолжаем в фоне — обновляем данные свежими
+    } else {
+      // ✅ Частичный кеш — рисуем что есть, остальные грузим фоном (без спиннера)
+      if (cachedOrders || cachedChina || cachedCounts) {
+        if (cachedOrders) setOrders(cachedOrders as any[])
+        if (cachedChina) setChinaRequests(cachedChina as any[])
+        if (cachedCounts) {
+          setProductsCount(cachedCounts.productsCount)
+          setBrandsCount(cachedCounts.brandsCount)
+        }
         setLoading(false)
-        return
+      } else {
+        setLoading(true)
       }
     }
 
-    if (forceRefresh) {
-      setRefreshing(true)
-    } else {
-      setLoading(true)
-    }
+    if (forceRefresh) setRefreshing(true)
 
     try {
-      const ordersData = await getOrders()
-      const chinaData = await getChinaRequests()
+      // 3. ✅ Параллельная загрузка только того, чего нет в кеше
+      const [ordersData, chinaData, counts] = await Promise.all([
+        cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
+        cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
+        fetchCounts(),
+      ])
 
-      // ✅ ВАЖНО: head-запрос возвращает ТОЛЬКО count, без строк.
-      // Раньше было `select('id', { head: false })` — возвращал массив {id: ...}
-      // и портил productsCacheApi/brandsCacheApi «огрызками» → белый экран на ProductsPage.
-      const [pCount, bCount] = await fetchCounts()
+      const [pCount, bCount] = counts
 
-      setOrders(ordersData)
-      setChinaRequests(chinaData)
+      setOrders(ordersData as any[])
+      setChinaRequests(chinaData as any[])
       setProductsCount(pCount)
       setBrandsCount(bCount)
 
-      // ✅ Сохраняем в кеш ТОЛЬКО полные данные (заказы и спецзаказы)
-      ordersCacheApi.set(ordersData)
-      chinaCacheApi.set(chinaData)
-      // ❌ НЕ пишем в productsCacheApi / brandsCacheApi — они должны заполняться
-      // полными строками только со страниц ProductsPage / BrandsPage
+      // 4. ✅ Сохраняем свежие данные в кеш
+      ordersCacheApi.set(ordersData as any[])
+      chinaCacheApi.set(chinaData as any[])
+      dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
     } catch (error) {
       console.error('Ошибка загрузки:', error)
-      toast.error('Ошибка загрузки данных панели')
+      // Тост только если совсем ничего не смогли показать
+      if (!cachedOrders && !cachedChina && !cachedCounts) {
+        toast.error('Ошибка загрузки данных панели')
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -162,7 +174,7 @@ export default function DashboardPage() {
   const handleRefresh = () => {
     ordersCacheApi.invalidate()
     chinaCacheApi.invalidate()
-    // products/brands кеш НЕ сбрасываем — их сбросит сама страница при открытии, если нужно
+    dashboardCountsCacheApi.invalidate()
     loadData(true)
   }
 

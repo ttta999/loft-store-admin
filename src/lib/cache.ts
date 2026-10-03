@@ -154,7 +154,33 @@ export const productsCacheApi = {
   invalidate() {
     productsCache = null
     productsCacheTimestamp = 0
+    // ✅ При изменении товаров — сбрасываем variants (они зависят от товаров)
+    variantsCacheApi.invalidate()
     analyticsCacheApi.invalidate()
+  },
+}
+
+// ========== ВАРИАНТЫ ТОВАРОВ ==========
+// ✅ Отдельный кеш для product_variants — чтобы модалка редактирования открывалась мгновенно
+let variantsCache: any[] | null = null
+let variantsCacheTimestamp = 0
+
+export const variantsCacheApi = {
+  get(ttl: number = DEFAULT_TTL): any[] | null {
+    if (!variantsCache) return null
+    if (Date.now() - variantsCacheTimestamp > ttl) {
+      variantsCache = null
+      return null
+    }
+    return variantsCache
+  },
+  set(data: any[]) {
+    variantsCache = data
+    variantsCacheTimestamp = Date.now()
+  },
+  invalidate() {
+    variantsCache = null
+    variantsCacheTimestamp = 0
   },
 }
 
@@ -181,6 +207,35 @@ export const brandsCacheApi = {
   },
 }
 
+// ========== СЧЁТЧИКИ ДАШБОРДА ==========
+// ✅ Отдельный кеш для количества товаров и брендов — чтобы дашборд открывался мгновенно
+interface DashboardCounts {
+  productsCount: number
+  brandsCount: number
+}
+
+let dashboardCountsCache: DashboardCounts | null = null
+let dashboardCountsTimestamp = 0
+
+export const dashboardCountsCacheApi = {
+  get(ttl: number = DEFAULT_TTL): DashboardCounts | null {
+    if (!dashboardCountsCache) return null
+    if (Date.now() - dashboardCountsTimestamp > ttl) {
+      dashboardCountsCache = null
+      return null
+    }
+    return dashboardCountsCache
+  },
+  set(data: DashboardCounts) {
+    dashboardCountsCache = data
+    dashboardCountsTimestamp = Date.now()
+  },
+  invalidate() {
+    dashboardCountsCache = null
+    dashboardCountsTimestamp = 0
+  },
+}
+
 // ========== ОБЩИЙ СБРОС ==========
 export function invalidateAllCaches() {
   analyticsCacheApi.invalidate()
@@ -188,4 +243,6 @@ export function invalidateAllCaches() {
   chinaCacheApi.invalidate()
   productsCacheApi.invalidate()
   brandsCacheApi.invalidate()
+  variantsCacheApi.invalidate()
+  dashboardCountsCacheApi.invalidate()
 }
