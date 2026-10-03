@@ -14,8 +14,6 @@ import {
   Eye,
   Package,
   User,
-  Phone,
-  DollarSign,
   MapPin,
   CreditCard,
   Link2,
@@ -23,6 +21,8 @@ import {
   Send,
   Clock,
   Camera,
+  Search,
+  ChevronDown,
 } from 'lucide-react'
 import { confirmPayment } from '../lib/payments'
 
@@ -109,6 +109,21 @@ const getStatusColor = (status: string): string => {
   }[status] || 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
 }
 
+// ✅ Компактная мини-строка информации внутри раскрытой карточки
+function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 p-2.5 bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border">
+      <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{label}</p>
+        <div className="text-xs font-medium text-[#1B2A4A] dark:text-white truncate">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function OrdersPage() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<any[]>([])
@@ -116,6 +131,8 @@ export default function OrdersPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
   const [customMessageText, setCustomMessageText] = useState('')
 
@@ -307,16 +324,32 @@ export default function OrdersPage() {
     return deliveryMethod === 'pickup' ? PICKUP_STATUSES : DELIVERY_STATUSES
   }
 
-  const filteredOrders = orders.filter(order => {
+  // ✅ ПОИСК: по номеру заказа, имени или телефону клиента
+  const q = searchQuery.trim().toLowerCase()
+  const searchFiltered = q
+    ? orders.filter(o =>
+        String(o.id).includes(q) ||
+        (o.client_name || '').toLowerCase().includes(q) ||
+        (o.client_phone || '').replace(/\D/g, '').includes(q.replace(/\D/g, '') || q)
+      )
+    : orders
+
+  const filteredOrders = searchFiltered.filter(order => {
     if (filter === 'delivery' && order.delivery_method !== 'delivery') return false
     if (filter === 'pickup' && order.delivery_method !== 'pickup') return false
     if (statusFilter !== 'all' && order.status !== statusFilter) return false
     return true
   })
 
-  const deliveryOrders = orders.filter(o => o.delivery_method === 'delivery')
-  const pickupOrders = orders.filter(o => o.delivery_method === 'pickup')
-  const pendingPaymentOrders = orders.filter(o => o.status === 'Ожидает оплаты')
+  const deliveryOrders = searchFiltered.filter(o => o.delivery_method === 'delivery')
+  const pickupOrders = searchFiltered.filter(o => o.delivery_method === 'pickup')
+  const pendingPaymentOrders = searchFiltered.filter(o => o.status === 'Ожидает оплаты')
+  const mainOrders = filteredOrders.filter(o => o.status !== 'Ожидает оплаты')
+
+  // ✅ Опции статусов для селекта (объединение для «Все»)
+  const statusOptions: StatusItem[] = filter === 'all'
+    ? Array.from(new Map([...DELIVERY_STATUSES, ...PICKUP_STATUSES].map(s => [s.old, s])).values())
+    : getAvailableStatuses(filter)
 
   if (loading) {
     return (
@@ -333,9 +366,9 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       <Toaster position="top-center" richColors />
 
-      {/* ✅ Sticky-шапка */}
+      {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-4">
             <button
               onClick={() => navigate('/')}
@@ -365,108 +398,150 @@ export default function OrdersPage() {
             </button>
           </div>
 
-          {/* ✅ Фильтры по способу получения */}
-          <div className="mt-4 flex gap-2 flex-wrap">
+          {/* ✅ Поиск по номеру заказа / имени / телефону */}
+          <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border flex items-center gap-3 p-3">
+            <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+              <Search size={16} className="text-[#1B2A4A] dark:text-white" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск: № заказа, имя или телефон клиента..."
+              className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-1.5 rounded-lg text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* ✅ Фильтры: способ получения (пилюли) + статус (компактный селект) */}
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
             <button
               onClick={() => { setFilter('all'); setStatusFilter('all') }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
                 filter === 'all'
                   ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              Все <span className="opacity-70">({orders.length})</span>
+              Все <span className="opacity-70">({searchFiltered.length})</span>
             </button>
             <button
               onClick={() => { setFilter('delivery'); setStatusFilter('all') }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
                 filter === 'delivery'
                   ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              <Truck size={16} />
+              <Truck size={14} />
               Доставка <span className="opacity-70">({deliveryOrders.length})</span>
             </button>
             <button
               onClick={() => { setFilter('pickup'); setStatusFilter('all') }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 ${
                 filter === 'pickup'
                   ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              <Store size={16} />
+              <Store size={14} />
               Самовывоз <span className="opacity-70">({pickupOrders.length})</span>
             </button>
-          </div>
 
-          {/* ✅ Фильтры по статусам (только когда выбран способ) */}
-          {filter !== 'all' && (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
-                  statusFilter === 'all'
-                    ? 'bg-[#C9A961] text-white'
-                    : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
-                }`}
-              >
-                Все ({filteredOrders.length})
-              </button>
-              {getAvailableStatuses(filter).map((statusItem: StatusItem) => {
-                const count = filteredOrders.filter(o => o.status === statusItem.old).length
-                return (
-                  <button
-                    key={statusItem.old}
-                    onClick={() => setStatusFilter(statusItem.old)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
-                      statusFilter === statusItem.old
-                        ? 'bg-[#C9A961] text-white'
-                        : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
-                    }`}
-                  >
-                    {statusItem.new} <span className="opacity-70">({count})</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="ml-auto px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
+            >
+              <option value="all">Все статусы</option>
+              {statusOptions.map(s => (
+                <option key={s.old} value={s.old}>{s.new}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-4">
-        {/* ✅ Блок «Ожидают оплаты» */}
+      <div className="max-w-5xl mx-auto p-6 space-y-4">
+        {/* ✅ Блок «Ожидают оплаты» — компактные строки */}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border-2 border-[#C9A961]/40 dark:border-gold/40 overflow-hidden">
-            <div className="flex items-center gap-3 p-5 border-b border-[#C9A961]/30 dark:border-gold/30 bg-[#C9A961]/5 dark:bg-gold/10">
-              <div className="w-10 h-10 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 border border-[#C9A961]/40 dark:border-gold/50 flex items-center justify-center flex-shrink-0">
-                <Clock size={18} className="text-[#C9A961]" />
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[#C9A961]/30 dark:border-gold/30 bg-[#C9A961]/5 dark:bg-gold/10">
+              <div className="w-9 h-9 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 border border-[#C9A961]/40 dark:border-gold/50 flex items-center justify-center flex-shrink-0">
+                <Clock size={16} className="text-[#C9A961]" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
-                  Ожидают оплаты
-                </h2>
-                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                  {pendingPaymentOrders.length} {pendingPaymentOrders.length === 1 ? 'заказ' : pendingPaymentOrders.length < 5 ? 'заказа' : 'заказов'} требуют подтверждения
-                </p>
-              </div>
+              <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
+                Ожидают оплаты <span className="text-[#C9A961]">({pendingPaymentOrders.length})</span>
+              </p>
             </div>
-            <div className="p-4 space-y-4">
-              {pendingPaymentOrders.map((order) => (
-                <PendingPaymentCard
-                  key={order.id}
-                  order={order}
-                  onConfirmPayment={handleConfirmPayment}
-                  onStatusChange={handleStatusChange}
-                />
-              ))}
+            <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
+              {pendingPaymentOrders.map((order) => {
+                const clientChatId = order.user_chat_id || order.user_id
+                return (
+                  <div key={order.id} className="p-3.5 flex items-center gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[180px]">
+                      <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
+                        Заказ №{order.id}
+                        <span className="ml-2 text-xs font-medium text-[#8A8275] dark:text-gray-300">
+                          {order.client_name}
+                        </span>
+                      </p>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 flex items-center gap-2">
+                        <span className="font-bold text-[#C9A961]">{formatOrderPrice(order)}</span>
+                        <span>·</span>
+                        <span>{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</span>
+                        {order.payment_screenshot_url ? (
+                          <>
+                            <span>·</span>
+                            <a
+                              href={order.payment_screenshot_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 hover:underline font-medium"
+                            >
+                              <Camera size={11} /> скриншот
+                            </a>
+                          </>
+                        ) : (
+                          <>
+                            <span>·</span>
+                            <span className="text-[#C9A961]">скриншота нет</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleConfirmPayment(order)}
+                        className="px-3.5 py-2 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-xs font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1.5"
+                      >
+                        <CheckCircle size={14} />
+                        Подтвердить
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange(order.id, 'Отменён', clientChatId, order.delivery_method, order)}
+                        className="px-3.5 py-2 rounded-xl bg-[#9B3B3B] dark:bg-red-900 text-white text-xs font-bold hover:bg-red-700 dark:hover:bg-red-800 transition-colors flex items-center gap-1.5"
+                      >
+                        <XCircle size={14} />
+                        Отменить
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* ✅ Список заказов */}
-        {filteredOrders.filter(o => o.status !== 'Ожидает оплаты').length === 0 ? (
+        {/* ✅ СПИСОК ЗАКАЗОВ — компактные строки-аккордеон */}
+        {mainOrders.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">
               <Package size={28} className="text-[#8A8275] dark:text-gray-300" />
@@ -475,27 +550,200 @@ export default function OrdersPage() {
               Заказов не найдено
             </p>
             <p className="text-sm text-[#8A8275] dark:text-gray-300">
-              Попробуйте изменить фильтры
+              {q ? `По запросу «${searchQuery}» ничего нет` : 'Попробуйте изменить фильтры'}
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredOrders
-              .filter(o => o.status !== 'Ожидает оплаты')
-              .map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onStatusChange={handleStatusChange}
-                  onSendCustomMessage={handleSendCustomMessage}
-                  getStatusLabel={getStatusLabel}
-                  getAvailableStatuses={getAvailableStatuses}
-                  showCustomMessage={showCustomMessage}
-                  setShowCustomMessage={setShowCustomMessage}
-                  customMessageText={customMessageText}
-                  setCustomMessageText={setCustomMessageText}
-                />
-              ))}
+          <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden divide-y divide-[#E8E2D5] dark:divide-dark-border">
+            {mainOrders.map((order) => {
+              const clientChatId = order.user_chat_id || order.user_id
+              const orderCurrency = getOrderCurrency(order)
+              const isOpen = expandedId === String(order.id)
+              const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || [])
+
+              return (
+                <div key={order.id}>
+                  {/* ✅ Компактная строка заказа */}
+                  <button
+                    onClick={() => setExpandedId(isOpen ? null : String(order.id))}
+                    className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                      {order.delivery_method === 'pickup'
+                        ? <Store size={16} className="text-[#1B2A4A] dark:text-white" />
+                        : <Truck size={16} className="text-[#1B2A4A] dark:text-white" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
+                          Заказ №{order.id}
+                        </p>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                          orderCurrency === 'USD'
+                            ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300'
+                            : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+                        }`}>
+                          {orderCurrency}
+                        </span>
+                        {order.special_order_id && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300">
+                            🌍
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
+                        {new Date(order.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {' · '}{order.client_name}
+                        {' · '}{items.length} тов.
+                      </p>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
+                        {formatOrderPrice(order)}
+                      </p>
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(order.status)}`}>
+                        {getStatusLabel(order.status, order.delivery_method)}
+                      </span>
+                    </div>
+
+                    <ChevronDown
+                      size={18}
+                      className={`text-[#8A8275] dark:text-gray-300 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {/* ✅ Раскрытые детали */}
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-3 bg-[#F5F1E8]/40 dark:bg-dark-accent/30 border-t border-[#E8E2D5] dark:border-dark-border space-y-3">
+                      {/* Инфо-сетка */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <InfoMini icon={<User size={14} className="text-[#1B2A4A] dark:text-white" />} label="Клиент">
+                          {order.client_name} · {order.client_phone}
+                        </InfoMini>
+                        <InfoMini icon={<CreditCard size={14} className="text-[#1B2A4A] dark:text-white" />} label="Оплата">
+                          {order.payment_method === 'online_card' ? 'Переводом' : 'При получении'}
+                        </InfoMini>
+                        {order.delivery_method === 'delivery' && (
+                          <InfoMini icon={<MapPin size={14} className="text-[#1B2A4A] dark:text-white" />} label="Адрес доставки">
+                            {order.delivery_address || '—'}
+                          </InfoMini>
+                        )}
+                        {order.courier_link && (
+                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label="Трек курьера">
+                            <a
+                              href={order.courier_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#C9A961] hover:underline"
+                            >
+                              открыть ссылку
+                            </a>
+                          </InfoMini>
+                        )}
+                        {clientChatId && (
+                          <InfoMini icon={<MessageCircle size={14} className="text-[#1B2A4A] dark:text-white" />} label="Chat ID">
+                            <span className="font-mono">{clientChatId}</span>
+                          </InfoMini>
+                        )}
+                        {order.payment_screenshot_url && (
+                          <InfoMini icon={<Camera size={14} className="text-[#1B2A4A] dark:text-white" />} label="Скриншот оплаты">
+                            <a
+                              href={order.payment_screenshot_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 hover:underline font-medium"
+                            >
+                              <Eye size={12} /> открыть
+                            </a>
+                          </InfoMini>
+                        )}
+                      </div>
+
+                      {/* Товары */}
+                      {items.length > 0 && (
+                        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border divide-y divide-[#E8E2D5] dark:divide-dark-border overflow-hidden">
+                          {items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-[#1B2A4A] dark:text-white truncate">
+                                  {item.name}
+                                </p>
+                                <p className="text-[10px] text-[#8A8275] dark:text-gray-300">
+                                  {item.size} · {item.quantity} шт.
+                                </p>
+                              </div>
+                              <p className="text-xs font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap">
+                                {formatItemPrice(item, order)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Действия: сообщение + статусы */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {clientChatId && (
+                          <button
+                            onClick={() => setShowCustomMessage(showCustomMessage === order.id ? null : order.id)}
+                            className="px-3.5 py-2 bg-[#F5F1E8] dark:bg-dark-accent hover:bg-[#E8E2D5] dark:hover:bg-dark-border border border-[#E8E2D5] dark:border-dark-border rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors flex items-center gap-1.5"
+                          >
+                            <MessageCircle size={13} />
+                            {showCustomMessage === order.id ? 'Скрыть' : 'Написать клиенту'}
+                          </button>
+                        )}
+                        <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
+                          Статус:
+                        </span>
+                        {getAvailableStatuses(order.delivery_method)
+                          .filter((s: StatusItem) => s.old !== order.status)
+                          .map((s: StatusItem) => (
+                            <button
+                              key={s.old}
+                              onClick={() => handleStatusChange(order.id, s.old, clientChatId, order.delivery_method, order)}
+                              className="px-3 py-1.5 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors"
+                            >
+                              {s.new}
+                            </button>
+                          ))}
+                      </div>
+
+                      {/*Textarea сообщения */}
+                      {showCustomMessage === order.id && (
+                        <div className="space-y-2">
+                          <textarea
+                            value={customMessageText}
+                            onChange={(e) => setCustomMessageText(e.target.value)}
+                            placeholder="Введите сообщение для клиента..."
+                            rows={2}
+                            className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl text-sm bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSendCustomMessage(order.id, clientChatId)}
+                              className="px-4 py-2 bg-[#C9A961] text-white rounded-xl text-xs font-bold hover:bg-[#b8954f] transition-colors flex items-center gap-1.5"
+                            >
+                              <Send size={13} />
+                              Отправить
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowCustomMessage(null)
+                                setCustomMessageText('')
+                              }}
+                              className="px-4 py-2 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-xs font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -561,441 +809,6 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function PendingPaymentCard({ order, onConfirmPayment, onStatusChange }: any) {
-  const clientChatId = order.user_chat_id || order.user_id
-  const orderCurrency = getOrderCurrency(order)
-  return (
-    <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl p-5 border-2 border-[#C9A961]/40 dark:border-gold/40">
-      {/* Шапка */}
-      <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-[#E8E2D5] dark:border-dark-border">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <h3 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
-              Заказ №{order.id}
-            </h3>
-            <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              orderCurrency === 'USD'
-                ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300'
-                : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
-            }`}>
-              {orderCurrency}
-            </span>
-          </div>
-          <p className="text-xs text-[#8A8275] dark:text-gray-300 flex items-center gap-1.5">
-            <Clock size={12} />
-            {new Date(order.created_at).toLocaleString('ru-RU')}
-          </p>
-        </div>
-        <span className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30 flex-shrink-0">
-          ⏳ Ожидает оплаты
-        </span>
-      </div>
-
-      {/* Строки-иконки */}
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <User size={14} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <p className="text-sm text-[#1B2A4A] dark:text-white truncate">
-            <span className="text-[#8A8275] dark:text-gray-300">Клиент:</span>{' '}
-            <span className="font-medium">{order.client_name}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <Phone size={14} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <p className="text-sm text-[#1B2A4A] dark:text-white truncate">
-            <span className="text-[#8A8275] dark:text-gray-300">Телефон:</span>{' '}
-            <span className="font-medium">{order.client_phone}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <DollarSign size={14} className="text-[#C9A961]" />
-          </div>
-          <p className="text-sm text-[#1B2A4A] dark:text-white truncate">
-            <span className="text-[#8A8275] dark:text-gray-300">Сумма:</span>{' '}
-            <span className="font-bold">{formatOrderPrice(order)}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            {order.delivery_method === 'pickup'
-              ? <Store size={14} className="text-[#1B2A4A] dark:text-white" />
-              : <Truck size={14} className="text-[#1B2A4A] dark:text-white" />}
-          </div>
-          <p className="text-sm text-[#1B2A4A] dark:text-white truncate">
-            {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}
-          </p>
-        </div>
-      </div>
-
-      {/* Товары */}
-      {order.items && (
-        <div className="mb-4 p-3 bg-[#F5F1E8] dark:bg-dark-accent rounded-xl border border-[#E8E2D5] dark:border-dark-border">
-          <p className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-2">
-            Товары ({order.items.length})
-          </p>
-          <div className="space-y-1">
-            {order.items.map((item: any, idx: number) => (
-              <div key={idx} className="text-xs text-[#1B2A4A] dark:text-white flex justify-between gap-2">
-                <span className="truncate flex-1 min-w-0">
-                  {item.name} <span className="text-[#8A8275] dark:text-gray-300">({item.size}) × {item.quantity}</span>
-                </span>
-                <span className="font-bold flex-shrink-0">{formatItemPrice(item, order)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Скриншот оплаты */}
-      {order.payment_screenshot_url ? (
-        <div className="mb-4 p-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
-              <span className="text-sm">✅</span>
-            </div>
-            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-              Скриншот оплаты получен
-            </p>
-          </div>
-          <a
-            href={order.payment_screenshot_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-dark-accent border border-green-300 dark:border-green-500/30 rounded-lg text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-dark-border transition-colors font-medium"
-          >
-            <Eye size={14} />
-            Открыть скриншот
-          </a>
-        </div>
-      ) : (
-        <div className="mb-4 p-3 bg-[#C9A961]/5 dark:bg-gold/10 border border-[#C9A961]/20 dark:border-gold/30 rounded-xl">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 flex items-center justify-center">
-              <Camera size={14} className="text-[#C9A961]" />
-            </div>
-            <p className="text-sm text-[#C9A961]">
-              Клиент ещё не загрузил скриншот оплаты
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Кнопки */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => onConfirmPayment(order)}
-          className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-sm font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center justify-center gap-2"
-        >
-          <CheckCircle size={16} />
-          Подтвердить
-        </button>
-        <button
-          onClick={() => onStatusChange(order.id, 'Отменён', clientChatId, order.delivery_method, order)}
-          className="px-4 py-3 rounded-xl bg-[#9B3B3B] dark:bg-red-900 text-white text-sm font-bold hover:bg-red-700 dark:hover:bg-red-800 transition-colors flex items-center justify-center gap-2"
-        >
-          <XCircle size={16} />
-          Отменить
-        </button>
-      </div>
-    </div>
-  )
-}
-
-interface OrderCardProps {
-  order: any
-  onStatusChange: (orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => void
-  onSendCustomMessage: (orderId: string, clientChatId: string) => void
-  getStatusLabel: (status: string, deliveryMethod: string) => string
-  getAvailableStatuses: (deliveryMethod: string) => StatusItem[]
-  showCustomMessage: string | null
-  setShowCustomMessage: (id: string | null) => void
-  customMessageText: string
-  setCustomMessageText: (text: string) => void
-}
-
-function OrderCard({
-  order,
-  onStatusChange,
-  onSendCustomMessage,
-  getStatusLabel,
-  getAvailableStatuses,
-  showCustomMessage,
-  setShowCustomMessage,
-  customMessageText,
-  setCustomMessageText
-}: OrderCardProps) {
-  const availableStatuses = getAvailableStatuses(order.delivery_method)
-  const clientChatId = order.user_chat_id || order.user_id
-  const orderCurrency = getOrderCurrency(order)
-
-  return (
-    <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
-      {/* ✅ Шапка карточки: номер + дата + валюта + статус-пилла + бейдж спецзаказа */}
-      <div className="flex items-start justify-between gap-3 p-5 pb-4 border-b border-[#E8E2D5] dark:border-dark-border">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <h3 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
-              Заказ №{order.id}
-            </h3>
-            <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              orderCurrency === 'USD'
-                ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300'
-                : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
-            }`}>
-              {orderCurrency}
-            </span>
-            {order.special_order_id && (
-              <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300">
-                🌍 Спецзаказ
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-[#8A8275] dark:text-gray-300 flex items-center gap-1.5">
-            <Clock size={12} />
-            {new Date(order.created_at).toLocaleString('ru-RU')}
-          </p>
-        </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getStatusColor(order.status)}`}>
-          {getStatusLabel(order.status, order.delivery_method)}
-        </span>
-      </div>
-
-      {/* ✅ Строки-иконки: клиент, телефон, сумма, доставка, адрес, оплата */}
-      <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
-        <div className="flex items-center gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <User size={16} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">Клиент</p>
-            <p className="text-sm font-medium text-[#1B2A4A] dark:text-white truncate">
-              {order.client_name}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <Phone size={16} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">Телефон</p>
-            <p className="text-sm font-medium text-[#1B2A4A] dark:text-white truncate">
-              {order.client_phone}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <DollarSign size={16} className="text-[#C9A961]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">Сумма заказа</p>
-            <p className="text-base font-bold text-[#1B2A4A] dark:text-white">
-              {formatOrderPrice(order)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            {order.delivery_method === 'pickup'
-              ? <Store size={16} className="text-[#1B2A4A] dark:text-white" />
-              : <Truck size={16} className="text-[#1B2A4A] dark:text-white" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">Способ получения</p>
-            <p className="text-sm font-medium text-[#1B2A4A] dark:text-white">
-              {order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}
-            </p>
-          </div>
-        </div>
-
-        {order.delivery_address && (
-          <div className="flex items-center gap-3 p-3.5">
-            <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-              <MapPin size={16} className="text-[#1B2A4A] dark:text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-[#8A8275] dark:text-gray-300">Адрес доставки</p>
-              <p className="text-sm font-medium text-[#1B2A4A] dark:text-white break-words">
-                {order.delivery_address}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <CreditCard size={16} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">Оплата</p>
-            <p className="text-sm font-medium text-[#1B2A4A] dark:text-white">
-              {order.payment_method === 'online_card' ? 'Переводом' : 'При получении'}
-            </p>
-          </div>
-        </div>
-
-        {order.courier_link && (
-          <div className="flex items-center gap-3 p-3.5">
-            <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-              <Link2 size={16} className="text-[#1B2A4A] dark:text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-[#8A8275] dark:text-gray-300">Трек курьера</p>
-              <a
-                href={order.courier_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-medium text-[#C9A961] hover:underline break-all"
-              >
-                {order.courier_link}
-              </a>
-            </div>
-          </div>
-        )}
-
-        {clientChatId && (
-          <div className="flex items-center gap-3 p-3.5">
-            <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-              <MessageCircle size={16} className="text-[#1B2A4A] dark:text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-[#8A8275] dark:text-gray-300">Chat ID</p>
-              <p className="text-sm font-mono text-[#1B2A4A] dark:text-white truncate">
-                {clientChatId}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ✅ Товары */}
-      {order.items && (
-        <div className="p-4 bg-[#F5F1E8]/40 dark:bg-dark-accent/30 border-t border-[#E8E2D5] dark:border-dark-border">
-          <p className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-2 px-1">
-            Товары ({order.items.length})
-          </p>
-          <div className="space-y-1.5">
-            {order.items.map((item: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-dark-card rounded-lg border border-[#E8E2D5] dark:border-dark-border">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#1B2A4A] dark:text-white truncate">
-                    {item.name}
-                  </p>
-                  <p className="text-xs text-[#8A8275] dark:text-gray-300">
-                    {item.size} · {item.quantity} шт.
-                  </p>
-                </div>
-                <p className="text-sm font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap">
-                  {formatItemPrice(item, order)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ✅ Скриншот оплаты */}
-      {order.payment_screenshot_url && (
-        <div className="p-4 border-t border-[#E8E2D5] dark:border-dark-border bg-blue-50/50 dark:bg-blue-500/10">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
-              <Camera size={12} className="text-blue-700 dark:text-blue-300" />
-            </div>
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-              Скриншот оплаты загружен
-            </p>
-          </div>
-          <a
-            href={order.payment_screenshot_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-dark-accent border border-blue-200 dark:border-blue-500/30 rounded-lg text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-dark-border transition-colors font-medium"
-          >
-            <Eye size={14} />
-            Открыть скриншот
-          </a>
-        </div>
-      )}
-
-      {/* ✅ Кнопка «Написать клиенту» + textarea */}
-      {clientChatId && (
-        <div className="p-4 border-t border-[#E8E2D5] dark:border-dark-border">
-          <button
-            onClick={() => setShowCustomMessage(showCustomMessage === order.id ? null : order.id)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#F5F1E8] dark:bg-dark-accent hover:bg-[#E8E2D5] dark:hover:bg-dark-border border border-[#E8E2D5] dark:border-dark-border rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white transition-colors"
-          >
-            <MessageCircle size={14} />
-            {showCustomMessage === order.id ? 'Скрыть сообщение' : 'Написать клиенту'}
-          </button>
-          {showCustomMessage === order.id && (
-            <div className="mt-3 space-y-2">
-              <textarea
-                value={customMessageText}
-                onChange={(e) => setCustomMessageText(e.target.value)}
-                placeholder="Введите сообщение для клиента..."
-                rows={3}
-                className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl text-sm bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold resize-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => onSendCustomMessage(order.id, clientChatId)}
-                  className="px-3 py-2.5 bg-[#C9A961] text-white rounded-xl text-sm font-bold hover:bg-[#b8954f] transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Send size={14} />
-                  Отправить
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCustomMessage(null)
-                    setCustomMessageText('')
-                  }}
-                  className="px-3 py-2.5 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ✅ Футер с кнопками смены статуса */}
-      <div className="p-4 pt-3 border-t border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/40 dark:bg-dark-accent/30">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-            <CheckCircle size={12} className="text-[#8A8275] dark:text-gray-300" />
-          </div>
-          <p className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
-            Сменить статус
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {availableStatuses
-            .filter((s: StatusItem) => s.old !== order.status)
-            .map((s: StatusItem) => (
-              <button
-                key={s.old}
-                onClick={() => onStatusChange(order.id, s.old, clientChatId, order.delivery_method, order)}
-                className="px-3.5 py-2 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold hover:bg-white dark:hover:bg-dark-border rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors"
-              >
-                {s.new}
-              </button>
-            ))}
-        </div>
-      </div>
     </div>
   )
 }
