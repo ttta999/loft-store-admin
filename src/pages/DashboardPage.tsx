@@ -4,8 +4,6 @@ import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
 import {
   ordersCacheApi,
   chinaCacheApi,
-  productsCacheApi,
-  brandsCacheApi,
   invalidateAllCaches,
 } from '../lib/cache'
 import {
@@ -95,18 +93,19 @@ export default function DashboardPage() {
   }, [])
 
   const loadData = async (forceRefresh = false) => {
-    // ✅ Проверяем кеш всех секций
+    // ✅ Проверяем кеш заказов и спецзаказов (только для этих двух — полные строки)
+    // Кеш товаров и брендов дашборд НЕ использует — чтобы не загрязнять его «огрызками» {id}
     if (!forceRefresh) {
       const cachedOrders = ordersCacheApi.get()
       const cachedChina = chinaCacheApi.get()
-      const cachedProducts = productsCacheApi.get()
-      const cachedBrands = brandsCacheApi.get()
 
-      if (cachedOrders && cachedChina && cachedProducts && cachedBrands) {
+      if (cachedOrders && cachedChina) {
         setOrders(cachedOrders as any[])
         setChinaRequests(cachedChina as any[])
-        setProductsCount((cachedProducts as any[]).length)
-        setBrandsCount((cachedBrands as any[]).length)
+        // Для счётчиков товаров и брендов всё равно делаем head-запрос (мгновенный)
+        const [pCount, bCount] = await fetchCounts()
+        setProductsCount(pCount)
+        setBrandsCount(bCount)
         setLoading(false)
         return
       }
@@ -122,27 +121,21 @@ export default function DashboardPage() {
       const ordersData = await getOrders()
       const chinaData = await getChinaRequests()
 
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('id', { count: 'exact', head: false })
-
-      const { data: brandsData } = await supabase
-        .from('brands')
-        .select('id', { count: 'exact', head: false })
-
-      const pCount = productsData?.length || 0
-      const bCount = brandsData?.length || 0
+      // ✅ ВАЖНО: head-запрос возвращает ТОЛЬКО count, без строк.
+      // Раньше было `select('id', { head: false })` — возвращал массив {id: ...}
+      // и портил productsCacheApi/brandsCacheApi «огрызками» → белый экран на ProductsPage.
+      const [pCount, bCount] = await fetchCounts()
 
       setOrders(ordersData)
       setChinaRequests(chinaData)
       setProductsCount(pCount)
       setBrandsCount(bCount)
 
-      // ✅ Сохраняем в кеш
+      // ✅ Сохраняем в кеш ТОЛЬКО полные данные (заказы и спецзаказы)
       ordersCacheApi.set(ordersData)
       chinaCacheApi.set(chinaData)
-      productsCacheApi.set(productsData || [])
-      brandsCacheApi.set(brandsData || [])
+      // ❌ НЕ пишем в productsCacheApi / brandsCacheApi — они должны заполняться
+      // полными строками только со страниц ProductsPage / BrandsPage
     } catch (error) {
       console.error('Ошибка загрузки:', error)
       toast.error('Ошибка загрузки данных панели')
@@ -152,11 +145,24 @@ export default function DashboardPage() {
     }
   }
 
+  // ✅ HEAD-запрос для счётчиков — мгновенный, не грузит строки, не портит кеш
+  const fetchCounts = async (): Promise<[number, number]> => {
+    try {
+      const [pRes, bRes] = await Promise.all([
+        supabase.from('products').select('*', { count: 'exact', head: true }),
+        supabase.from('brands').select('*', { count: 'exact', head: true }),
+      ])
+      return [pRes.count || 0, bRes.count || 0]
+    } catch (err) {
+      console.error('Ошибка fetchCounts:', err)
+      return [0, 0]
+    }
+  }
+
   const handleRefresh = () => {
     ordersCacheApi.invalidate()
     chinaCacheApi.invalidate()
-    productsCacheApi.invalidate()
-    brandsCacheApi.invalidate()
+    // products/brands кеш НЕ сбрасываем — их сбросит сама страница при открытии, если нужно
     loadData(true)
   }
 

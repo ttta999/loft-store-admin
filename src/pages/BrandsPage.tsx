@@ -23,6 +23,10 @@ interface Brand {
   created_at: string
 }
 
+// ✅ Защита от «битого» кеша: у полного бренда обязательно есть name (string)
+const isFullBrandRows = (list: any[]): boolean =>
+  !list || list.length === 0 || (list[0] != null && typeof list[0].name === 'string')
+
 export default function BrandsPage() {
   const navigate = useNavigate()
   const [brands, setBrands] = useState<Brand[]>([])
@@ -37,14 +41,16 @@ export default function BrandsPage() {
   }, [])
 
   const loadBrands = async (forceRefresh = false) => {
-    // ✅ Проверяем кеш
+    // ✅ Проверяем кеш + валидация формы строк
     if (!forceRefresh) {
       const cached = brandsCacheApi.get()
-      if (cached) {
+      if (cached && isFullBrandRows(cached as any[])) {
         setBrands(cached as Brand[])
         setLoading(false)
         return
       }
+      // ✅ Если кеш «битый» (например, {id} из DashboardPage) — сбрасываем и грузим заново
+      if (cached) brandsCacheApi.invalidate()
     }
 
     if (forceRefresh) {
@@ -63,7 +69,7 @@ export default function BrandsPage() {
       const brandsList = data || []
       setBrands(brandsList)
       
-      // ✅ Сохраняем в кеш
+      // ✅ Сохраняем в кеш ТОЛЬКО полные строки
       brandsCacheApi.set(brandsList)
     } catch (error) {
       console.error('Ошибка загрузки брендов:', error)
@@ -277,73 +283,77 @@ export default function BrandsPage() {
                 </p>
               </div>
             ) : (
-              brands.map((brand) => (
-                <div
-                  key={brand.id}
-                  className="flex items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
-                >
-                  {/* Круглая иконка с первой буквой бренда */}
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border font-bold text-lg ${
-                    brand.is_active
-                      ? 'bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold'
-                      : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-400'
-                  }`}>
-                    {brand.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  {/* Название + дата */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-bold truncate ${
+              brands.map((brand) => {
+                // ✅ Защита от null/undefined в name — даже если кеш повреждён
+                const safeName = brand.name || '—'
+                return (
+                  <div
+                    key={brand.id}
+                    className="flex items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
+                  >
+                    {/* Круглая иконка с первой буквой бренда */}
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border font-bold text-lg ${
                       brand.is_active
-                        ? 'text-[#1B2A4A] dark:text-white'
-                        : 'text-[#8A8275] dark:text-gray-400 line-through'
+                        ? 'bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold'
+                        : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-400'
                     }`}>
-                      {brand.name}
-                    </p>
-                    <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                      Создан: {new Date(brand.created_at).toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
+                      {safeName.charAt(0).toUpperCase()}
+                    </div>
 
-                  {/* Пилла статуса */}
-                  <span className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 ${
-                    brand.is_active
-                      ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30'
-                      : 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
-                  }`}>
-                    {brand.is_active ? '✓ Активен' : '✕ Неактивен'}
-                  </span>
-
-                  {/* Кнопки действий */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => handleToggleBrand(brand)}
-                      title={brand.is_active ? 'Деактивировать' : 'Активировать'}
-                      className={`p-2.5 rounded-xl border transition-colors ${
+                    {/* Название + дата */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold truncate ${
                         brand.is_active
-                          ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-500/20'
-                          : 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20'
-                      }`}
-                    >
-                      {brand.is_active ? <XCircle size={16} /> : <Check size={16} />}
-                    </button>
-                    <button
-                      onClick={() => setEditingBrand(brand)}
-                      title="Редактировать"
-                      className="p-2.5 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteBrand(brand)}
-                      title="Удалить"
-                      className="p-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-[#9B3B3B] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                          ? 'text-[#1B2A4A] dark:text-white'
+                          : 'text-[#8A8275] dark:text-gray-400 line-through'
+                      }`}>
+                        {safeName}
+                      </p>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
+                        Создан: {new Date(brand.created_at).toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+
+                    {/* Пилла статуса */}
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 ${
+                      brand.is_active
+                        ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30'
+                        : 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
+                    }`}>
+                      {brand.is_active ? '✓ Активен' : '✕ Неактивен'}
+                    </span>
+
+                    {/* Кнопки действий */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => handleToggleBrand(brand)}
+                        title={brand.is_active ? 'Деактивировать' : 'Активировать'}
+                        className={`p-2.5 rounded-xl border transition-colors ${
+                          brand.is_active
+                            ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-500/20'
+                            : 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20'
+                        }`}
+                      >
+                        {brand.is_active ? <XCircle size={16} /> : <Check size={16} />}
+                      </button>
+                      <button
+                        onClick={() => setEditingBrand(brand)}
+                        title="Редактировать"
+                        className="p-2.5 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBrand(brand)}
+                        title="Удалить"
+                        className="p-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-[#9B3B3B] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

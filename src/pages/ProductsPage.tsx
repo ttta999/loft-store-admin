@@ -95,6 +95,10 @@ interface Brand {
   name: string
 }
 
+// ✅ Защита от «битого» кеша: у полного товара обязательно есть name_ru (string)
+const isFullProductRows = (list: any[]): boolean =>
+  !list || list.length === 0 || (list[0] != null && typeof list[0].name_ru === 'string')
+
 // ✅ Секция модалки в стиле карточки приложения
 function ModalSection({ icon, title, subtitle, right, children }: {
   icon: React.ReactNode
@@ -170,10 +174,12 @@ export default function ProductsPage() {
   const loadBrands = async (forceRefresh = false) => {
     if (!forceRefresh) {
       const cached = brandsCacheApi.get()
-      if (cached) {
+      if (cached && isFullProductRows(cached as any[])) {
         setBrands(cached as Brand[])
         return
       }
+      // ✅ Если кеш «битый» (например, только {id} из DashboardPage) — сбрасываем
+      if (cached) brandsCacheApi.invalidate()
     }
     const { data, error } = await supabase
       .from('brands')
@@ -188,13 +194,15 @@ export default function ProductsPage() {
   const loadProducts = async (forceRefresh = false) => {
     if (!forceRefresh) {
       const cached = productsCacheApi.get()
-      if (cached) {
+      if (cached && isFullProductRows(cached as any[])) {
         setProducts(cached as Product[])
         // Variants загружаем всегда, чтобы модалка работала
         await loadVariants()
         setLoading(false)
         return
       }
+      // ✅ Если кеш «битый» — сбрасываем
+      if (cached) productsCacheApi.invalidate()
     }
 
     if (forceRefresh) {
@@ -569,9 +577,14 @@ export default function ProductsPage() {
 
   const hasSale = (p: Product) => p.sale_price != null && Number(p.sale_price) > 0
 
+  // ✅ Безопасный фильтр: защита от p.name_ru / p.name_uz = null/undefined
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name_ru.toLowerCase().includes(search.toLowerCase()) ||
-      p.name_uz.toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase()
+    const matchesSearch =
+      !q ||
+      (p.name_ru || '').toLowerCase().includes(q) ||
+      (p.name_uz || '').toLowerCase().includes(q) ||
+      (p.brand || '').toLowerCase().includes(q)
     const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
     const matchesVisibility = visibilityFilter === 'all' ||
       (visibilityFilter === 'active' && p.is_active !== false) ||
@@ -648,7 +661,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* ✅ Поиск — строка-иконка */}
+          {/* ✅ Поиск — строка-иконка (ищет и по бренду) */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
             <div className="flex items-center gap-3 p-3">
               <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
@@ -658,7 +671,7 @@ export default function ProductsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Поиск по названию..."
+                placeholder="Поиск по названию или бренду..."
                 className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
               />
               {search && (
