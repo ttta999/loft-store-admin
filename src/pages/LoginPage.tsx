@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../lib/auth'
-import { Lock, Mail, Store, Info, Eye, EyeOff, Save, Check } from 'lucide-react'
+import { Lock, Mail, Store, Eye, EyeOff, Save, Check } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
 
 interface LoginPageProps {
@@ -70,7 +70,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     }
   }
 
-  // ✅ Имя из email для приветствия у поля пароля
+  // ✅ Имя из email для динамического приветствия в шапке формы
   const emailName = email.trim() ? email.trim().split('@')[0] : ''
 
   return (
@@ -94,14 +94,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         {/* ✅ Карточка формы со строками-иконками */}
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden mb-3">
-          {/* Приветствие */}
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
+          {/* ✅ Приветствие: динамическое — с именем из email, когда он введён */}
           <div className="p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
-              Добро пожаловать! 👋
+              {emailName
+                ? `Добро пожаловать, ${emailName}! 👋`
+                : 'Добро пожаловать! 👋'}
             </h2>
             <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-              Войдите для доступа к панели управления
+              {emailName
+                ? 'Рады видеть вас снова — введите пароль для входа'
+                : 'Войдите для доступа к панели управления'}
             </p>
           </div>
 
@@ -127,7 +131,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
               </div>
 
-              {/* ✅ Строка Пароль + приветствие по имени из email */}
+              {/* ✅ Строка Пароль */}
               <div className="flex items-center gap-3 p-3.5">
                 <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                   <Lock size={16} className="text-[#1B2A4A] dark:text-white" />
@@ -135,11 +139,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <div className="flex-1 min-w-0">
                   <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-0.5">
                     Пароль
-                    {emailName && (
-                      <span className="ml-1.5 text-[#C9A961] dark:text-gold font-bold">
-                        · добро пожаловать, {emailName}! 👋
-                      </span>
-                    )}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -210,16 +209,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </button>
             </div>
           </form>
-        </div>
-
-        {/* ✅ Инфо-примечание (как на странице заказа) */}
-        <div className="flex items-center gap-3 p-4 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border rounded-2xl">
-          <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-            <Info size={16} className="text-[#1B2A4A] dark:text-white" />
-          </div>
-          <p className="text-xs text-[#8A8275] dark:text-gray-300 leading-relaxed">
-            Используйте email и пароль, созданные в Supabase Dashboard → Authentication → Users
-          </p>
         </div>
       </div>
     </div>
