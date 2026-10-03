@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
 import {
+  ordersCacheApi,
+  chinaCacheApi,
+  productsCacheApi,
+  brandsCacheApi,
+  invalidateAllCaches,
+} from '../lib/cache'
+import {
   Package,
   Globe,
   LogOut,
@@ -12,36 +19,41 @@ import {
   Tag,
   ChevronRight,
   Store,
+  RefreshCw,
 } from 'lucide-react'
 import { logout } from '../lib/auth'
+import { toast, Toaster } from 'sonner'
 import NotificationBell from '../components/NotificationBell'
 
 // ✅ KPI-карточка в стиле страницы заказа (десктоп)
-function KpiCard({ icon, iconColor, label, value, subtitle }: {
+function KpiCard({ icon, label, value, subtitle, accent = false }: {
   icon: React.ReactNode
-  iconColor: string
   label: string
   value: string
   subtitle: string
+  accent?: boolean
 }) {
   return (
-    <div className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] ${iconColor}`}>
+    <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border ${
+        accent ? 'bg-[#C9A961]/10 dark:bg-gold/20' : 'bg-[#F5F1E8] dark:bg-dark-accent'
+      }`}>
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-[#8A8275] truncate">{label}</p>
-        <p className="text-3xl font-bold text-[#1B2A4A] truncate mt-0.5">{value}</p>
-        <p className="text-xs text-[#8A8275] mt-0.5 truncate">{subtitle}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{label}</p>
+        <p className={`text-3xl font-bold truncate mt-0.5 ${
+          accent ? 'text-[#C9A961]' : 'text-[#1B2A4A] dark:text-white'
+        }`}>{value}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{subtitle}</p>
       </div>
     </div>
   )
 }
 
 // ✅ Карточка-ссылка на раздел (десктоп)
-function NavCard({ icon, iconBg, title, description, count, onClick }: {
+function NavCard({ icon, title, description, count, onClick }: {
   icon: React.ReactNode
-  iconBg: string
   title: string
   description: string
   count?: string
@@ -50,18 +62,18 @@ function NavCard({ icon, iconBg, title, description, count, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-5 text-left hover:shadow-md hover:border-[#C9A961] transition-all group"
+      className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 text-left hover:shadow-md hover:border-[#C9A961] dark:hover:border-gold transition-all group"
     >
       <div className="flex items-center justify-between gap-2 mb-4">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] ${iconBg}`}>
+        <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8] dark:bg-dark-accent">
           {icon}
         </div>
-        <ChevronRight size={18} className="text-[#8A8275] group-hover:text-[#C9A961] group-hover:translate-x-0.5 transition-all" />
+        <ChevronRight size={18} className="text-[#8A8275] dark:text-gray-300 group-hover:text-[#C9A961] dark:group-hover:text-gold group-hover:translate-x-0.5 transition-all" />
       </div>
-      <h2 className="text-lg font-bold text-[#1B2A4A]">{title}</h2>
-      <p className="text-xs text-[#8A8275] mt-1">{description}</p>
+      <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">{title}</h2>
+      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1">{description}</p>
       {count !== undefined && (
-        <span className="inline-block mt-3 px-2.5 py-1 rounded-full bg-[#F5F1E8] border border-[#E8E2D5] text-xs font-bold text-[#1B2A4A]">
+        <span className="inline-block mt-3 px-2.5 py-1 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#1B2A4A] dark:text-white">
           {count}
         </span>
       )}
@@ -76,36 +88,81 @@ export default function DashboardPage() {
   const [productsCount, setProductsCount] = useState(0)
   const [brandsCount, setBrandsCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    loadData()
+    loadData(false)
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (forceRefresh = false) => {
+    // ✅ Проверяем кеш всех секций
+    if (!forceRefresh) {
+      const cachedOrders = ordersCacheApi.get()
+      const cachedChina = chinaCacheApi.get()
+      const cachedProducts = productsCacheApi.get()
+      const cachedBrands = brandsCacheApi.get()
+
+      if (cachedOrders && cachedChina && cachedProducts && cachedBrands) {
+        setOrders(cachedOrders as any[])
+        setChinaRequests(cachedChina as any[])
+        setProductsCount((cachedProducts as any[]).length)
+        setBrandsCount((cachedBrands as any[]).length)
+        setLoading(false)
+        return
+      }
+    }
+
+    if (forceRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+
     try {
       const ordersData = await getOrders()
       const chinaData = await getChinaRequests()
 
-      const { count: productsCountResult } = await supabase
+      const { data: productsData } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: false })
 
-      const { count: brandsCountResult } = await supabase
+      const { data: brandsData } = await supabase
         .from('brands')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: false })
+
+      const pCount = productsData?.length || 0
+      const bCount = brandsData?.length || 0
 
       setOrders(ordersData)
       setChinaRequests(chinaData)
-      setProductsCount(productsCountResult || 0)
-      setBrandsCount(brandsCountResult || 0)
+      setProductsCount(pCount)
+      setBrandsCount(bCount)
+
+      // ✅ Сохраняем в кеш
+      ordersCacheApi.set(ordersData)
+      chinaCacheApi.set(chinaData)
+      productsCacheApi.set(productsData || [])
+      brandsCacheApi.set(brandsData || [])
     } catch (error) {
       console.error('Ошибка загрузки:', error)
+      toast.error('Ошибка загрузки данных панели')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    setLoading(false)
+  }
+
+  const handleRefresh = () => {
+    ordersCacheApi.invalidate()
+    chinaCacheApi.invalidate()
+    productsCacheApi.invalidate()
+    brandsCacheApi.invalidate()
+    loadData(true)
   }
 
   const handleLogout = async () => {
+    // ✅ Сбрасываем весь кеш админки при выходе
+    invalidateAllCaches()
     await logout()
     navigate('/login')
   }
@@ -116,34 +173,45 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F1E8] flex items-center justify-center">
-        <div className="bg-[#FBF9F4] rounded-2xl border border-[#E8E2D5] p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] font-medium">Загрузка панели...</p>
+      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
+          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка панели...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F1E8]">
+    <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
+      <Toaster position="top-center" richColors />
+
       {/* ✅ Sticky-шапка (десктоп): лого слева, действия справа */}
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 backdrop-blur-sm border-b border-[#E8E2D5] px-6 py-4">
+      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-full bg-[#1B2A4A] flex items-center justify-center flex-shrink-0">
-              <Store size={20} className="text-white" />
+            <div className="w-11 h-11 rounded-full bg-[#1B2A4A] dark:bg-gold flex items-center justify-center flex-shrink-0">
+              <Store size={20} className="text-white dark:text-[#1B2A4A]" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] truncate">LOFT Admin Panel</h1>
-              <p className="text-xs text-[#8A8275] mt-0.5 truncate">Панель управления магазином</p>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white truncate">LOFT Admin Panel</h1>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">Панель управления магазином</p>
             </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <NotificationBell />
             <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
+              title="Обновить данные"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+              Обновить
+            </button>
+            <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#E8E2D5] bg-[#FBF9F4] text-sm font-bold text-[#9B3B3B] hover:bg-red-50 hover:border-red-200 transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-500/30 bg-[#FBF9F4] dark:bg-red-500/10 text-sm font-bold text-[#9B3B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
             >
               <LogOut size={16} />
               Выйти
@@ -156,33 +224,31 @@ export default function DashboardPage() {
         {/* ✅ KPI-строка: 3 карточки со счётчиками */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard
-            icon={<Package size={20} className="text-[#1B2A4A]" />}
-            iconColor="bg-[#F5F1E8]"
+            icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             label="Активные заказы"
             value={String(activeOrders)}
             subtitle={`Всего заказов: ${orders.length}`}
           />
           <KpiCard
             icon={<Globe size={20} className="text-[#C9A961]" />}
-            iconColor="bg-[#F5F1E8]"
             label="Спецзаказы на рассмотрении"
             value={String(pendingRequests)}
             subtitle={`Всего заявок: ${chinaRequests.length}`}
+            accent
           />
           <KpiCard
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
-            iconColor="bg-[#F5F1E8]"
             label="Выручка"
             value={`$${totalRevenue.toLocaleString()}`}
             subtitle="По всем заказам"
+            accent
           />
         </div>
 
         {/* ✅ Сетка разделов: карточки-ссылки */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <NavCard
-            icon={<Package size={20} className="text-[#1B2A4A]" />}
-            iconBg="bg-[#F5F1E8]"
+            icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             title="Заказы"
             description="Управление заказами клиентов"
             count={`Всего: ${orders.length}`}
@@ -190,15 +256,13 @@ export default function DashboardPage() {
           />
           <NavCard
             icon={<Globe size={20} className="text-[#C9A961]" />}
-            iconBg="bg-[#F5F1E8]"
             title="Спецзаказы"
             description="Заявки на спецзаказы из Китая"
             count={`Всего: ${chinaRequests.length}`}
             onClick={() => navigate('/china')}
           />
           <NavCard
-            icon={<ShoppingBag size={20} className="text-[#1B2A4A]" />}
-            iconBg="bg-[#F5F1E8]"
+            icon={<ShoppingBag size={20} className="text-[#1B2A4A] dark:text-white" />}
             title="Товары"
             description="Управление каталогом и остатками"
             count={`Всего: ${productsCount}`}
@@ -206,21 +270,18 @@ export default function DashboardPage() {
           />
           <NavCard
             icon={<BarChart3 size={20} className="text-[#C9A961]" />}
-            iconBg="bg-[#F5F1E8]"
             title="Аналитика"
             description="Статистика и отчёты продаж"
             onClick={() => navigate('/analytics')}
           />
           <NavCard
-            icon={<Settings size={20} className="text-[#1B2A4A]" />}
-            iconBg="bg-[#F5F1E8]"
+            icon={<Settings size={20} className="text-[#1B2A4A] dark:text-white" />}
             title="Настройки"
             description="Курс валют, скидки, доставка"
             onClick={() => navigate('/settings')}
           />
           <NavCard
             icon={<Tag size={20} className="text-[#C9A961]" />}
-            iconBg="bg-[#F5F1E8]"
             title="Бренды"
             description="Управление списком брендов"
             count={`Всего: ${brandsCount}`}
