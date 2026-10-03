@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useTheme } from '../lib/theme'
 import {
   ArrowLeft,
   Save,
@@ -10,6 +11,9 @@ import {
   Tag,
   Settings as SettingsIcon,
   Truck,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
 
@@ -46,6 +50,8 @@ const invalidateSettingsCache = () => {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
+
   const [exchangeRate, setExchangeRate] = useState<number>(12100)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -321,7 +327,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
+      {/* ✅ Тосты в текущей теме (system следует за ОС) */}
+      <Toaster position="top-center" richColors theme={theme} />
 
       {/* ✅ Sticky-шапка (десктоп): назад слева, заголовок + refresh справа */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
@@ -356,6 +363,90 @@ export default function SettingsPage() {
 
       {/* ✅ Двухколоночная сетка секций (десктоп) */}
       <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2">
+          {/* Шапка секции */}
+          <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
+            <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+              <Monitor size={20} className="text-[#1B2A4A] dark:text-white" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Тема оформления</h2>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
+                Светлая, тёмная или системная — применяется ко всей админ-панели
+              </p>
+            </div>
+          </div>
+
+          <div className="p-5 flex flex-col md:flex-row items-stretch md:items-center gap-4">
+            {/* ✅ 3 кнопки переключения */}
+            <div className="grid grid-cols-3 gap-2 flex-1">
+              <button
+                onClick={() => setTheme('light')}
+                title="Светлая тема"
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                  theme === 'light'
+                    ? 'bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]'
+                    : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border hover:text-[#1B2A4A] dark:hover:text-gold'
+                }`}
+              >
+                <Sun size={16} />
+                Светлая
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                title="Тёмная тема"
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]'
+                    : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border hover:text-[#1B2A4A] dark:hover:text-gold'
+                }`}
+              >
+                <Moon size={16} />
+                Тёмная
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                title="Системная тема"
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                  theme === 'system'
+                    ? 'bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]'
+                    : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border hover:text-[#1B2A4A] dark:hover:text-gold'
+                }`}
+              >
+                <Monitor size={16} />
+                Системная
+              </button>
+            </div>
+
+            {/* ✅ Плашка текущего состояния */}
+            <div className="flex items-center gap-3 p-4 bg-[#F5F1E8]/60 dark:bg-dark-accent/40 border border-[#E8E2D5] dark:border-dark-border rounded-xl md:w-72 flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                {theme === 'light' ? (
+                  <Sun size={16} className="text-[#C9A961]" />
+                ) : theme === 'dark' ? (
+                  <Moon size={16} className="text-[#C9A961]" />
+                ) : (
+                  <Monitor size={16} className="text-[#C9A961]" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[#8A8275] dark:text-gray-300">Сейчас выбрана</p>
+                <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">
+                  {theme === 'light' ? 'Светлая' : theme === 'dark' ? 'Тёмная' : 'Системная'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Подсказка */}
+          <div className="px-5 pb-5">
+            <p className="text-xs text-[#8A8275] dark:text-gray-300">
+              💡 Системная тема переключается автоматически вместе с настройками операционной системы. Выбор сохраняется и действует после перезагрузки панели.
+            </p>
+          </div>
+        </div>
+
         {/* ========== РЕЖИМ СКИДОК ========== */}
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
           {/* Шапка секции */}
@@ -601,6 +692,8 @@ export default function SettingsPage() {
               { icon: '💰', text: 'Скидочная цена задаётся в карточке товара («Цена со скидкой»)' },
               { icon: '🚚', text: 'Цена доставки добавляется к итогу при выборе «Доставка»' },
               { icon: '🆓', text: 'При самовывозе доставка всегда бесплатная' },
+              { icon: '🌙', text: 'Тема оформления применяется ко всей админ-панели и запоминается' },
+              { icon: '🖥', text: 'Системная тема следует за настройками операционной системы' },
             ].map((item, idx) => (
               <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#E8E2D5] dark:border-dark-border last:border-0 md:[&:nth-last-child(2)]:border-0">
                 <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
