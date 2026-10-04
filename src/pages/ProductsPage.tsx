@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { productsCacheApi, brandsCacheApi, variantsCacheApi } from '../lib/cache'
@@ -95,6 +95,27 @@ interface Brand {
   name: string
 }
 
+// ✅ Категории и подкатегории из БД
+interface Category {
+  id: string
+  name_ru: string
+  name_uz: string
+  icon: string | null
+  sort_order: number
+  is_active: boolean
+}
+
+interface Subcategory {
+  id: string
+  category_id: string
+  name_ru: string
+  name_uz: string
+  size_type: string
+  sizes: string[]
+  sort_order: number
+  is_active: boolean
+}
+
 // ✅ Защита от «битого» кеша: у полного товара обязательно есть name_ru (string)
 const isFullProductRows = (list: any[]): boolean =>
   !list || list.length === 0 || (list[0] != null && typeof list[0].name_ru === 'string')
@@ -143,6 +164,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
+  // ✅ Категории и подкатегории из БД
+  const [dbCategories, setDbCategories] = useState<Category[]>([])
+  const [dbSubcategories, setDbSubcategories] = useState<Subcategory[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
@@ -166,18 +190,52 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // ✅ Единая загрузка всех трёх таблиц при монтировании
+  // ✅ Set активных категорий и подкатегорий — для быстрой проверки видимости
+  const activeCategoryIds = useMemo(
+    () => new Set(dbCategories.filter(c => c.is_active).map(c => c.id)),
+    [dbCategories]
+  )
+  const activeSubcategoryIds = useMemo(
+    () => new Set(dbSubcategories.filter(s => s.is_active).map(s => s.id)),
+    [dbSubcategories]
+  )
+
+  // ✅ Быстрые словари id → объект
+  const categoryById = useMemo(() => {
+    const map: Record<string, Category> = {}
+    dbCategories.forEach(c => { map[c.id] = c })
+    return map
+  }, [dbCategories])
+
+  const subcategoryById = useMemo(() => {
+    const map: Record<string, Subcategory> = {}
+    dbSubcategories.forEach(s => { map[s.id] = s })
+    return map
+  }, [dbSubcategories])
+
+  // ✅ Подкатегории конкретной категории (из БД, сортированные)
+  const subcategoriesByCategory = useMemo(() => {
+    const map: Record<string, Subcategory[]> = {}
+    dbSubcategories
+      .slice()
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .forEach(s => {
+        if (!map[s.category_id]) map[s.category_id] = []
+        map[s.category_id].push(s)
+      })
+    return map
+  }, [dbSubcategories])
+
+  // ✅ Единая загрузка всех трёх таблиц + категорий/подкатегорий при монтировании
   useEffect(() => {
     loadAll(false)
   }, [])
 
   const loadAll = async (forceRefresh = false) => {
-    // 1. Читаем все три кеша
     const cachedProducts = !forceRefresh ? productsCacheApi.get() : null
     const cachedVariants = !forceRefresh ? variantsCacheApi.get() : null
     const cachedBrands = !forceRefresh ? brandsCacheApi.get() : null
 
-    // 2. ✅ Если все три кеша свежие и валидные — МГНОВЕННАЯ отрисовка без спиннера
     const productsValid = cachedProducts && isFullProductRows(cachedProducts as any[])
     const variantsValid = !!cachedVariants
     const brandsValid = cachedBrands && isFullProductRows(cachedBrands as any[])
@@ -186,29 +244,24 @@ export default function ProductsPage() {
       setProducts(cachedProducts as Product[])
       setVariants(cachedVariants as ProductVariant[])
       setBrands(cachedBrands as Brand[])
+      // Категории/подкатегории загружаем параллельно, не блокируем рендер
       setLoading(false)
-      return
     }
 
-    // 3. Сбрасываем битые кеши (если есть)
     if (cachedProducts && !isFullProductRows(cachedProducts as any[])) productsCacheApi.invalidate()
     if (cachedBrands && !isFullProductRows(cachedBrands as any[])) brandsCacheApi.invalidate()
 
-    // 4. Если есть хотя бы частичный кеш — рисуем что есть, остальное в фоне
-    if (productsValid || variantsValid || brandsValid) {
-      if (productsValid) setProducts(cachedProducts as Product[])
-      if (variantsValid) setVariants(cachedVariants as ProductVariant[])
-      if (brandsValid) setBrands(cachedBrands as Brand[])
-      setLoading(false)
-    } else if (forceRefresh) {
-      setRefreshing(true)
-    } else {
-      setLoading(true)
+    if (!productsValid && !variantsValid && !brandsValid) {
+      if (forceRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
     }
 
     try {
-      // 5. ✅ ПАРАЛЛЕЛЬНАЯ загрузка всех трёх таблиц — в 3 раза быстрее
-      const [productsRes, variantsRes, brandsRes] = await Promise.all([
+      // ✅ ПАРАЛЛЕЛЬНАЯ загрузка 5 таблиц — товары, варианты, бренды, категории, подкатегории
+      const [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes] = await Promise.all([
         productsValid
           ? Promise.resolve({ data: cachedProducts, error: null })
           : supabase.from('products').select('*').order('created_at', { ascending: false }),
@@ -218,6 +271,8 @@ export default function ProductsPage() {
         brandsValid
           ? Promise.resolve({ data: cachedBrands, error: null })
           : supabase.from('brands').select('*').order('name'),
+        supabase.from('categories').select('*').order('sort_order', { ascending: true }),
+        supabase.from('subcategories').select('*').order('sort_order', { ascending: true }),
       ])
 
       if (productsRes.error) throw productsRes.error
@@ -225,18 +280,20 @@ export default function ProductsPage() {
       const productsList = (productsRes.data || []) as Product[]
       const variantsList = (variantsRes.data || []) as ProductVariant[]
       const brandsList = (brandsRes.data || []) as Brand[]
+      const categoriesList = (categoriesRes.data || []) as Category[]
+      const subcategoriesList = (subcategoriesRes.data || []) as Subcategory[]
 
       setProducts(productsList)
       setVariants(variantsList)
       setBrands(brandsList)
+      setDbCategories(categoriesList)
+      setDbSubcategories(subcategoriesList)
 
-      // 6. Сохраняем всё в кеш
       productsCacheApi.set(productsList)
       variantsCacheApi.set(variantsList)
       brandsCacheApi.set(brandsList)
     } catch (error) {
       console.error('Ошибка загрузки:', error)
-      // Тост только если совсем ничего не показали
       if (!productsValid && !variantsValid && !brandsValid) {
         toast.error('Ошибка при загрузке товаров')
       }
@@ -323,6 +380,9 @@ export default function ProductsPage() {
 
   const openAddModal = () => {
     resetForm()
+    // ✅ Если есть хотя бы одна активная категория — выбираем первую активную
+    const firstActiveCat = dbCategories.find(c => c.is_active)
+    if (firstActiveCat) setCategory(firstActiveCat.id)
     setShowModal(true)
   }
 
@@ -482,7 +542,6 @@ export default function ProductsPage() {
         toast.success('Товар добавлен! ✅')
       }
       setShowModal(false)
-      // ✅ Сбрасываем кеш и перезагружаем
       productsCacheApi.invalidate()
       await loadAll(true)
     } catch (error: any) {
@@ -574,12 +633,36 @@ export default function ProductsPage() {
     return sortSizeStrings(raw)
   }
 
-  const getSubcategories = () => {
+  // ✅ Подкатегории для формы: для нового товара — только активные;
+  // для редактируемого — все (отключённые помечены «(скрыто)»)
+  const getFormSubcategories = () => {
+    const subs = subcategoriesByCategory[category] || []
+    if (editingProduct) return subs
+    return subs.filter(s => s.is_active)
+  }
+
+  // ✅ Категории для формы: аналогично — для нового только активные
+  const getFormCategories = () => {
+    if (dbCategories.length === 0) return CATEGORIES.map(c => ({ id: c.value, name_ru: c.label.replace(/ \S+$/, ''), is_active: true }))
+    if (editingProduct) return dbCategories
+    return dbCategories.filter(c => c.is_active)
+  }
+
+  // ✅ Фолбэк на хардкод для подкатегорий (если БД пуста)
+  const getHardcodedSubcategories = () => {
     const cat = CATEGORIES.find(c => c.value === category)
     return cat?.subcategories || []
   }
 
   const hasSale = (p: Product) => p.sale_price != null && Number(p.sale_price) > 0
+
+  // ✅ Проверка: виден ли товар в приложении (активны и сам товар, и его категория, и подкатегория)
+  const isProductVisibleInApp = (p: Product): boolean => {
+    if (p.is_active === false) return false
+    if (!activeCategoryIds.has(p.category)) return false
+    if (p.subcategory && !activeSubcategoryIds.has(p.subcategory)) return false
+    return true
+  }
 
   // ✅ Безопасный фильтр: защита от p.name_ru / p.name_uz = null/undefined
   const filteredProducts = products.filter(p => {
@@ -609,6 +692,42 @@ export default function ProductsPage() {
       : null
 
   const totalStock = Object.values(selectedSizes).reduce((sum, s) => sum + s, 0)
+
+  // ✅ Хелперы для отображения имён категорий/подкатегорий из БД (с фолбэком)
+  const getCategoryLabel = (catId: string): string => {
+    const dbCat = categoryById[catId]
+    if (dbCat) return dbCat.name_ru
+    const hb = CATEGORIES.find(c => c.value === catId)
+    return hb?.label || catId
+  }
+
+  const getSubcategoryLabel = (catId: string, subId: string): string => {
+    const dbSub = subcategoryById[subId]
+    if (dbSub) return dbSub.name_ru
+    const hbCat = CATEGORIES.find(c => c.value === catId)
+    const hbSub = hbCat?.subcategories.find(s => s.value === subId)
+    return hbSub?.label || subId
+  }
+
+  // ✅ Категория отключена в БД?
+  const isCategoryDisabled = (catId: string): boolean => {
+    const dbCat = categoryById[catId]
+    return !!dbCat && !dbCat.is_active
+  }
+
+  // ✅ Подкатегория отключена в БД?
+  const isSubcategoryDisabled = (subId: string): boolean => {
+    const dbSub = subcategoryById[subId]
+    return !!dbSub && !dbSub.is_active
+  }
+
+  // ✅ Причина, по которой товар скрыт из приложения (для tooltip/деталей)
+  const getProductHiddenReason = (p: Product): string | null => {
+    if (p.is_active === false) return 'Товар скрыт вручную'
+    if (!activeCategoryIds.has(p.category)) return 'Категория отключена'
+    if (p.subcategory && !activeSubcategoryIds.has(p.subcategory)) return 'Подкатегория отключена'
+    return null
+  }
 
   if (loading) {
     return (
@@ -689,7 +808,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* ✅ Фильтры по категориям */}
+          {/* ✅ Фильтры по категориям — с пометкой «(скрыто)» для отключённых */}
           <div className="mt-3 flex gap-2 flex-wrap">
             <button
               onClick={() => setCategoryFilter('all')}
@@ -701,19 +820,22 @@ export default function ProductsPage() {
             >
               Все <span className="opacity-70">({products.length})</span>
             </button>
-            {CATEGORIES.map(cat => {
-              const count = products.filter(p => p.category === cat.value).length
+            {(dbCategories.length > 0 ? dbCategories : CATEGORIES.map(c => ({ id: c.value, name_ru: c.label.replace(/ \S+$/, ''), is_active: true } as Category))).map(cat => {
+              const count = products.filter(p => p.category === cat.id).length
+              const disabled = !cat.is_active
               return (
                 <button
-                  key={cat.value}
-                  onClick={() => setCategoryFilter(cat.value)}
+                  key={cat.id}
+                  onClick={() => setCategoryFilter(cat.id)}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-                    categoryFilter === cat.value
+                    categoryFilter === cat.id
                       ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
                       : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
-                  }`}
+                  } ${disabled ? 'opacity-70' : ''}`}
                 >
-                  {cat.label} <span className="opacity-70">({count})</span>
+                  {cat.name_ru}
+                  {disabled && <span className="ml-1 text-[10px] text-[#C9A961] dark:text-gold">(скрыто)</span>}
+                  <span className="opacity-70"> ({count})</span>
                 </button>
               )
             })}
@@ -790,6 +912,9 @@ export default function ProductsPage() {
               const totalStockList = productVariants.reduce((sum, v) => sum + v.stock, 0)
               const isActive = product.is_active !== false
               const sale = hasSale(product)
+              // ✅ Проверка видимости товара в приложении
+              const visibleInApp = isProductVisibleInApp(product)
+              const hiddenReason = getProductHiddenReason(product)
 
               return (
                 <div
@@ -797,7 +922,9 @@ export default function ProductsPage() {
                   className={`bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border overflow-hidden transition-shadow hover:shadow-md ${
                     !isActive
                       ? 'border-[#C9A961] dark:border-gold opacity-70'
-                      : 'border-[#E8E2D5] dark:border-dark-border'
+                      : !visibleInApp
+                        ? 'border-[#C9A961]/60 dark:border-gold/60'
+                        : 'border-[#E8E2D5] dark:border-dark-border'
                   }`}
                 >
                   {/* Шапка карточки */}
@@ -828,6 +955,15 @@ export default function ProductsPage() {
                                 🙈 Скрыт
                               </span>
                             )}
+                            {/* ✅ Золотой пилл: товар активен, но скрыт из-за категории/подкатегории */}
+                            {isActive && !visibleInApp && (
+                              <span
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap"
+                                title={hiddenReason || ''}
+                              >
+                                🙈 Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
+                              </span>
+                            )}
                             {sale && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-400 whitespace-nowrap">
                                 🏷️ Скидка
@@ -854,13 +990,25 @@ export default function ProductsPage() {
 
                       {/* Строки: категория + бренд + остаток */}
                       <div className="flex items-center gap-2 flex-wrap text-xs text-[#8A8275] dark:text-gray-300">
-                        <span className="px-2 py-0.5 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border">
-                          {CATEGORIES.find(c => c.value === product.category)?.label || product.category}
+                        <span className={`px-2 py-0.5 rounded-full border ${
+                          isCategoryDisabled(product.category)
+                            ? 'bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold border-[#C9A961]/30 dark:border-gold/40'
+                            : 'bg-[#F5F1E8] dark:bg-dark-accent border-[#E8E2D5] dark:border-dark-border'
+                        }`}>
+                          {getCategoryLabel(product.category)}
+                          {isCategoryDisabled(product.category) && ' (скрыто)'}
                         </span>
                         {product.subcategory && (
                           <>
                             <ChevronRight size={10} />
-                            <span>{getSubcategories().find(s => s.value === product.subcategory)?.label || product.subcategory}</span>
+                            <span className={`px-2 py-0.5 rounded-full border ${
+                              isSubcategoryDisabled(product.subcategory)
+                                ? 'bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold border-[#C9A961]/30 dark:border-gold/40'
+                                : 'bg-[#F5F1E8] dark:bg-dark-accent border-[#E8E2D5] dark:border-dark-border'
+                            }`}>
+                              {getSubcategoryLabel(product.category, product.subcategory)}
+                              {isSubcategoryDisabled(product.subcategory) && ' (скрыто)'}
+                            </span>
                           </>
                         )}
                         {product.brand && (
@@ -1067,8 +1215,10 @@ export default function ProductsPage() {
                       }}
                       className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm"
                     >
-                      {CATEGORIES.map(cat => (
-                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      {getFormCategories().map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name_ru}{!cat.is_active ? ' (скрыто)' : ''}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1082,9 +1232,18 @@ export default function ProductsPage() {
                       }`}
                     >
                       <option value="">Выберите подкатегорию</option>
-                      {getSubcategories().map(sub => (
-                        <option key={sub.value} value={sub.value}>{sub.label}</option>
-                      ))}
+                      {getFormSubcategories().length > 0 ? (
+                        getFormSubcategories().map(sub => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name_ru}{!sub.is_active ? ' (скрыто)' : ''}
+                          </option>
+                        ))
+                      ) : (
+                        // ✅ Фолбэк на хардкод, если БД пуста
+                        getHardcodedSubcategories().map(sub => (
+                          <option key={sub.value} value={sub.value}>{sub.label}</option>
+                        ))
+                      )}
                     </select>
                     {errors.subcategory && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.subcategory}</p>}
                   </div>
@@ -1238,7 +1397,7 @@ export default function ProductsPage() {
                 title="Размеры и остатки"
                 subtitle={
                   subcategory
-                    ? `${getSubcategories().find(s => s.value === subcategory)?.label || subcategory} · тип: ${sizeType === 'one_size' ? 'one size' : sizeType}`
+                    ? `${getSubcategoryLabel(category, subcategory)} · тип: ${sizeType === 'one_size' ? 'one size' : sizeType}`
                     : 'Сначала выберите подкатегорию'
                 }
                 right={
