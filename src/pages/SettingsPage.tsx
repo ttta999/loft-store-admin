@@ -48,6 +48,23 @@ const invalidateSettingsCache = () => {
   settingsCache = null
 }
 
+// ✅ Маленькая круглая кнопка «i» — раскрывает пояснение к секции
+function InfoToggle({ open, onClick, title }: { open: boolean; onClick: () => void; title: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${
+        open
+          ? 'bg-[#1B2A4A] dark:bg-gold border-[#1B2A4A] dark:border-gold text-white dark:text-[#1B2A4A]'
+          : 'bg-[#F5F1E8] dark:bg-dark-accent border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300 hover:text-[#1B2A4A] dark:hover:text-gold'
+      }`}
+    >
+      <Info size={14} />
+    </button>
+  )
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
@@ -65,6 +82,11 @@ export default function SettingsPage() {
   // ✅ Цена доставки в сумах (0 = бесплатно)
   const [deliveryPrice, setDeliveryPrice] = useState<number>(0)
   const [savingDelivery, setSavingDelivery] = useState(false)
+
+  // ✅ Раскрываемые пояснения (скрыты по умолчанию)
+  const [showThemeInfo, setShowThemeInfo] = useState(false)
+  const [showSaleInfo, setShowSaleInfo] = useState(false)
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -361,24 +383,43 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ✅ Двухколоночная сетка секций (десктоп) */}
-      <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      {/* ✅ Сетка секций: карточки в ряду одинаковой высоты (без пробелов) */}
+      <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2">
-          {/* Шапка секции */}
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2 flex flex-col">
+          {/* Шапка секции + круглая кнопка «i» */}
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Monitor size={20} className="text-[#1B2A4A] dark:text-white" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Тема оформления</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                 Светлая, тёмная или системная — применяется ко всей админ-панели
               </p>
             </div>
+            <InfoToggle
+              open={showThemeInfo}
+              onClick={() => setShowThemeInfo(v => !v)}
+              title="О теме оформления"
+            />
           </div>
 
-          <div className="p-5 flex flex-col md:flex-row items-stretch md:items-center gap-4">
+          {/* ✅ Раскрываемое пояснение */}
+          {showThemeInfo && (
+            <div className="px-5 pt-5">
+              <div className="flex items-start gap-3 p-4 bg-[#1B2A4A]/5 dark:bg-gold/10 border border-[#1B2A4A]/10 dark:border-gold/20 rounded-xl">
+                <div className="w-9 h-9 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 flex items-center justify-center flex-shrink-0">
+                  <Info size={16} className="text-[#1B2A4A] dark:text-gold" />
+                </div>
+                <p className="text-xs text-[#1B2A4A] dark:text-white leading-relaxed">
+                  Системная тема переключается автоматически вместе с настройками операционной системы. Выбор сохраняется и действует после перезагрузки панели.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="p-5 flex flex-col md:flex-row items-stretch md:items-center gap-4 mt-auto">
             {/* ✅ 3 кнопки переключения */}
             <div className="grid grid-cols-3 gap-2 flex-1">
               <button
@@ -438,45 +479,45 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-
-          {/* Подсказка */}
-          <div className="px-5 pb-5">
-            <p className="text-xs text-[#8A8275] dark:text-gray-300">
-              💡 Системная тема переключается автоматически вместе с настройками операционной системы. Выбор сохраняется и действует после перезагрузки панели.
-            </p>
-          </div>
         </div>
 
         {/* ========== РЕЖИМ СКИДОК ========== */}
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
-          {/* Шапка секции */}
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden flex flex-col">
+          {/* Шапка секции + круглая кнопка «i» */}
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Tag size={20} className="text-[#9B3B3B] dark:text-red-400" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Режим скидок</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                 Переключатель видимости скидок в приложении
               </p>
             </div>
+            <InfoToggle
+              open={showSaleInfo}
+              onClick={() => setShowSaleInfo(v => !v)}
+              title="О режиме скидок"
+            />
           </div>
 
-          {/* Инфо-плашка */}
-          <div className="p-5 pb-0">
-            <div className="flex items-start gap-3 p-4 bg-[#9B3B3B]/5 dark:bg-red-500/10 border border-[#9B3B3B]/15 dark:border-red-500/20 rounded-xl">
-              <div className="w-9 h-9 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                <Info size={16} className="text-[#9B3B3B] dark:text-red-400" />
-              </div>
-              <div className="text-xs text-[#9B3B3B] dark:text-red-300 leading-relaxed">
-                <p><b>Включён:</b> товары со скидкой показываются с перечёркнутой старой ценой, бокс «💰 Скидки» виден на главной.</p>
-                <p className="mt-1"><b>Выключен:</b> все цены обычные, бокс скидок скрыт.</p>
+          {/* ✅ Раскрываемое пояснение */}
+          {showSaleInfo && (
+            <div className="px-5 pt-5">
+              <div className="flex items-start gap-3 p-4 bg-[#9B3B3B]/5 dark:bg-red-500/10 border border-[#9B3B3B]/15 dark:border-red-500/20 rounded-xl">
+                <div className="w-9 h-9 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <Info size={16} className="text-[#9B3B3B] dark:text-red-400" />
+                </div>
+                <div className="text-xs text-[#9B3B3B] dark:text-red-300 leading-relaxed">
+                  <p><b>Включён:</b> товары со скидкой показываются с перечёркнутой старой ценой, бокс «💰 Скидки» виден на главной.</p>
+                  <p className="mt-1"><b>Выключен:</b> все цены обычные, бокс скидок скрыт.</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Строка состояния + кнопка (лейбл слева, контрол справа) */}
-          <div className="p-5 flex items-center justify-between gap-6">
+          {/* Строка состояния + кнопка (прижата к низу карточки) */}
+          <div className="p-5 flex items-center justify-between gap-6 mt-auto">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                 <span className="text-lg">{saleMode ? '✅' : '⛔'}</span>
@@ -505,62 +546,68 @@ export default function SettingsPage() {
         </div>
 
         {/* ========== ДОСТАВКА ========== */}
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
-          {/* Шапка секции */}
+        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden flex flex-col">
+          {/* Шапка секции + круглая кнопка «i» */}
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Truck size={20} className="text-[#1B2A4A] dark:text-white" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Доставка</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                 Цена доставки в приложении при выборе «Доставка»
               </p>
             </div>
+            <InfoToggle
+              open={showDeliveryInfo}
+              onClick={() => setShowDeliveryInfo(v => !v)}
+              title="О цене доставки"
+            />
           </div>
 
-          {/* Инфо-плашка */}
-          <div className="p-5 pb-0">
-            <div className="flex items-start gap-3 p-4 bg-[#1B2A4A]/5 dark:bg-gold/10 border border-[#1B2A4A]/10 dark:border-gold/20 rounded-xl">
-              <div className="w-9 h-9 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 flex items-center justify-center flex-shrink-0">
-                <Info size={16} className="text-[#1B2A4A] dark:text-gold" />
+          {/* ✅ Раскрываемое пояснение */}
+          {showDeliveryInfo && (
+            <div className="px-5 pt-5">
+              <div className="flex items-start gap-3 p-4 bg-[#1B2A4A]/5 dark:bg-gold/10 border border-[#1B2A4A]/10 dark:border-gold/20 rounded-xl">
+                <div className="w-9 h-9 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 flex items-center justify-center flex-shrink-0">
+                  <Info size={16} className="text-[#1B2A4A] dark:text-gold" />
+                </div>
+                <div className="text-xs text-[#1B2A4A] dark:text-white leading-relaxed">
+                  <p>Эта сумма добавляется к итогу заказа, когда клиент выбирает «Доставка».</p>
+                  <p className="mt-1">Укажите <b>0</b> — и доставка будет <b>бесплатной</b> (в корзине напишется «Бесплатно»).</p>
+                </div>
               </div>
-              <div className="text-xs text-[#1B2A4A] dark:text-white leading-relaxed">
-                <p>Эта сумма добавляется к итогу заказа, когда клиент выбирает «Доставка».</p>
-                <p className="mt-1">Укажите <b>0</b> — и доставка будет <b>бесплатной</b> (в корзине напишется «Бесплатно»).</p>
+            </div>
+          )}
+
+          {/* ✅ Ввод + кнопка (прижаты к низу карточки) */}
+          <div className="p-5 space-y-4 mt-auto">
+            <div className="flex items-center justify-between gap-6">
+              <div className="min-w-0">
+                <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">
+                  Цена доставки (сум)
+                </label>
+                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
+                  {deliveryPrice > 0
+                    ? `Сейчас: ${deliveryPrice.toLocaleString('ru-RU')} сум за доставку`
+                    : 'Сейчас: доставка бесплатная'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <input
+                  type="number"
+                  value={deliveryPrice}
+                  onChange={(e) => setDeliveryPrice(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right"
+                  step="1000"
+                  min="0"
+                />
+                <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">
+                  сум
+                </span>
               </div>
             </div>
-          </div>
 
-          {/* Строка ввода: лейбл слева, контрол справа */}
-          <div className="p-5 flex items-center justify-between gap-6">
-            <div className="min-w-0">
-              <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">
-                Цена доставки (сум)
-              </label>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                {deliveryPrice > 0
-                  ? `Сейчас: ${deliveryPrice.toLocaleString('ru-RU')} сум за доставку`
-                  : 'Сейчас: доставка бесплатная'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <input
-                type="number"
-                value={deliveryPrice}
-                onChange={(e) => setDeliveryPrice(Math.max(0, Number(e.target.value) || 0))}
-                className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right"
-                step="1000"
-                min="0"
-              />
-              <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">
-                сум
-              </span>
-            </div>
-          </div>
-
-          {/* Кнопка сохранить */}
-          <div className="px-5 pb-5">
             <button
               onClick={handleSaveDelivery}
               disabled={savingDelivery}
@@ -661,47 +708,6 @@ export default function SettingsPage() {
                 <p className="text-xs text-[#8A8275] dark:text-gray-300">Курс ещё не обновлялся вручную</p>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* ========== ИНФОРМАЦИЯ ========== */}
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2">
-          {/* Шапка секции */}
-          <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
-            <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-              <Info size={20} className="text-[#1B2A4A] dark:text-white" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Как это работает</h2>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                Справка по настройкам приложения и админки
-              </p>
-            </div>
-          </div>
-
-          {/* Двухколоночный список строк-иконок */}
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            {[
-              { icon: '💱', text: 'Курс используется для конвертации цен из USD в UZS' },
-              { icon: '🔒', text: 'При оформлении заказа курс фиксируется и сохраняется' },
-              { icon: '👤', text: 'Клиенты видят цены в сумах по текущему курсу' },
-              { icon: '📚', text: 'Исторические заказы хранят курс на момент оформления' },
-              { icon: '🔄', text: 'Приложение проверяет обновления курса каждые 5 минут' },
-              { icon: '⚡', text: 'При изменении курса в админке приложение обновит его автоматически' },
-              { icon: '🏷️', text: 'Режим скидок включает/выключает скидки во всём приложении' },
-              { icon: '💰', text: 'Скидочная цена задаётся в карточке товара («Цена со скидкой»)' },
-              { icon: '🚚', text: 'Цена доставки добавляется к итогу при выборе «Доставка»' },
-              { icon: '🆓', text: 'При самовывозе доставка всегда бесплатная' },
-              { icon: '🌙', text: 'Тема оформления применяется ко всей админ-панели и запоминается' },
-              { icon: '🖥', text: 'Системная тема следует за настройками операционной системы' },
-            ].map((item, idx) => (
-              <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#E8E2D5] dark:border-dark-border last:border-0 md:[&:nth-last-child(2)]:border-0">
-                <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">{item.icon}</span>
-                </div>
-                <p className="flex-1 text-sm text-[#1B2A4A] dark:text-white pt-1.5">{item.text}</p>
-              </div>
-            ))}
           </div>
         </div>
       </div>
