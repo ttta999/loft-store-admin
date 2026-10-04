@@ -8,6 +8,7 @@ import ProductsPage from './pages/ProductsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
 import BrandsPage from './pages/BrandsPage'
+import CategoriesPage from './pages/CategoriesPage'
 import { getCurrentUser } from './lib/auth'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,6 +81,11 @@ export default function App() {
         <Route path="/brands" element={
           <ProtectedRoute>
             <BrandsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/categories" element={
+          <ProtectedRoute>
+            <CategoriesPage />
           </ProtectedRoute>
         } />
       </Routes>

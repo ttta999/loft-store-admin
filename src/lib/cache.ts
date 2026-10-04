@@ -236,6 +236,30 @@ export const dashboardCountsCacheApi = {
   },
 }
 
+// ========== КАТЕГОРИИ (дерево) ==========
+// ✅ Кеш для дерева категорий (категории + вложенные подкатегории)
+let categoriesCache: any[] | null = null
+let categoriesCacheTimestamp = 0
+
+export const categoriesCacheApi = {
+  get(ttl: number = DEFAULT_TTL): any[] | null {
+    if (!categoriesCache) return null
+    if (Date.now() - categoriesCacheTimestamp > ttl) {
+      categoriesCache = null
+      return null
+    }
+    return categoriesCache
+  },
+  set(data: any[]) {
+    categoriesCache = data
+    categoriesCacheTimestamp = Date.now()
+  },
+  invalidate() {
+    categoriesCache = null
+    categoriesCacheTimestamp = 0
+  },
+}
+
 // ========== ОБЩИЙ СБРОС ==========
 export function invalidateAllCaches() {
   analyticsCacheApi.invalidate()
@@ -245,4 +269,5 @@ export function invalidateAllCaches() {
   brandsCacheApi.invalidate()
   variantsCacheApi.invalidate()
   dashboardCountsCacheApi.invalidate()
+  categoriesCacheApi.invalidate()
 }

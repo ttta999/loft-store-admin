@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Store,
   RefreshCw,
+  Layers,
 } from 'lucide-react'
 import { logout } from '../lib/auth'
 import { toast, Toaster } from 'sonner'
@@ -285,6 +286,12 @@ export default function DashboardPage() {
             description="Управление каталогом и остатками"
             count={`Всего: ${productsCount}`}
             onClick={() => navigate('/products')}
+          />
+          <NavCard
+            icon={<Layers size={20} className="text-[#C9A961]" />}
+            title="Категории"
+            description="Категории, подкатегории и размеры"
+            onClick={() => navigate('/categories')}
           />
           <NavCard
             icon={<BarChart3 size={20} className="text-[#C9A961]" />}
