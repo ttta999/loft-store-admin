@@ -26,6 +26,8 @@ import {
   Layers,
   Info,
 } from 'lucide-react'
+import IconPicker from '../components/IconPicker'
+import CategoryIcon from '../components/CategoryIcon'
 
 const SIZE_TYPES = [
   { value: 'numeric', label: 'Числовая (38–47)' },
@@ -40,9 +42,8 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Модалки
   const [categoryModal, setCategoryModal] = useState<{ mode: 'create' } | { mode: 'edit'; category: CategoryTree } | null>(null)
-  const [subModal, setSubModal] = useState<{ mode: 'create'; categoryId: string } | { mode: 'edit'; categoryId: string; sub: SubcategoryRow } | null>(null)
+  const [subModal, setSubModal] = useState<{ mode: 'create'; categoryId: string } | { mode: 'edit'; categoryId: string; sub: SubcategoryRow & { icon?: string | null } } | null>(null)
 
   useEffect(() => {
     load(false)
@@ -101,9 +102,9 @@ export default function CategoriesPage() {
     }
   }
 
-  // ========== СОХРАНЕНИЕ ПОДКАТЕГОРИИ ==========
+  // ========== СОХРАНЕНИЕ ПОДКАТЕГОРИИ (с icon!) ==========
   const saveSubcategory = async (
-    values: { id: string; name_ru: string; name_uz: string; size_type: string; sizes: string[] },
+    values: { id: string; name_ru: string; name_uz: string; size_type: string; sizes: string[]; icon: string | null },
     categoryId: string,
     editId: string | null
   ) => {
@@ -111,7 +112,14 @@ export default function CategoriesPage() {
       if (editId) {
         const { error } = await supabase
           .from('subcategories')
-          .update({ name_ru: values.name_ru, name_uz: values.name_uz, size_type: values.size_type, sizes: values.sizes, updated_at: new Date().toISOString() })
+          .update({
+            name_ru: values.name_ru,
+            name_uz: values.name_uz,
+            size_type: values.size_type,
+            sizes: values.sizes,
+            icon: values.icon,
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', editId)
         if (error) throw error
         await logCategoryChange('update_subcategory', 'subcategory', editId, { snapshot: values })
@@ -119,7 +127,16 @@ export default function CategoriesPage() {
       } else {
         const { error } = await supabase
           .from('subcategories')
-          .insert({ id: values.id, category_id: categoryId, name_ru: values.name_ru, name_uz: values.name_uz, size_type: values.size_type, sizes: values.sizes, sort_order: 999 })
+          .insert({
+            id: values.id,
+            category_id: categoryId,
+            name_ru: values.name_ru,
+            name_uz: values.name_uz,
+            size_type: values.size_type,
+            sizes: values.sizes,
+            icon: values.icon,
+            sort_order: 999,
+          })
         if (error) throw error
         await logCategoryChange('create_subcategory', 'subcategory', values.id, { snapshot: values })
         toast.success('Подкатегория добавлена ✅')
@@ -174,7 +191,7 @@ export default function CategoriesPage() {
     }
   }
 
-  // ========== СОРТИРОВКА СТРЕЛКАМИ ==========
+  // ========== СОРТИРОВКА ==========
   const moveCategory = async (index: number, dir: -1 | 1) => {
     const j = index + dir
     if (j < 0 || j >= tree.length) return
@@ -182,7 +199,6 @@ export default function CategoriesPage() {
     ;[list[index], list[j]] = [list[j], list[index]]
     setTree(list)
     await Promise.all(list.map((c, i) => supabase.from('categories').update({ sort_order: i + 1 }).eq('id', c.id)))
-    // ✅ Обновляем кеш сразу (без invalidate, чтобы не делать лишний запрос)
     categoriesCacheSilentSet(list)
   }
 
@@ -194,11 +210,9 @@ export default function CategoriesPage() {
     const newTree = tree.map(c => (c.id === category.id ? { ...c, subcategories: subs } : c))
     setTree(newTree)
     await Promise.all(subs.map((s, i) => supabase.from('subcategories').update({ sort_order: i + 1 }).eq('id', s.id)))
-    // ✅ Обновляем кеш сразу (без invalidate, чтобы не делать лишний запрос)
     categoriesCacheSilentSet(newTree)
   }
 
-  // ✅ Тихо обновляем кеш после сортировки (без повторного запроса к БД)
   const categoriesCacheSilentSet = (list: CategoryTree[]) => {
     categoriesCacheApi.set(list)
   }
@@ -221,7 +235,6 @@ export default function CategoriesPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       <Toaster position="top-center" richColors />
 
-      {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-4">
@@ -261,7 +274,6 @@ export default function CategoriesPage() {
             </div>
           </div>
 
-          {/* Статистика */}
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
               Категорий: <span className="text-[#C9A961]">{tree.length}</span> · активных {activeCategories}
@@ -292,10 +304,10 @@ export default function CategoriesPage() {
                   : 'border-[#C9A961] dark:border-gold opacity-75'
               }`}
             >
-              {/* ✅ Шапка категории */}
+              {/* ✅ Шапка категории: иконка теперь через CategoryIcon */}
               <div className="flex items-center gap-4 p-4 border-b border-[#E8E2D5] dark:border-dark-border">
-                <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0 text-xl">
-                  {category.icon}
+                <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                  <CategoryIcon name={category.icon} size={22} className="text-[#1B2A4A] dark:text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -310,6 +322,7 @@ export default function CategoriesPage() {
                   </div>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                     {category.name_uz} · {category.subcategories.length} подкатегорий · ID: {category.id}
+                    {category.icon && <span className="ml-1 font-mono text-[#C9A961]">· {category.icon}</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -336,57 +349,64 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              {/* ✅ Подкатегории */}
+              {/* ✅ Подкатегории: у каждой своя иконка */}
               <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
-                {category.subcategories.map((sub, subIndex) => (
-                  <div key={sub.id} className={`flex items-center gap-4 p-3.5 ${!sub.is_active ? 'opacity-60' : ''}`}>
-                    <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                      <Ruler size={14} className="text-[#1B2A4A] dark:text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">{sub.name_ru}</p>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
-                          {SIZE_TYPES.find(t => t.value === sub.size_type)?.label || sub.size_type}
-                        </span>
-                        {!sub.is_active && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold">
-                            🙈 Отключена
-                          </span>
-                        )}
+                {category.subcategories.map((sub, subIndex) => {
+                  const subIcon = (sub as any).icon as string | null | undefined
+                  return (
+                    <div key={sub.id} className={`flex items-center gap-4 p-3.5 ${!sub.is_active ? 'opacity-60' : ''}`}>
+                      <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                        <CategoryIcon
+                          name={subIcon || category.icon}
+                          size={16}
+                          className="text-[#1B2A4A] dark:text-white"
+                        />
                       </div>
-                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                        {sub.name_uz}
-                        {sub.sizes.length > 0 && ` · ${sub.sizes.slice(0, 6).join(', ')}${sub.sizes.length > 6 ? ` +${sub.sizes.length - 6}` : ''}`}
-                        {sub.sizes.length === 0 && ' · без размеров'}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">{sub.name_ru}</p>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
+                            {SIZE_TYPES.find(t => t.value === sub.size_type)?.label || sub.size_type}
+                          </span>
+                          {!sub.is_active && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold">
+                              🙈 Отключена
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
+                          {sub.name_uz}
+                          {sub.sizes.length > 0 && ` · ${sub.sizes.slice(0, 6).join(', ')}${sub.sizes.length > 6 ? ` +${sub.sizes.length - 6}` : ''}`}
+                          {sub.sizes.length === 0 && ' · без размеров'}
+                          {subIcon && <span className="ml-1 font-mono text-[#C9A961]">· {subIcon}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => moveSubcategory(category, subIndex, -1)} disabled={subIndex === 0} title="Выше"
+                          className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
+                          <ChevronUp size={13} />
+                        </button>
+                        <button onClick={() => moveSubcategory(category, subIndex, 1)} disabled={subIndex === category.subcategories.length - 1} title="Ниже"
+                          className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
+                          <ChevronDown size={13} />
+                        </button>
+                        <button onClick={() => setSubModal({ mode: 'edit', categoryId: category.id, sub: sub as any })} title="Редактировать"
+                          className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => toggleSubcategory(sub)} title={sub.is_active ? 'Отключить' : 'Включить'}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            sub.is_active
+                              ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300'
+                              : 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300'
+                          }`}>
+                          {sub.is_active ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <button onClick={() => moveSubcategory(category, subIndex, -1)} disabled={subIndex === 0} title="Выше"
-                        className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
-                        <ChevronUp size={13} />
-                      </button>
-                      <button onClick={() => moveSubcategory(category, subIndex, 1)} disabled={subIndex === category.subcategories.length - 1} title="Ниже"
-                        className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
-                        <ChevronDown size={13} />
-                      </button>
-                      <button onClick={() => setSubModal({ mode: 'edit', categoryId: category.id, sub })} title="Редактировать"
-                        className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => toggleSubcategory(sub)} title={sub.is_active ? 'Отключить' : 'Включить'}
-                        className={`p-1.5 rounded-lg border transition-colors ${
-                          sub.is_active
-                            ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300'
-                            : 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300'
-                        }`}>
-                        {sub.is_active ? <EyeOff size={13} /> : <Eye size={13} />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
 
-                {/* Кнопка добавить подкатегорию */}
                 <button
                   onClick={() => setSubModal({ mode: 'create', categoryId: category.id })}
                   className="w-full flex items-center justify-center gap-2 p-3 text-sm font-bold text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent hover:text-[#1B2A4A] dark:hover:text-white transition-colors"
@@ -399,18 +419,16 @@ export default function CategoriesPage() {
           ))
         )}
 
-        {/* ✅ Подсказка про отключение */}
         <div className="flex items-center gap-3 p-4 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border rounded-2xl">
           <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
             <Info size={16} className="text-[#1B2A4A] dark:text-white" />
           </div>
           <p className="text-xs text-[#8A8275] dark:text-gray-300 leading-relaxed">
-            Категории не удаляются — только отключаются. Отключённая категория скрывается из приложения вместе со своими товарами, но остаётся здесь для истории. Все изменения логируются (кто и когда).
+            Категории не удаляются — только отключаются. Отключённая категория скрывается из приложения вместе со своими товарами, но остаётся здесь для истории. Все изменения логируются.
           </p>
         </div>
       </div>
 
-      {/* ✅ МОДАЛКА КАТЕГОРИИ */}
       {categoryModal && (
         <CategoryModal
           initial={categoryModal.mode === 'edit' ? categoryModal.category : null}
@@ -420,7 +438,6 @@ export default function CategoriesPage() {
         />
       )}
 
-      {/* ✅ МОДАЛКА ПОДКАТЕГОРИИ */}
       {subModal && (
         <SubcategoryModal
           categoryId={subModal.categoryId}
@@ -434,7 +451,7 @@ export default function CategoriesPage() {
   )
 }
 
-// ========== МОДАЛКА КАТЕГОРИИ ==========
+// ========== МОДАЛКА КАТЕГОРИИ (с IconPicker) ==========
 function CategoryModal({ initial, existingIds, onClose, onSave }: {
   initial: CategoryTree | null
   existingIds: string[]
@@ -443,15 +460,13 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
 }) {
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
-  const [icon, setIcon] = useState(initial?.icon || '📦')
+  const [icon, setIcon] = useState<string>(initial?.icon || 'package')
   const [id, setId] = useState(initial?.id || '')
   const [idTouched, setIdTouched] = useState(!!initial)
 
   const handleNameRuChange = (value: string) => {
     setNameRu(value)
-    if (!idTouched) {
-      setId(slugify(value))
-    }
+    if (!idTouched) setId(slugify(value))
   }
 
   const submit = () => {
@@ -464,12 +479,18 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
       toast.error('Категория с таким ID уже существует')
       return
     }
-    onSave({ id: finalId, name_ru: nameRu.trim(), name_uz: nameUz.trim() || nameRu.trim(), icon: icon.trim() || '📦' }, initial?.id || null)
+    onSave(
+      { id: finalId, name_ru: nameRu.trim(), name_uz: nameUz.trim() || nameRu.trim(), icon: icon.trim() || 'package' },
+      initial?.id || null
+    )
   }
 
   return (
     <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between gap-2 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
@@ -485,27 +506,15 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-[80px_1fr] gap-3">
-            <div>
-              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Иконка</label>
-              <input
-                type="text"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                maxLength={4}
-                className="w-full px-3 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-center text-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название RU *</label>
-              <input
-                type="text"
-                value={nameRu}
-                onChange={(e) => handleNameRuChange(e.target.value)}
-                placeholder="Например: Обувь"
-                className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
-              />
-            </div>
+          <div>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название RU *</label>
+            <input
+              type="text"
+              value={nameRu}
+              onChange={(e) => handleNameRuChange(e.target.value)}
+              placeholder="Например: Обувь"
+              className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
+            />
           </div>
 
           <div>
@@ -531,7 +540,14 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
               placeholder="shoes"
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-mono disabled:opacity-60"
             />
-            <p className="text-xs text-[#8A8275] dark:text-gray-400 mt-1">Генерируется автоматически из названия, можно поменять до сохранения</p>
+          </div>
+
+          {/* ✅ Иконка через пикер */}
+          <div>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
+              Иконка категории
+            </label>
+            <IconPicker value={icon} onChange={setIcon} />
           </div>
         </div>
 
@@ -548,13 +564,17 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
   )
 }
 
-// ========== МОДАЛКА ПОДКАТЕГОРИИ ==========
+// ========== МОДАЛКА ПОДКАТЕГОРИИ (с IconPicker!) ==========
 function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }: {
   categoryId: string
-  initial: SubcategoryRow | null
+  initial: (SubcategoryRow & { icon?: string | null }) | null
   existingIds: string[]
   onClose: () => void
-  onSave: (values: { id: string; name_ru: string; name_uz: string; size_type: string; sizes: string[] }, categoryId: string, editId: string | null) => void
+  onSave: (
+    values: { id: string; name_ru: string; name_uz: string; size_type: string; sizes: string[]; icon: string | null },
+    categoryId: string,
+    editId: string | null
+  ) => void
 }) {
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
@@ -563,6 +583,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
   const [newSize, setNewSize] = useState('')
   const [id, setId] = useState(initial?.id || '')
   const [idTouched, setIdTouched] = useState(!!initial)
+  const [icon, setIcon] = useState<string | null>(initial?.icon || null)
 
   const handleNameRuChange = (value: string) => {
     setNameRu(value)
@@ -591,7 +612,14 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
       return
     }
     onSave(
-      { id: finalId, name_ru: nameRu.trim(), name_uz: nameUz.trim() || nameRu.trim(), size_type: sizeType, sizes },
+      {
+        id: finalId,
+        name_ru: nameRu.trim(),
+        name_uz: nameUz.trim() || nameRu.trim(),
+        size_type: sizeType,
+        sizes,
+        icon,
+      },
       categoryId,
       initial?.id || null
     )
@@ -599,7 +627,10 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
 
   return (
     <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between gap-2 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
@@ -650,6 +681,23 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
               placeholder="sneakers"
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-mono disabled:opacity-60"
             />
+          </div>
+
+          {/* ✅ Иконка подкатегории (пусто = наследует иконку категории) */}
+          <div>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              Иконка подкатегории
+              <span className="text-[10px] font-normal text-[#8A8275] dark:text-gray-400 normal-case tracking-normal">— если пусто, берётся иконка категории</span>
+            </label>
+            <IconPicker value={icon} onChange={(k) => setIcon(k || null)} />
+            {icon && (
+              <button
+                onClick={() => setIcon(null)}
+                className="mt-2 text-xs text-[#9B3B3B] dark:text-red-400 hover:underline"
+              >
+                Сбросить (наследовать иконку категории)
+              </button>
+            )}
           </div>
 
           <div>
