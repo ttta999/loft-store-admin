@@ -6,7 +6,7 @@ import { Toaster, toast } from 'sonner'
 import {
   ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
   Copy, Star, Loader2, CheckCircle2, Circle, Info, Tag, DollarSign, Ruler,
-  Image as ImageIcon, Save, RefreshCw, ChevronRight,
+  Image as ImageIcon, Save, RefreshCw, ChevronRight, Palette,
 } from 'lucide-react'
 import { sortSizes, sortSizeStrings } from '../lib/sortSizes'
 
@@ -88,6 +88,7 @@ interface ProductVariant {
   product_id: string
   size_value: string
   stock: number
+  color_id?: string | null
 }
 
 interface Brand {
@@ -116,7 +117,19 @@ interface Subcategory {
   is_active: boolean
 }
 
-// ✅ Защита от «битого» кеша: у полного товара обязательно есть name_ru (string)
+// ✅ Цвет товара (таблица product_colors)
+interface ProductColorRow {
+  id: string
+  product_id: string
+  name_ru: string
+  name_uz: string | null
+  hex_code: string | null
+  images: string[]
+  sort_order: number
+  _isNew?: boolean
+}
+
+// ✅ Защита от «битого» кеша
 const isFullProductRows = (list: any[]): boolean =>
   !list || list.length === 0 || (list[0] != null && typeof list[0].name_ru === 'string')
 
@@ -164,9 +177,10 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
-  // ✅ Категории и подкатегории из БД
   const [dbCategories, setDbCategories] = useState<Category[]>([])
   const [dbSubcategories, setDbSubcategories] = useState<Subcategory[]>([])
+  // ✅ Все цвета всех товаров (для списка и модалки)
+  const [colors, setColors] = useState<ProductColorRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
@@ -186,11 +200,14 @@ export default function ProductsPage() {
   const [images, setImages] = useState<string[]>([])
   const [sizeType, setSizeType] = useState('numeric')
   const [uploading, setUploading] = useState(false)
+  // ✅ Остатки: без цвета (flat) и по цветам (colorId → size → stock)
   const [selectedSizes, setSelectedSizes] = useState<Record<string, number>>({})
+  const [sizesByColor, setSizesByColor] = useState<Record<string, Record<string, number>>>({})
+  const [productColors, setProductColors] = useState<ProductColorRow[]>([])
+  const [activeColorId, setActiveColorId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // ✅ Set активных категорий и подкатегорий — для быстрой проверки видимости
   const activeCategoryIds = useMemo(
     () => new Set(dbCategories.filter(c => c.is_active).map(c => c.id)),
     [dbCategories]
@@ -200,7 +217,6 @@ export default function ProductsPage() {
     [dbSubcategories]
   )
 
-  // ✅ Быстрые словари id → объект
   const categoryById = useMemo(() => {
     const map: Record<string, Category> = {}
     dbCategories.forEach(c => { map[c.id] = c })
@@ -213,7 +229,6 @@ export default function ProductsPage() {
     return map
   }, [dbSubcategories])
 
-  // ✅ Подкатегории конкретной категории (из БД, сортированные)
   const subcategoriesByCategory = useMemo(() => {
     const map: Record<string, Subcategory[]> = {}
     dbSubcategories
@@ -226,7 +241,16 @@ export default function ProductsPage() {
     return map
   }, [dbSubcategories])
 
-  // ✅ Единая загрузка всех трёх таблиц + категорий/подкатегорий при монтировании
+  // ✅ Цвета, сгруппированные по товарам (для списка)
+  const colorsByProduct = useMemo(() => {
+    const map: Record<string, ProductColorRow[]> = {}
+    colors.forEach(c => {
+      if (!map[c.product_id]) map[c.product_id] = []
+      map[c.product_id].push(c)
+    })
+    return map
+  }, [colors])
+
   useEffect(() => {
     loadAll(false)
   }, [])
@@ -244,7 +268,6 @@ export default function ProductsPage() {
       setProducts(cachedProducts as Product[])
       setVariants(cachedVariants as ProductVariant[])
       setBrands(cachedBrands as Brand[])
-      // Категории/подкатегории загружаем параллельно, не блокируем рендер
       setLoading(false)
     }
 
@@ -252,16 +275,13 @@ export default function ProductsPage() {
     if (cachedBrands && !isFullProductRows(cachedBrands as any[])) brandsCacheApi.invalidate()
 
     if (!productsValid && !variantsValid && !brandsValid) {
-      if (forceRefresh) {
-        setRefreshing(true)
-      } else {
-        setLoading(true)
-      }
+      if (forceRefresh) setRefreshing(true)
+      else setLoading(true)
     }
 
     try {
-      // ✅ ПАРАЛЛЕЛЬНАЯ загрузка 5 таблиц — товары, варианты, бренды, категории, подкатегории
-      const [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes] = await Promise.all([
+      // ✅ ПАРАЛЛЕЛЬНАЯ загрузка 6 таблиц (добавилась product_colors)
+      const [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes, colorsRes] = await Promise.all([
         productsValid
           ? Promise.resolve({ data: cachedProducts, error: null })
           : supabase.from('products').select('*').order('created_at', { ascending: false }),
@@ -273,6 +293,7 @@ export default function ProductsPage() {
           : supabase.from('brands').select('*').order('name'),
         supabase.from('categories').select('*').order('sort_order', { ascending: true }),
         supabase.from('subcategories').select('*').order('sort_order', { ascending: true }),
+        supabase.from('product_colors').select('*').order('sort_order', { ascending: true }),
       ])
 
       if (productsRes.error) throw productsRes.error
@@ -282,12 +303,14 @@ export default function ProductsPage() {
       const brandsList = (brandsRes.data || []) as Brand[]
       const categoriesList = (categoriesRes.data || []) as Category[]
       const subcategoriesList = (subcategoriesRes.data || []) as Subcategory[]
+      const colorsList = (colorsRes.data || []) as ProductColorRow[]
 
       setProducts(productsList)
       setVariants(variantsList)
       setBrands(brandsList)
       setDbCategories(categoriesList)
       setDbSubcategories(subcategoriesList)
+      setColors(colorsList)
 
       productsCacheApi.set(productsList)
       variantsCacheApi.set(variantsList)
@@ -361,6 +384,128 @@ export default function ProductsPage() {
     setImages(prev => [prev[index], ...prev.filter((_, i) => i !== index)])
   }
 
+  // ========== ЦВЕТА: хелперы ==========
+  const addColor = () => {
+    const tid = `temp-${Date.now()}-${productColors.length}`
+    setProductColors(prev => [...prev, {
+      id: tid,
+      product_id: editingProduct?.id || '',
+      name_ru: '',
+      name_uz: '',
+      hex_code: '#1B2A4A',
+      images: [],
+      sort_order: prev.length,
+      _isNew: true,
+    }])
+    // ✅ При добавлении ПЕРВОГО цвета переносим в него текущие остатки
+    if (productColors.length === 0 && Object.keys(selectedSizes).length > 0) {
+      setSizesByColor(prev => ({ ...prev, [tid]: { ...selectedSizes } }))
+      setSelectedSizes({})
+    }
+    if (!activeColorId) setActiveColorId(tid)
+  }
+
+  const removeColor = (idx: number) => {
+    const removed = productColors[idx]
+    setProductColors(prev => prev.filter((_, i) => i !== idx))
+    setSizesByColor(prev => {
+      const next = { ...prev }
+      delete next[removed.id]
+      return next
+    })
+    if (activeColorId === removed.id) {
+      const remaining = productColors.filter((_, i) => i !== idx)
+      setActiveColorId(remaining.length > 0 ? remaining[0].id : null)
+    }
+  }
+
+  const updateColor = (idx: number, field: keyof ProductColorRow, value: any) => {
+    setProductColors(prev => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)))
+  }
+
+  const handleColorImagesUpload = async (colorIdx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploading(true)
+    try {
+      const uploadedUrls: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const fileExt = file.name.split('.').pop()
+        const fileName = `color-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, file)
+        if (uploadError) {
+          console.error('Ошибка загрузки:', uploadError)
+          toast.error('Ошибка загрузки фото')
+          continue
+        }
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName)
+        if (urlData?.publicUrl) uploadedUrls.push(urlData.publicUrl)
+      }
+      setProductColors(prev => prev.map((c, i) =>
+        i === colorIdx ? { ...c, images: [...(c.images || []), ...uploadedUrls] } : c
+      ))
+    } catch (error) {
+      console.error('Ошибка:', error)
+      toast.error('Ошибка при загрузке')
+    }
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  const removeColorImage = (colorIdx: number, imgIdx: number) => {
+    setProductColors(prev => prev.map((c, i) => {
+      if (i !== colorIdx) return c
+      return { ...c, images: (c.images || []).filter((_, j) => j !== imgIdx) }
+    }))
+  }
+
+  // ✅ Текущая карта размеров: для активного цвета или плоская (без цветов)
+  const currentSizesMap = (): Record<string, number> => {
+    if (productColors.length > 0 && activeColorId) {
+      return sizesByColor[activeColorId] || {}
+    }
+    return selectedSizes
+  }
+
+  const setSizeMap = (updater: (m: Record<string, number>) => Record<string, number>) => {
+    if (productColors.length > 0 && activeColorId) {
+      setSizesByColor(prev => ({ ...prev, [activeColorId]: updater(prev[activeColorId] || {}) }))
+    } else {
+      setSelectedSizes(prev => updater(prev))
+    }
+  }
+
+  const toggleSize = (size: string) => {
+    setSizeMap(m => {
+      const next = { ...m }
+      if (next[size] !== undefined) delete next[size]
+      else next[size] = 0
+      return next
+    })
+  }
+
+  const updateStock = (size: string, stock: number) => {
+    setSizeMap(m => ({ ...m, [size]: Math.max(0, stock) }))
+  }
+
+  // ✅ Общий остаток по всем цветам (или плоский)
+  const totalStock = useMemo(() => {
+    let sum = 0
+    if (productColors.length > 0) {
+      Object.values(sizesByColor).forEach(m => {
+        Object.values(m).forEach(s => { sum += s })
+      })
+    } else {
+      Object.values(selectedSizes).forEach(s => { sum += s })
+    }
+    return sum
+  }, [sizesByColor, selectedSizes, productColors])
+
   const resetForm = () => {
     setEditingProduct(null)
     setNameRu('')
@@ -375,12 +520,14 @@ export default function ProductsPage() {
     setImages([])
     setSizeType('numeric')
     setSelectedSizes({})
+    setSizesByColor({})
+    setProductColors([])
+    setActiveColorId(null)
     setErrors({})
   }
 
   const openAddModal = () => {
     resetForm()
-    // ✅ Если есть хотя бы одна активная категория — выбираем первую активную
     const firstActiveCat = dbCategories.find(c => c.is_active)
     if (firstActiveCat) setCategory(firstActiveCat.id)
     setShowModal(true)
@@ -399,12 +546,27 @@ export default function ProductsPage() {
     setSalePriceUsd(product.sale_price ? String(product.sale_price) : '')
     setImages(product.images || [])
     setSizeType(product.size_type || 'numeric')
+
+    // ✅ Разбираем варианты на «без цвета» и «по цветам»
     const productVariants = variants.filter(v => v.product_id === product.id)
-    const sizesMap: Record<string, number> = {}
+    const flat: Record<string, number> = {}
+    const byColor: Record<string, Record<string, number>> = {}
     productVariants.forEach(v => {
-      sizesMap[v.size_value] = v.stock
+      if (v.color_id) {
+        if (!byColor[v.color_id]) byColor[v.color_id] = {}
+        byColor[v.color_id][v.size_value] = v.stock
+      } else {
+        flat[v.size_value] = v.stock
+      }
     })
-    setSelectedSizes(sizesMap)
+    setSelectedSizes(flat)
+    setSizesByColor(byColor)
+
+    const pColors = colors
+      .filter(c => c.product_id === product.id)
+      .map(c => ({ ...c, _isNew: false }))
+    setProductColors(pColors)
+    setActiveColorId(pColors.length > 0 ? pColors[0].id : null)
     setErrors({})
     setShowModal(true)
   }
@@ -422,12 +584,34 @@ export default function ProductsPage() {
     setSalePriceUsd(product.sale_price ? String(product.sale_price) : '')
     setImages(product.images || [])
     setSizeType(product.size_type || 'numeric')
+
+    // ✅ Цвети дублируются как новые (temp id), остатки переносятся
     const productVariants = variants.filter(v => v.product_id === product.id)
-    const sizesMap: Record<string, number> = {}
+    const flat: Record<string, number> = {}
     productVariants.forEach(v => {
-      sizesMap[v.size_value] = v.stock
+      if (!v.color_id) flat[v.size_value] = v.stock
     })
-    setSelectedSizes(sizesMap)
+
+    const origColors = colors.filter(c => c.product_id === product.id)
+    const remap: Record<string, string> = {}
+    const dupColors = origColors.map((c, i) => {
+      const tid = `temp-${Date.now()}-${i}`
+      remap[c.id] = tid
+      return { ...c, id: tid, _isNew: true }
+    })
+    const byColor: Record<string, Record<string, number>> = {}
+    productVariants.forEach(v => {
+      if (v.color_id && remap[v.color_id]) {
+        const tid = remap[v.color_id]
+        if (!byColor[tid]) byColor[tid] = {}
+        byColor[tid][v.size_value] = v.stock
+      }
+    })
+
+    setSelectedSizes(flat)
+    setSizesByColor(byColor)
+    setProductColors(dupColors)
+    setActiveColorId(dupColors.length > 0 ? dupColors[0].id : null)
     setErrors({})
     setShowModal(true)
   }
@@ -478,6 +662,8 @@ export default function ProductsPage() {
 
     setSaving(true)
     try {
+      // 1. Сохраняем товар
+      let targetProductId: string
       if (editingProduct) {
         const { error } = await supabase
           .from('products')
@@ -489,28 +675,7 @@ export default function ProductsPage() {
           toast.error(`Ошибка при обновлении: ${error.message}`)
           return
         }
-        await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', editingProduct.id)
-        const newVariants = Object.entries(selectedSizes)
-          .filter(([_, stock]) => stock > 0)
-          .map(([size_value, stock]) => ({
-            product_id: editingProduct.id,
-            size_value,
-            stock,
-          }))
-        if (newVariants.length > 0) {
-          const { error: variantsError } = await supabase
-            .from('product_variants')
-            .insert(newVariants)
-          if (variantsError) {
-            console.error('Ошибка вариантов:', variantsError)
-            toast.error(`Ошибка при сохранении размеров: ${variantsError.message}`)
-            return
-          }
-        }
-        toast.success('Товар обновлён! ✅')
+        targetProductId = editingProduct.id
       } else {
         const { data: newProduct, error } = await supabase
           .from('products')
@@ -522,27 +687,70 @@ export default function ProductsPage() {
           toast.error(`Ошибка при создании: ${error.message}`)
           return
         }
-        const newVariants = Object.entries(selectedSizes)
-          .filter(([_, stock]) => stock > 0)
-          .map(([size_value, stock]) => ({
-            product_id: newProduct.id,
-            size_value,
-            stock,
-          }))
-        if (newVariants.length > 0) {
-          const { error: variantsError } = await supabase
-            .from('product_variants')
-            .insert(newVariants)
-          if (variantsError) {
-            console.error('Ошибка вариантов:', variantsError)
-            toast.error(`Ошибка при сохранении размеров: ${variantsError.message}`)
-            return
-          }
-        }
-        toast.success('Товар добавлен! ✅')
+        targetProductId = newProduct.id
       }
+
+      // 2. ✅ Цвета: удаляем старые, вставляем новые, запоминаем oldKey → newId
+      const validColors = productColors.filter(c => c.name_ru && c.name_ru.trim())
+      const colorKeyToNewId: Record<string, string> = {}
+      await supabase.from('product_colors').delete().eq('product_id', targetProductId)
+      for (let i = 0; i < validColors.length; i++) {
+        const c = validColors[i]
+        const { data: inserted, error: cErr } = await supabase
+          .from('product_colors')
+          .insert({
+            product_id: targetProductId,
+            name_ru: c.name_ru.trim(),
+            name_uz: c.name_uz?.trim() || null,
+            hex_code: c.hex_code || null,
+            images: c.images || [],
+            sort_order: i,
+          })
+          .select()
+          .single()
+        if (cErr || !inserted) {
+          console.error('Ошибка сохранения цвета:', cErr)
+          toast.error(`Ошибка сохранения цвета: ${cErr?.message || 'неизвестная'}`)
+          return
+        }
+        colorKeyToNewId[c.id] = inserted.id
+      }
+
+      // 3. ✅ Варианты: удаляем старые, вставляем новые (с color_id)
+      await supabase.from('product_variants').delete().eq('product_id', targetProductId)
+      const newVariants: any[] = []
+      if (validColors.length > 0) {
+        for (const c of validColors) {
+          const newColorId = colorKeyToNewId[c.id]
+          const map = sizesByColor[c.id] || {}
+          Object.entries(map)
+            .filter(([_, stock]) => stock > 0)
+            .forEach(([size_value, stock]) => {
+              newVariants.push({ product_id: targetProductId, size_value, stock, color_id: newColorId })
+            })
+        }
+      } else {
+        Object.entries(selectedSizes)
+          .filter(([_, stock]) => stock > 0)
+          .forEach(([size_value, stock]) => {
+            newVariants.push({ product_id: targetProductId, size_value, stock, color_id: null })
+          })
+      }
+      if (newVariants.length > 0) {
+        const { error: variantsError } = await supabase
+          .from('product_variants')
+          .insert(newVariants)
+        if (variantsError) {
+          console.error('Ошибка вариантов:', variantsError)
+          toast.error(`Ошибка при сохранении размеров: ${variantsError.message}`)
+          return
+        }
+      }
+
+      toast.success(editingProduct ? 'Товар обновлён! ✅' : 'Товар добавлен! ✅')
       setShowModal(false)
       productsCacheApi.invalidate()
+      variantsCacheApi.invalidate()
       await loadAll(true)
     } catch (error: any) {
       console.error('Полная ошибка:', error)
@@ -591,25 +799,6 @@ export default function ProductsPage() {
     }
   }
 
-  const toggleSize = (size: string) => {
-    setSelectedSizes(prev => {
-      const newSizes = { ...prev }
-      if (newSizes[size] !== undefined) {
-        delete newSizes[size]
-      } else {
-        newSizes[size] = 0
-      }
-      return newSizes
-    })
-  }
-
-  const updateStock = (size: string, stock: number) => {
-    setSelectedSizes(prev => ({
-      ...prev,
-      [size]: Math.max(0, stock),
-    }))
-  }
-
   const handleSubcategoryChange = (newSubcategory: string) => {
     setSubcategory(newSubcategory)
     clearError('subcategory')
@@ -617,6 +806,7 @@ export default function ProductsPage() {
     if (config) {
       setSizeType(config.type)
       setSelectedSizes({})
+      setSizesByColor({})
     }
   }
 
@@ -633,22 +823,18 @@ export default function ProductsPage() {
     return sortSizeStrings(raw)
   }
 
-  // ✅ Подкатегории для формы: для нового товара — только активные;
-  // для редактируемого — все (отключённые помечены «(скрыто)»)
   const getFormSubcategories = () => {
     const subs = subcategoriesByCategory[category] || []
     if (editingProduct) return subs
     return subs.filter(s => s.is_active)
   }
 
-  // ✅ Категории для формы: аналогично — для нового только активные
   const getFormCategories = () => {
     if (dbCategories.length === 0) return CATEGORIES.map(c => ({ id: c.value, name_ru: c.label.replace(/ \S+$/, ''), is_active: true }))
     if (editingProduct) return dbCategories
     return dbCategories.filter(c => c.is_active)
   }
 
-  // ✅ Фолбэк на хардкод для подкатегорий (если БД пуста)
   const getHardcodedSubcategories = () => {
     const cat = CATEGORIES.find(c => c.value === category)
     return cat?.subcategories || []
@@ -656,7 +842,6 @@ export default function ProductsPage() {
 
   const hasSale = (p: Product) => p.sale_price != null && Number(p.sale_price) > 0
 
-  // ✅ Проверка: виден ли товар в приложении (активны и сам товар, и его категория, и подкатегория)
   const isProductVisibleInApp = (p: Product): boolean => {
     if (p.is_active === false) return false
     if (!activeCategoryIds.has(p.category)) return false
@@ -664,7 +849,6 @@ export default function ProductsPage() {
     return true
   }
 
-  // ✅ Безопасный фильтр: защита от p.name_ru / p.name_uz = null/undefined
   const filteredProducts = products.filter(p => {
     const q = search.toLowerCase()
     const matchesSearch =
@@ -691,9 +875,6 @@ export default function ProductsPage() {
       ? Math.round((1 - saleNum / baseNum) * 100)
       : null
 
-  const totalStock = Object.values(selectedSizes).reduce((sum, s) => sum + s, 0)
-
-  // ✅ Хелперы для отображения имён категорий/подкатегорий из БД (с фолбэком)
   const getCategoryLabel = (catId: string): string => {
     const dbCat = categoryById[catId]
     if (dbCat) return dbCat.name_ru
@@ -709,19 +890,16 @@ export default function ProductsPage() {
     return hbSub?.label || subId
   }
 
-  // ✅ Категория отключена в БД?
   const isCategoryDisabled = (catId: string): boolean => {
     const dbCat = categoryById[catId]
     return !!dbCat && !dbCat.is_active
   }
 
-  // ✅ Подкатегория отключена в БД?
   const isSubcategoryDisabled = (subId: string): boolean => {
     const dbSub = subcategoryById[subId]
     return !!dbSub && !dbSub.is_active
   }
 
-  // ✅ Причина, по которой товар скрыт из приложения (для tooltip/деталей)
   const getProductHiddenReason = (p: Product): string | null => {
     if (p.is_active === false) return 'Товар скрыт вручную'
     if (!activeCategoryIds.has(p.category)) return 'Категория отключена'
@@ -744,7 +922,7 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       <Toaster position="top-center" richColors />
 
-      {/* ✅ Sticky-шапка: поиск + фильтры */}
+      {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between gap-4">
@@ -784,7 +962,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* ✅ Поиск — строка-иконка (ищет и по бренду) */}
+          {/* ✅ Поиск */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
             <div className="flex items-center gap-3 p-3">
               <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
@@ -808,7 +986,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* ✅ Фильтры по категориям — с пометкой «(скрыто)» для отключённых */}
+          {/* ✅ Фильтры по категориям */}
           <div className="mt-3 flex gap-2 flex-wrap">
             <button
               onClick={() => setCategoryFilter('all')}
@@ -912,9 +1090,11 @@ export default function ProductsPage() {
               const totalStockList = productVariants.reduce((sum, v) => sum + v.stock, 0)
               const isActive = product.is_active !== false
               const sale = hasSale(product)
-              // ✅ Проверка видимости товара в приложении
               const visibleInApp = isProductVisibleInApp(product)
               const hiddenReason = getProductHiddenReason(product)
+              const productColorsList = colorsByProduct[product.id] || []
+              const colorNameById: Record<string, string> = {}
+              productColorsList.forEach(c => { colorNameById[c.id] = c.name_ru })
 
               return (
                 <div
@@ -929,7 +1109,6 @@ export default function ProductsPage() {
                 >
                   {/* Шапка карточки */}
                   <div className="flex gap-4 p-4">
-                    {/* Обложка */}
                     {product.images?.[0] ? (
                       <img
                         src={product.images[0]}
@@ -942,54 +1121,43 @@ export default function ProductsPage() {
                       </div>
                     )}
 
-                    {/* Основная информация */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="font-bold text-base text-[#1B2A4A] dark:text-white truncate">
-                              {product.name_ru}
-                            </h3>
-                            {!isActive && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap">
-                                🙈 Скрыт
-                              </span>
-                            )}
-                            {/* ✅ Золотой пилл: товар активен, но скрыт из-за категории/подкатегории */}
-                            {isActive && !visibleInApp && (
-                              <span
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap"
-                                title={hiddenReason || ''}
-                              >
-                                🙈 Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
-                              </span>
-                            )}
-                            {sale && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-400 whitespace-nowrap">
-                                🏷️ Скидка
-                              </span>
-                            )}
-                          </div>
-                          {product.name_uz && product.name_uz !== product.name_ru && (
-                            <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">
-                              {product.name_uz}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          {sale ? (
-                            <>
-                              <p className="text-xs text-[#8A8275] dark:text-gray-400 line-through">${product.price_usd}</p>
-                              <p className="text-xl font-bold text-[#9B3B3B] dark:text-red-400">${product.sale_price}</p>
-                            </>
-                          ) : (
-                            <p className="text-xl font-bold text-[#1B2A4A] dark:text-white">${product.price_usd}</p>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="font-bold text-base text-[#1B2A4A] dark:text-white truncate">
+                          {product.name_ru}
+                        </h3>
+                        {!isActive && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap">
+                            🙈 Скрыт
+                          </span>
+                        )}
+                        {isActive && !visibleInApp && (
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap"
+                            title={hiddenReason || ''}
+                          >
+                            🙈 Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
+                          </span>
+                        )}
+                        {sale && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-400 whitespace-nowrap">
+                            🏷️ Скидка
+                          </span>
+                        )}
+                        {/* ✅ Плашка цветов */}
+                        {productColorsList.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 text-[#1B2A4A] dark:text-gold whitespace-nowrap">
+                            🎨 {productColorsList.length} цвет.
+                          </span>
+                        )}
                       </div>
+                      {product.name_uz && product.name_uz !== product.name_ru && (
+                        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">
+                          {product.name_uz}
+                        </p>
+                      )}
 
-                      {/* Строки: категория + бренд + остаток */}
-                      <div className="flex items-center gap-2 flex-wrap text-xs text-[#8A8275] dark:text-gray-300">
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-[#8A8275] dark:text-gray-300 mt-2">
                         <span className={`px-2 py-0.5 rounded-full border ${
                           isCategoryDisabled(product.category)
                             ? 'bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold border-[#C9A961]/30 dark:border-gold/40'
@@ -1021,7 +1189,7 @@ export default function ProductsPage() {
                         </span>
                       </div>
 
-                      {/* Размеры */}
+                      {/* ✅ Размеры (с цветом, если есть) */}
                       {productVariants.length > 0 && (
                         <div className="flex gap-1.5 flex-wrap mt-2">
                           {productVariants.slice(0, 8).map(v => (
@@ -1029,7 +1197,7 @@ export default function ProductsPage() {
                               key={v.id}
                               className="px-2 py-0.5 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded text-[10px] font-bold text-[#1B2A4A] dark:text-white"
                             >
-                              {v.size_value}: {v.stock}
+                              {v.color_id && colorNameById[v.color_id] ? `${colorNameById[v.color_id]} · ` : ''}{v.size_value}: {v.stock}
                             </span>
                           ))}
                           {productVariants.length > 8 && (
@@ -1038,6 +1206,17 @@ export default function ProductsPage() {
                             </span>
                           )}
                         </div>
+                      )}
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      {sale ? (
+                        <>
+                          <p className="text-xs text-[#8A8275] dark:text-gray-400 line-through">${product.price_usd}</p>
+                          <p className="text-xl font-bold text-[#9B3B3B] dark:text-red-400">${product.sale_price}</p>
+                        </>
+                      ) : (
+                        <p className="text-xl font-bold text-[#1B2A4A] dark:text-white">${product.price_usd}</p>
                       )}
                     </div>
                   </div>
@@ -1086,7 +1265,7 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* ✅ МОДАЛКА ТОВАРА — в стиле карточек приложения */}
+      {/* ✅ МОДАЛКА ТОВАРА */}
       {showModal && (
         <div
           className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -1212,6 +1391,7 @@ export default function ProductsPage() {
                         setCategory(e.target.value)
                         setSubcategory('')
                         setSelectedSizes({})
+                        setSizesByColor({})
                       }}
                       className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm"
                     >
@@ -1239,7 +1419,6 @@ export default function ProductsPage() {
                           </option>
                         ))
                       ) : (
-                        // ✅ Фолбэк на хардкод, если БД пуста
                         getHardcodedSubcategories().map(sub => (
                           <option key={sub.value} value={sub.value}>{sub.label}</option>
                         ))
@@ -1319,7 +1498,7 @@ export default function ProductsPage() {
               <ModalSection
                 icon={<ImageIcon size={18} />}
                 title="Фото товара"
-                subtitle="Первое фото — обложка карточки"
+                subtitle="Общие фото (если у товара нет цветов)"
                 right={
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                     images.length >= MAX_IMAGES
@@ -1391,14 +1570,129 @@ export default function ProductsPage() {
                 )}
               </ModalSection>
 
-              {/* 5. Размеры и остатки */}
+              {/* ✅ 5. ЦВЕТА (вариации) */}
+              <ModalSection
+                icon={<Palette size={18} />}
+                title="Цвета"
+                subtitle="Каждый цвет: свои фото и свои остатки размеров"
+                right={
+                  <button
+                    type="button"
+                    onClick={addColor}
+                    className="px-3 py-1.5 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] rounded-lg text-xs font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    Добавить цвет
+                  </button>
+                }
+              >
+                {productColors.length === 0 ? (
+                  <div className="flex items-center gap-3 p-3 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl">
+                    <div className="w-9 h-9 rounded-full bg-white dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                      <Palette size={16} className="text-[#8A8275] dark:text-gray-300" />
+                    </div>
+                    <p className="text-sm text-[#1B2A4A] dark:text-white">
+                      У товара пока нет цветов — остатки указываются ниже в общей сетке размеров.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {productColors.map((color, colorIdx) => (
+                      <div
+                        key={color.id}
+                        className={`border rounded-xl p-3 bg-white dark:bg-dark-card transition-colors ${
+                          activeColorId === color.id
+                            ? 'border-[#1B2A4A] dark:border-gold'
+                            : 'border-[#E8E2D5] dark:border-dark-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-3">
+                          <input
+                            type="color"
+                            value={color.hex_code || '#1B2A4A'}
+                            onChange={(e) => updateColor(colorIdx, 'hex_code', e.target.value)}
+                            className="w-10 h-10 rounded-lg border border-[#E8E2D5] dark:border-dark-border cursor-pointer bg-transparent flex-shrink-0"
+                            title="Цвет кружка в приложении"
+                          />
+                          <input
+                            type="text"
+                            value={color.name_ru}
+                            onChange={(e) => updateColor(colorIdx, 'name_ru', e.target.value)}
+                            placeholder="Название RU 🇷🇺 *"
+                            className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
+                          />
+                          <input
+                            type="text"
+                            value={color.name_uz || ''}
+                            onChange={(e) => updateColor(colorIdx, 'name_uz', e.target.value)}
+                            placeholder="Название UZ 🇺🇿"
+                            className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeColor(colorIdx)}
+                            className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-[#9B3B3B] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex-shrink-0"
+                            title="Удалить цвет"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        {/* Фото цвета */}
+                        <label className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-2.5 cursor-pointer transition-colors ${
+                          uploading ? 'border-[#1B2A4A] dark:border-gold' : 'border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold'
+                        }`}>
+                          <Upload size={14} className="text-[#8A8275] dark:text-gray-300" />
+                          <span className="text-xs text-[#8A8275] dark:text-gray-300">
+                            Загрузить фото цвета «{color.name_ru || 'без названия'}»
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => handleColorImagesUpload(colorIdx, e)}
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                        </label>
+                        {color.images && color.images.length > 0 && (
+                          <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2">
+                            {color.images.map((img, imgIdx) => (
+                              <div key={imgIdx} className="relative aspect-square rounded-lg overflow-hidden border border-[#E8E2D5] dark:border-dark-border">
+                                <img src={img} alt="" className="w-full h-full object-cover" />
+                                {imgIdx === 0 && (
+                                  <span className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-[8px] font-bold rounded">
+                                    Обл.
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeColorImage(colorIdx, imgIdx)}
+                                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-[#9B3B3B] text-white"
+                                  title="Удалить фото"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ModalSection>
+
+              {/* 6. Размеры и остатки */}
               <ModalSection
                 icon={<Ruler size={18} />}
                 title="Размеры и остатки"
                 subtitle={
-                  subcategory
-                    ? `${getSubcategoryLabel(category, subcategory)} · тип: ${sizeType === 'one_size' ? 'one size' : sizeType}`
-                    : 'Сначала выберите подкатегорию'
+                  !subcategory
+                    ? 'Сначала выберите подкатегорию'
+                    : productColors.length > 0 && activeColorId
+                      ? `${getSubcategoryLabel(category, subcategory)} · цвет: ${productColors.find(c => c.id === activeColorId)?.name_ru || '—'}`
+                      : `${getSubcategoryLabel(category, subcategory)} · тип: ${sizeType === 'one_size' ? 'one size' : sizeType}`
                 }
                 right={
                   sizeType !== 'one_size' && subcategory ? (
@@ -1421,65 +1715,93 @@ export default function ProductsPage() {
                       Выберите подкатегорию в секции «Категория и бренд» — здесь появятся нужные размеры.
                     </p>
                   </div>
-                ) : sizeType === 'one_size' ? (
-                  <div>
-                    <FieldLabel text="Остаток (One Size)" />
-                    <input
-                      type="number"
-                      value={selectedSizes['One Size'] || 0}
-                      onChange={(e) => updateStock('One Size', parseInt(e.target.value) || 0)}
-                      placeholder="Количество"
-                      min="0"
-                      className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
-                    />
-                  </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                    {getAvailableSizes().map(size => {
-                      const active = selectedSizes[size] !== undefined
-                      const stock = selectedSizes[size] ?? 0
-                      return (
-                        <div
-                          key={size}
-                          className={`rounded-xl border p-2 transition-colors ${
-                            active
-                              ? 'border-[#1B2A4A] dark:border-gold bg-white dark:bg-dark-card shadow-sm'
-                              : 'border-dashed border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/60 dark:bg-dark-accent/60'
-                          }`}
-                        >
+                  <>
+                    {/* ✅ Вкладки цветов (если цвета есть) */}
+                    {productColors.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-3">
+                        {productColors.map(c => (
                           <button
+                            key={c.id}
                             type="button"
-                            onClick={() => toggleSize(size)}
-                            className="w-full flex items-center justify-between gap-1 mb-1.5"
+                            onClick={() => setActiveColorId(c.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              activeColorId === c.id
+                                ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
+                                : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border'
+                            }`}
                           >
-                            <span className={`text-sm font-bold ${active ? 'text-[#1B2A4A] dark:text-white' : 'text-[#8A8275] dark:text-gray-400'}`}>
-                              {size}
-                            </span>
-                            {active
-                              ? <CheckCircle2 size={14} className="text-[#1B2A4A] dark:text-gold" />
-                              : <Circle size={14} className="text-[#C9C4B8] dark:text-gray-500" />}
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-[#E8E2D5] dark:border-dark-border flex-shrink-0"
+                              style={{ backgroundColor: c.hex_code || '#1B2A4A' }}
+                            />
+                            {c.name_ru || 'Без названия'}
                           </button>
-                          {active ? (
-                            <>
-                              <input
-                                type="number"
-                                min="0"
-                                value={stock}
-                                onChange={(e) => updateStock(size, parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                                className="w-full p-1.5 text-sm border border-[#E8E2D5] dark:border-dark-border rounded-lg focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
-                              />
-                              <p className={`text-[10px] mt-1 font-medium ${stock > 0 ? 'text-green-700 dark:text-green-400' : 'text-[#9B3B3B] dark:text-red-400'}`}>
-                                {stock > 0 ? `В наличии: ${stock}` : 'Нет в наличии'}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-[10px] text-[#8A8275] dark:text-gray-400">Не выбран</p>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {sizeType === 'one_size' ? (
+                      <div>
+                        <FieldLabel text="Остаток (One Size)" />
+                        <input
+                          type="number"
+                          value={currentSizesMap()['One Size'] || 0}
+                          onChange={(e) => updateStock('One Size', parseInt(e.target.value) || 0)}
+                          placeholder="Количество"
+                          min="0"
+                          className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                        {getAvailableSizes().map(size => {
+                          const active = currentSizesMap()[size] !== undefined
+                          const stock = currentSizesMap()[size] ?? 0
+                          return (
+                            <div
+                              key={size}
+                              className={`rounded-xl border p-2 transition-colors ${
+                                active
+                                  ? 'border-[#1B2A4A] dark:border-gold bg-white dark:bg-dark-card shadow-sm'
+                                  : 'border-dashed border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/60 dark:bg-dark-accent/60'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleSize(size)}
+                                className="w-full flex items-center justify-between gap-1 mb-1.5"
+                              >
+                                <span className={`text-sm font-bold ${active ? 'text-[#1B2A4A] dark:text-white' : 'text-[#8A8275] dark:text-gray-400'}`}>
+                                  {size}
+                                </span>
+                                {active
+                                  ? <CheckCircle2 size={14} className="text-[#1B2A4A] dark:text-gold" />
+                                  : <Circle size={14} className="text-[#C9C4B8] dark:text-gray-500" />}
+                              </button>
+                              {active ? (
+                                <>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={stock}
+                                    onChange={(e) => updateStock(size, parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                    className="w-full p-1.5 text-sm border border-[#E8E2D5] dark:border-dark-border rounded-lg focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
+                                  />
+                                  <p className={`text-[10px] mt-1 font-medium ${stock > 0 ? 'text-green-700 dark:text-green-400' : 'text-[#9B3B3B] dark:text-red-400'}`}>
+                                    {stock > 0 ? `В наличии: ${stock}` : 'Нет в наличии'}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-[10px] text-[#8A8275] dark:text-gray-400">Не выбран</p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </ModalSection>
             </div>

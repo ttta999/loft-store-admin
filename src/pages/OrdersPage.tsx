@@ -661,17 +661,35 @@ export default function OrdersPage() {
                         )}
                       </div>
 
-                      {/* Товары */}
+                      {/* ✅ Товары: миниатюра фото + название + размер/кол-во + цвет + цена */}
                       {items.length > 0 && (
                         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border divide-y divide-[#E8E2D5] dark:divide-dark-border overflow-hidden">
                           {items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                            <div key={idx} className="flex items-center gap-3 px-3 py-2">
+                              {/* Миниатюра фото товара (заглушка для старых заказов без фото) */}
+                              {item.image ? (
+                                <img
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="w-12 h-12 rounded-lg object-cover border border-[#E8E2D5] dark:border-dark-border flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
+                                  <Package size={16} className="text-[#8A8275] dark:text-gray-300" />
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-[#1B2A4A] dark:text-white truncate">
                                   {item.name}
                                 </p>
                                 <p className="text-[10px] text-[#8A8275] dark:text-gray-300">
                                   {item.size} · {item.quantity} шт.
+                                  {item.colorName && (
+                                    <>
+                                      <span className="mx-1">·</span>
+                                      <span className="text-[#C9A961] dark:text-gold font-medium">{item.colorName}</span>
+                                    </>
+                                  )}
                                 </p>
                               </div>
                               <p className="text-xs font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap">
@@ -709,7 +727,7 @@ export default function OrdersPage() {
                           ))}
                       </div>
 
-                      {/*Textarea сообщения */}
+                      {/* Textarea сообщения */}
                       {showCustomMessage === order.id && (
                         <div className="space-y-2">
                           <textarea
