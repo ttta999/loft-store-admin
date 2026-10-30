@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login } from '../lib/auth'
+import { login, logout, verifySecondFactor } from '../lib/auth'
+import type { MfaStep } from '../lib/auth'
 import { Lock, Mail, Store, Eye, EyeOff, Save, Check } from 'lucide-react'
 import { toast, Toaster } from 'sonner'
 
@@ -18,6 +19,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberEmail, setRememberEmail] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [mfa, setMfa] = useState<MfaStep | null>(null)
+  const [code, setCode] = useState('')
 
   // ✅ КЕШ: восстанавливаем запомненный email при открытии страницы
   useEffect(() => {
@@ -36,10 +39,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
 
     try {
-      const result = await login(email, password)
+      const result = mfa ? (await verifySecondFactor(mfa.factorId, code), { success: true } as const) : await login(email, password)
+      if (result.success && 'mfa' in result && result.mfa) {
+        setPassword('')
+        setMfa(result.mfa)
+        setCode('')
+        return
+      }
 
       if (result.success) {
         // ✅ КЕШ: сохраняем или очищаем запомненный email
@@ -63,8 +73,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         toast.error(result.error || 'Неверный email или пароль')
       }
     } catch (error) {
-      console.error('Ошибка входа:', error)
-      toast.error('Ошибка при входе')
+      toast.error(mfa && error instanceof Error ? error.message : 'Ошибка при входе')
     } finally {
       setLoading(false)
     }
@@ -103,13 +112,51 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 : 'Добро пожаловать! 👋'}
             </h2>
             <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-              {emailName
+              {mfa ? 'Подтвердите вход одноразовым кодом' : emailName
                 ? 'Рады видеть вас снова — введите пароль для входа'
                 : 'Войдите для доступа к панели управления'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit}>
+            {mfa ? (
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-[#1B2A4A] dark:text-white">
+                  {mfa.qrCode
+                    ? 'Добавьте LOFT Admin в приложение-аутентификатор, затем введите шестизначный код.'
+                    : 'Введите шестизначный код из приложения-аутентификатора.'}
+                </p>
+                {mfa.qrCode && (
+                  <div className="space-y-3">
+                    <img
+                      src={mfa.qrCode.startsWith('data:') ? mfa.qrCode : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(mfa.qrCode)}`}
+                      alt="QR-код настройки двухфакторного входа"
+                      className="w-48 h-48 mx-auto bg-white rounded-xl p-2"
+                    />
+                    {mfa.secret && (
+                      <div className="text-xs text-[#8A8275] dark:text-gray-300">
+                        <p>Если QR-код неудобно сканировать, добавьте этот ключ вручную:</p>
+                        <code className="block mt-2 break-all select-all text-[#1B2A4A] dark:text-white">{mfa.secret}</code>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center gap-3 p-3.5 border border-[#E8E2D5] dark:border-dark-border rounded-xl">
+                  <Lock size={16} className="text-[#1B2A4A] dark:text-white" />
+                  <input
+                    type="text" inputMode="numeric" autoComplete="one-time-code" aria-label="Код двухфакторного входа"
+                    value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000" maxLength={6} pattern="[0-9]{6}" required autoFocus
+                    className="w-full bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none tracking-widest"
+                  />
+                </div>
+                <button type="button" disabled={loading} onClick={async () => {
+                  await logout(); setMfa(null); setCode(''); setPassword('')
+                }} className="text-xs text-[#8A8275] dark:text-gray-300 hover:underline">
+                  Вернуться к входу
+                </button>
+              </div>
+            ) : (
             <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
               {/* ✅ Строка Email */}
               <div className="flex items-center gap-3 p-3.5">
@@ -193,6 +240,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </button>
             </div>
 
+            )}
+
             {/* ✅ Кнопка входа */}
             <div className="p-3 border-t border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/60 dark:bg-dark-accent/40">
               <button
@@ -205,7 +254,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 }`}
               >
                 <Lock size={16} />
-                {loading ? 'Вход...' : 'Войти'}
+                {mfa ? (loading ? 'Проверка...' : 'Подтвердить вход') : (loading ? 'Вход...' : 'Войти')}
               </button>
             </div>
           </form>
