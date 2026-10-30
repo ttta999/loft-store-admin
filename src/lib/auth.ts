@@ -8,6 +8,8 @@ export const login = async (email: string, password: string) => {
     })
 
     if (error) throw error
+    const { data: admin, error: roleError } = await supabase.rpc('store_is_admin')
+    if (roleError || !admin) { await supabase.auth.signOut(); throw new Error('Нет доступа к админке') }
     return { success: true, user: data.user }
   } catch (error: any) {
     console.error('Ошибка входа:', error)
@@ -32,8 +34,10 @@ export const logout = async () => {
 
 export const getCurrentUser = async () => {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    return session?.user || null
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return null
+    const { data: admin, error: roleError } = await supabase.rpc('store_is_admin')
+    return !roleError && admin ? user : null
   } catch (error) {
     console.error('Ошибка получения пользователя:', error)
     return null
