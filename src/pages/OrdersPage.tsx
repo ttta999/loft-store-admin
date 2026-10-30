@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, updateOrderStatus, sendClientNotification, restoreStockAfterCancel, supabase } from '../lib/supabase'
+import { getOrders, updateOrderStatus, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
 import { toast, Toaster } from 'sonner'
 import {
@@ -189,7 +189,6 @@ export default function OrdersPage() {
   // ✅ Применение смены статуса (+ опционально ссылка курьера)
   const applyStatusChange = async (order: any, newStatus: string, clientChatId: string, courierLinkValue: string | null) => {
     try {
-      const oldStatus = order.status
       let updated: any = null
 
       if (courierLinkValue) {
@@ -205,11 +204,6 @@ export default function OrdersPage() {
       }
 
       if (updated) {
-        if (newStatus === 'Отменён' && oldStatus !== 'Отменён') {
-          if (order.items && order.items.length > 0) {
-            await restoreStockAfterCancel(order.items)
-          }
-        }
         const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
         let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
         if (courierLinkValue) {

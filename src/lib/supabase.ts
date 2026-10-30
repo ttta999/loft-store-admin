@@ -5,6 +5,24 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+async function privateFile(value: string | null, bucket: string) {
+  if (!value) return null
+  let path: string
+  const marker = `private:${bucket}/`
+  if (value.startsWith(marker)) path = value.slice(marker.length)
+  else {
+    try {
+      const url = new URL(value)
+      const prefix = `/storage/v1/object/public/${bucket}/`
+      if (url.origin !== new URL(supabaseUrl).origin || !url.pathname.startsWith(prefix)) return null
+      path = decodeURIComponent(url.pathname.slice(prefix.length))
+    } catch { return null }
+  }
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 900)
+  if (error) return null
+  return data.signedUrl
+}
+
 export const getOrders = async () => {
   const { data, error } = await supabase
     .from('orders')
@@ -16,7 +34,11 @@ export const getOrders = async () => {
     return []
   }
   
-  return data
+  return Promise.all((data || []).map(async order => ({
+    ...order, payment_screenshot_url: await privateFile(order.payment_screenshot_url, 'payment-screenshots'),
+    items: await Promise.all((order.items || []).map(async (item: any) => item.isSpecialOrder
+      ? { ...item, image: await privateFile(item.image, 'china-requests') } : item)),
+  })))
 }
 
 export const getChinaRequests = async () => {
@@ -30,10 +52,15 @@ export const getChinaRequests = async () => {
     return []
   }
   
-  return data
+  return Promise.all((data || []).map(async request => ({ ...request, image_url: await privateFile(request.image_url, 'china-requests') })))
 }
 
 export const updateOrderStatus = async (orderId: string, status: string) => {
+  if (status === 'Отменён') {
+    const { data, error } = await supabase.rpc('store_admin_cancel_order', { p_order_id: orderId })
+    if (error) throw error
+    return data
+  }
   const { data, error } = await supabase
     .from('orders')
     .update({ status })
@@ -73,10 +100,13 @@ export const updateChinaRequestStatus = async (
 // ✅ ИСПРАВЛЕНО: Отправка уведомления КЛИЕНТУ (через клиентский бот)
 export const sendClientNotification = async (chatId: string, message: string) => {
   try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return false
     const response = await fetch('/api/sendNotification', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ 
         chatId, 
@@ -91,37 +121,9 @@ export const sendClientNotification = async (chatId: string, message: string) =>
     }
     
     const data = await response.json()
-    console.log('Уведомление отправлено клиенту:', data)
     return data.success
   } catch (error) {
     console.error('Ошибка отправки уведомления клиенту:', error)
     return false
-  }
-}
-
-// ✅ Возврат остатков при отмене заказа
-export const restoreStockAfterCancel = async (items: any[]) => {
-  console.log('📈 Возвращаем остатки после отмены:', items)
-  
-  for (const item of items) {
-    if (!item.productId || item.isSpecialOrder) continue
-    
-    const { data: variants } = await supabase
-      .from('product_variants')
-      .select('*')
-      .eq('product_id', item.productId)
-      .eq('size_value', item.size)
-    
-    if (!variants || variants.length === 0) continue
-    
-    const variant = variants[0]
-    const newStock = (variant.stock || 0) + item.quantity
-    
-    console.log(`📈 Товар ${item.productId} (${item.size}): ${variant.stock} → ${newStock}`)
-    
-    await supabase
-      .from('product_variants')
-      .update({ stock: newStock })
-      .eq('id', variant.id)
   }
 }
