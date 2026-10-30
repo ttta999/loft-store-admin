@@ -28,6 +28,7 @@ export interface CategoryTree extends CategoryRow {
 
 // ✅ Дерево категорий с кешем
 export const fetchCategoriesTree = async (force = false): Promise<CategoryTree[]> => {
+  if (force) categoriesCacheApi.invalidate()
   if (!force) {
     const cached = categoriesCacheApi.get()
     if (cached) return cached as CategoryTree[]

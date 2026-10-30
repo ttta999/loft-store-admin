@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   RefreshCw,
@@ -32,20 +32,20 @@ interface StatusItem {
 }
 
 const DELIVERY_STATUSES: StatusItem[] = [
-  { old: 'Активный', new: 'Принят 📄' },
-  { old: 'В обработке', new: 'Собирается 📦' },
-  { old: 'Готов', new: 'Упакован 🛍️' },
-  { old: 'Выдан', new: 'Передан курьеру 🚀' },
-  { old: 'Доставлен', new: 'Доставлен ✅' },
-  { old: 'Отменён', new: 'Отменен 🚫' },
+  { old: 'Активный', new: 'Принят ' },
+  { old: 'В обработке', new: 'Собирается ' },
+  { old: 'Готов', new: 'Упакован ' },
+  { old: 'Выдан', new: 'Передан курьеру ' },
+  { old: 'Доставлен', new: 'Доставлен ' },
+  { old: 'Отменён', new: 'Отменен ' },
 ]
 
 const PICKUP_STATUSES: StatusItem[] = [
-  { old: 'Активный', new: 'Принят 📄' },
-  { old: 'В обработке', new: 'Собирается 📦' },
-  { old: 'Готов', new: 'Готов к выдаче 🎉' },
-  { old: 'Выдан', new: 'Получен 🤝' },
-  { old: 'Отменён', new: 'Отменен 🚫' },
+  { old: 'Активный', new: 'Принят ' },
+  { old: 'В обработке', new: 'Собирается ' },
+  { old: 'Готов', new: 'Готов к выдаче ' },
+  { old: 'Выдан', new: 'Получен ' },
+  { old: 'Отменён', new: 'Отменен ' },
 ]
 
 const DELIVERY_MESSAGES: Record<string, string> = {
@@ -217,7 +217,7 @@ export default function OrdersPage() {
         }
 
         if (sent) {
-          toast.success(`Статус изменён на «${newStatus}» ✅ Уведомление отправлено`)
+          toast.success(`Статус изменён на «${newStatus}»  Уведомление отправлено`)
         } else if (clientChatId) {
           toast.warning(`Статус изменён на «${newStatus}», но уведомление не ушло`)
         } else {
@@ -238,7 +238,7 @@ export default function OrdersPage() {
 
   const handleStatusChange = async (_orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
     if (newStatus === 'Отменён') {
-      if (!confirm(`🚫 Отменить заказ №${order.id}?`)) return
+      if (!confirm(` Отменить заказ №${order.id}?`)) return
     }
 
     if (newStatus === 'Выдан' && deliveryMethod === 'delivery') {
@@ -267,7 +267,7 @@ export default function OrdersPage() {
   }
 
   const handleConfirmPayment = async (order: any) => {
-    const confirmed = confirm(`✅ Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
+    const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
     if (!confirmed) return
     const success = await confirmPayment(order.id)
     if (success) {
@@ -296,7 +296,7 @@ export default function OrdersPage() {
       const message = `📩 <b>Сообщение по заказу №${orderId}:</b>\n\n${customMessageText}`
       const sent = !!(await sendClientNotification(clientChatId, message))
       if (sent) {
-        toast.success('Сообщение отправлено клиенту ✅')
+        toast.success('Сообщение отправлено клиенту ')
         setShowCustomMessage(null)
         setCustomMessageText('')
       } else {
@@ -358,7 +358,6 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
@@ -582,7 +581,7 @@ export default function OrdersPage() {
                         </span>
                         {order.special_order_id && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300">
-                            🌍
+                            
                           </span>
                         )}
                       </div>

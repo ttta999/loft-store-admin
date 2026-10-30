@@ -10,7 +10,7 @@ import {
   type SubcategoryRow,
 } from '../lib/categories'
 import { categoriesCacheApi } from '../lib/cache'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   RefreshCw,
@@ -84,14 +84,14 @@ export default function CategoriesPage() {
           name_uz: { old: old?.name_uz, new: values.name_uz },
           icon: { old: old?.icon, new: values.icon },
         })
-        toast.success('Категория обновлена ✅')
+        toast.success('Категория обновлена ')
       } else {
         const { error } = await supabase
           .from('categories')
           .insert({ id: values.id, name_ru: values.name_ru, name_uz: values.name_uz, icon: values.icon, sort_order: tree.length + 1 })
         if (error) throw error
         await logCategoryChange('create_category', 'category', values.id, { snapshot: values })
-        toast.success('Категория добавлена ✅')
+        toast.success('Категория добавлена ')
       }
       setCategoryModal(null)
       invalidateCategoriesCache()
@@ -123,7 +123,7 @@ export default function CategoriesPage() {
           .eq('id', editId)
         if (error) throw error
         await logCategoryChange('update_subcategory', 'subcategory', editId, { snapshot: values })
-        toast.success('Подкатегория обновлена ✅')
+        toast.success('Подкатегория обновлена ')
       } else {
         const { error } = await supabase
           .from('subcategories')
@@ -139,7 +139,7 @@ export default function CategoriesPage() {
           })
         if (error) throw error
         await logCategoryChange('create_subcategory', 'subcategory', values.id, { snapshot: values })
-        toast.success('Подкатегория добавлена ✅')
+        toast.success('Подкатегория добавлена ')
       }
       setSubModal(null)
       invalidateCategoriesCache()
@@ -163,7 +163,7 @@ export default function CategoriesPage() {
       const { error } = await supabase.from('categories').update({ is_active: !category.is_active, updated_at: new Date().toISOString() }).eq('id', category.id)
       if (error) throw error
       await logCategoryChange(turningOff ? 'disable_category' : 'enable_category', 'category', category.id)
-      toast.success(turningOff ? 'Категория отключена 🙈' : 'Категория включена ✅')
+      toast.success(turningOff ? 'Категория отключена ' : 'Категория включена ')
       invalidateCategoriesCache()
       await load(true)
     } catch (error) {
@@ -182,7 +182,7 @@ export default function CategoriesPage() {
       const { error } = await supabase.from('subcategories').update({ is_active: !sub.is_active, updated_at: new Date().toISOString() }).eq('id', sub.id)
       if (error) throw error
       await logCategoryChange(turningOff ? 'disable_subcategory' : 'enable_subcategory', 'subcategory', sub.id)
-      toast.success(turningOff ? 'Подкатегория отключена 🙈' : 'Подкатегория включена ✅')
+      toast.success(turningOff ? 'Подкатегория отключена ' : 'Подкатегория включена ')
       invalidateCategoriesCache()
       await load(true)
     } catch (error) {
@@ -233,7 +233,6 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
@@ -317,7 +316,7 @@ export default function CategoriesPage() {
                         ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300'
                         : 'bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold'
                     }`}>
-                      {category.is_active ? '✓ Активна' : '🙈 Отключена'}
+                      {category.is_active ? '✓ Активна' : ' Отключена'}
                     </span>
                   </div>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
@@ -370,7 +369,7 @@ export default function CategoriesPage() {
                           </span>
                           {!sub.is_active && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold">
-                              🙈 Отключена
+                               Отключена
                             </span>
                           )}
                         </div>

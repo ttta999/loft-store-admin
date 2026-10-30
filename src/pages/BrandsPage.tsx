@@ -1,3 +1,4 @@
+import { Check as TipCheck, X as TipClose, Trash2 as TipTrash, Image as TipImage } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -15,7 +16,7 @@ import {
   RefreshCw,
   Image as ImageIcon,
 } from 'lucide-react'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 
 interface Brand {
   id: string
@@ -190,7 +191,6 @@ export default function BrandsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-6xl mx-auto">
@@ -350,14 +350,14 @@ export default function BrandsPage() {
           </div>
           <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
             {[
-              { icon: '✓', text: 'Активные бренды показываются в приложении клиентам' },
-              { icon: '✕', text: 'Неактивные бренды скрыты из каталога, но товары остаются' },
-              { icon: '🗑', text: 'Удаление бренда не удаляет связанные товары' },
-              { icon: '🖼', text: 'Для логотипа вставьте прямую ссылку на изображение (PNG/JPG с прозрачным фоном)' },
+              { icon: TipCheck, text: 'Активные бренды показываются в приложении клиентам' },
+              { icon: TipClose, text: 'Неактивные бренды скрыты из каталога, но товары остаются' },
+              { icon: TipTrash, text: 'Удаление бренда не удаляет связанные товары' },
+              { icon: TipImage, text: 'Для логотипа вставьте прямую ссылку на изображение (PNG/JPG с прозрачным фоном)' },
             ].map((item, idx) => (
               <div key={idx} className="flex items-start gap-3 p-3.5">
                 <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">{item.icon}</span>
+                  <item.icon size={16} />
                 </div>
                 <p className="flex-1 text-sm text-[#1B2A4A] dark:text-white pt-1.5">{item.text}</p>
               </div>

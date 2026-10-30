@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { ICON_REGISTRY, type IconGroup, type IconEntry } from '../lib/iconRegistry'
-import { Search, Check } from 'lucide-react'
+import { Search, Check, Footprints, Shirt, Gem, Shapes, type LucideIcon } from 'lucide-react'
 
-const GROUP_LABELS: Record<IconGroup, { label: string; emoji: string }> = {
-  shoes:       { label: 'Обувь',       emoji: '👟' },
-  clothes:     { label: 'Одежда',      emoji: '👕' },
-  accessories: { label: 'Аксессуары',  emoji: '💎' },
-  universal:   { label: 'Универсальные', emoji: '✨' },
+const GROUP_LABELS: Record<IconGroup, { label: string; icon: LucideIcon }> = {
+  shoes:       { label: 'Обувь',       icon: Footprints },
+  clothes:     { label: 'Одежда',      icon: Shirt },
+  accessories: { label: 'Аксессуары',  icon: Gem },
+  universal:   { label: 'Универсальные', icon: Shapes },
 }
 
 const GROUP_ORDER: IconGroup[] = ['shoes', 'clothes', 'accessories', 'universal']
@@ -71,6 +71,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
             Все ({ICON_REGISTRY.length})
           </button>
           {GROUP_ORDER.map((g) => {
+            const GroupIcon = GROUP_LABELS[g].icon
             const count = ICON_REGISTRY.filter((i) => i.group === g).length
             return (
               <button
@@ -82,7 +83,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
                     : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border'
                 }`}
               >
-                <span>{GROUP_LABELS[g].emoji}</span>
+                <GroupIcon size={15} />
                 {GROUP_LABELS[g].label} ({count})
               </button>
             )

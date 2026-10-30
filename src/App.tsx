@@ -1,3 +1,4 @@
+import AppToaster from './components/AppToaster'
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
@@ -46,6 +47,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <AppToaster />
       <Routes>
         <Route path="/login" element={<LoginPage onLogin={() => {}} />} />
         <Route path="/" element={

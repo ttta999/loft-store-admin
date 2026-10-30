@@ -22,7 +22,7 @@ import {
   Layers,
 } from 'lucide-react'
 import { logout } from '../lib/auth'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 import NotificationBell from '../components/NotificationBell'
 
 // ✅ KPI-карточка в стиле страницы заказа (десктоп)
@@ -132,7 +132,7 @@ export default function DashboardPage() {
       const [ordersData, chinaData, counts] = await Promise.all([
         cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
         cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
-        fetchCounts(),
+        cachedCounts ? Promise.resolve([cachedCounts.productsCount, cachedCounts.brandsCount] as [number, number]) : fetchCounts(),
       ])
 
       const [pCount, bCount] = counts
@@ -145,7 +145,7 @@ export default function DashboardPage() {
       // 4. ✅ Сохраняем свежие данные в кеш
       ordersCacheApi.set(ordersData as any[])
       chinaCacheApi.set(chinaData as any[])
-      dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
+      if (!cachedCounts) dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
     } catch (error) {
       console.error('Ошибка загрузки:', error)
       // Тост только если совсем ничего не смогли показать
@@ -203,7 +203,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       {/* ✅ Sticky-шапка (десктоп): лого слева, действия справа */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">

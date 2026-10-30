@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { login, logout, verifySecondFactor } from '../lib/auth'
 import type { MfaStep } from '../lib/auth'
 import { Lock, Mail, Store, Eye, EyeOff, Save, Check } from 'lucide-react'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 
 interface LoginPageProps {
   onLogin: () => void
@@ -84,7 +84,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center p-4">
-      <Toaster position="top-center" richColors />
 
       <div className="w-full max-w-md">
         {/* ✅ Шапка-карточка: лого + название (как шапка заказа) */}
@@ -108,8 +107,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <div className="p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
               {emailName
-                ? `Добро пожаловать, ${emailName}! 👋`
-                : 'Добро пожаловать! 👋'}
+                ? `Добро пожаловать, ${emailName}! `
+                : 'Добро пожаловать! '}
             </h2>
             <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
               {mfa ? 'Подтвердите вход одноразовым кодом' : emailName

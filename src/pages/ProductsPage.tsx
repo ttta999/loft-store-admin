@@ -1,8 +1,9 @@
+import { Lightbulb } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { productsCacheApi, brandsCacheApi, variantsCacheApi } from '../lib/cache'
-import { Toaster, toast } from 'sonner'
+import { productsCacheApi, brandsCacheApi, variantsCacheApi, invalidateAllCaches, categoryRowsCacheApi, subcategoriesCacheApi, colorsCacheApi } from '../lib/cache'
+import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
   Copy, Star, Loader2, CheckCircle2, Circle, Info, Tag, DollarSign, Ruler,
@@ -13,7 +14,7 @@ import { sortSizes, sortSizeStrings } from '../lib/sortSizes'
 const CATEGORIES = [
   {
     value: 'shoes',
-    label: 'Обувь 👟',
+    label: 'Обувь ',
     subcategories: [
       { value: 'sneakers', label: 'Кроссовки' },
       { value: 'boots', label: 'Ботинки' },
@@ -23,7 +24,7 @@ const CATEGORIES = [
   },
   {
     value: 'clothes',
-    label: 'Одежда 👕',
+    label: 'Одежда ',
     subcategories: [
       { value: 't-shirts', label: 'Футболки' },
       { value: 'shirts', label: 'Рубашки' },
@@ -36,7 +37,7 @@ const CATEGORIES = [
   },
   {
     value: 'accessories',
-    label: 'Аксессуары 🧢',
+    label: 'Аксессуары ',
     subcategories: [
       { value: 'belts', label: 'Ремни' },
       { value: 'caps', label: 'Кепки' },
@@ -256,13 +257,14 @@ export default function ProductsPage() {
   }, [])
 
   const loadAll = async (forceRefresh = false) => {
+    if (forceRefresh) invalidateAllCaches()
     const cachedProducts = !forceRefresh ? productsCacheApi.get() : null
     const cachedVariants = !forceRefresh ? variantsCacheApi.get() : null
     const cachedBrands = !forceRefresh ? brandsCacheApi.get() : null
 
     const productsValid = cachedProducts && isFullProductRows(cachedProducts as any[])
     const variantsValid = !!cachedVariants
-    const brandsValid = cachedBrands && isFullProductRows(cachedBrands as any[])
+    const brandsValid = cachedBrands && (cachedBrands.length === 0 || typeof cachedBrands[0]?.name === 'string')
 
     if (productsValid && variantsValid && brandsValid) {
       setProducts(cachedProducts as Product[])
@@ -272,7 +274,7 @@ export default function ProductsPage() {
     }
 
     if (cachedProducts && !isFullProductRows(cachedProducts as any[])) productsCacheApi.invalidate()
-    if (cachedBrands && !isFullProductRows(cachedBrands as any[])) brandsCacheApi.invalidate()
+    if (cachedBrands && !brandsValid) brandsCacheApi.invalidate()
 
     if (!productsValid && !variantsValid && !brandsValid) {
       if (forceRefresh) setRefreshing(true)
@@ -291,12 +293,13 @@ export default function ProductsPage() {
         brandsValid
           ? Promise.resolve({ data: cachedBrands, error: null })
           : supabase.from('brands').select('*').order('name'),
-        supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-        supabase.from('subcategories').select('*').order('sort_order', { ascending: true }),
-        supabase.from('product_colors').select('*').order('sort_order', { ascending: true }),
+        !forceRefresh && categoryRowsCacheApi.get() ? Promise.resolve({ data: categoryRowsCacheApi.get(), error: null }) : supabase.from('categories').select('*').order('sort_order', { ascending: true }),
+        !forceRefresh && subcategoriesCacheApi.get() ? Promise.resolve({ data: subcategoriesCacheApi.get(), error: null }) : supabase.from('subcategories').select('*').order('sort_order', { ascending: true }),
+        !forceRefresh && colorsCacheApi.get() ? Promise.resolve({ data: colorsCacheApi.get(), error: null }) : supabase.from('product_colors').select('*').order('sort_order', { ascending: true }),
       ])
 
-      if (productsRes.error) throw productsRes.error
+      const failed = [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes, colorsRes].find(result => result.error)
+      if (failed?.error) throw failed.error
 
       const productsList = (productsRes.data || []) as Product[]
       const variantsList = (variantsRes.data || []) as ProductVariant[]
@@ -315,6 +318,9 @@ export default function ProductsPage() {
       productsCacheApi.set(productsList)
       variantsCacheApi.set(variantsList)
       brandsCacheApi.set(brandsList)
+      categoryRowsCacheApi.set(categoriesList)
+      subcategoriesCacheApi.set(subcategoriesList)
+      colorsCacheApi.set(colorsList)
     } catch (error) {
       console.error('Ошибка загрузки:', error)
       if (!productsValid && !variantsValid && !brandsValid) {
@@ -747,7 +753,7 @@ export default function ProductsPage() {
         }
       }
 
-      toast.success(editingProduct ? 'Товар обновлён! ✅' : 'Товар добавлен! ✅')
+      toast.success(editingProduct ? 'Товар обновлён! ' : 'Товар добавлен! ')
       setShowModal(false)
       productsCacheApi.invalidate()
       variantsCacheApi.invalidate()
@@ -772,7 +778,7 @@ export default function ProductsPage() {
         .delete()
         .eq('id', productId)
       if (error) throw error
-      toast.success('Товар удалён! 🗑️')
+      toast.success('Товар удалён! ')
       productsCacheApi.invalidate()
       await loadAll(true)
     } catch (error) {
@@ -789,8 +795,8 @@ export default function ProductsPage() {
         .eq('id', productId)
       if (error) throw error
       toast.success(currentActive
-        ? 'Товар скрыт из приложения 🙈'
-        : 'Товар снова виден ✅')
+        ? 'Товар скрыт из приложения '
+        : 'Товар снова виден ')
       productsCacheApi.invalidate()
       await loadAll(true)
     } catch (error: any) {
@@ -920,7 +926,6 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
@@ -1061,7 +1066,7 @@ export default function ProductsPage() {
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              🏷️ Скидки ({saleCount})
+               Скидки ({saleCount})
             </button>
           </div>
         </div>
@@ -1128,7 +1133,7 @@ export default function ProductsPage() {
                         </h3>
                         {!isActive && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap">
-                            🙈 Скрыт
+                             Скрыт
                           </span>
                         )}
                         {isActive && !visibleInApp && (
@@ -1136,18 +1141,18 @@ export default function ProductsPage() {
                             className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap"
                             title={hiddenReason || ''}
                           >
-                            🙈 Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
+                             Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
                           </span>
                         )}
                         {sale && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-400 whitespace-nowrap">
-                            🏷️ Скидка
+                             Скидка
                           </span>
                         )}
                         {/* ✅ Плашка цветов */}
                         {productColorsList.length > 0 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 text-[#1B2A4A] dark:text-gold whitespace-nowrap">
-                            🎨 {productColorsList.length} цвет.
+                             {productColorsList.length} цвет.
                           </span>
                         )}
                       </div>
@@ -1328,7 +1333,7 @@ export default function ProductsPage() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <FieldLabel text="Название" flag="🇷🇺" required />
+                    <FieldLabel text="Название" flag="RU" required />
                     <input
                       type="text"
                       value={nameRu}
@@ -1341,7 +1346,7 @@ export default function ProductsPage() {
                     {errors.nameRu && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.nameRu}</p>}
                   </div>
                   <div>
-                    <FieldLabel text="Название" flag="🇺🇿" hint="если пусто, будет как RU" />
+                    <FieldLabel text="Название" flag="UZ" hint="если пусто, будет как RU" />
                     <input
                       type="text"
                       value={nameUz}
@@ -1354,7 +1359,7 @@ export default function ProductsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <FieldLabel text="Описание" flag="🇷🇺" />
+                    <FieldLabel text="Описание" flag="RU" />
                     <textarea
                       value={descriptionRu}
                       onChange={(e) => setDescriptionRu(e.target.value)}
@@ -1364,7 +1369,7 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div>
-                    <FieldLabel text="Описание" flag="🇺🇿" />
+                    <FieldLabel text="Описание" flag="UZ" />
                     <textarea
                       value={descriptionUz}
                       onChange={(e) => setDescriptionUz(e.target.value)}
@@ -1487,7 +1492,7 @@ export default function ProductsPage() {
                       <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.salePriceUsd}</p>
                     ) : discountPercent !== null ? (
                       <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1 font-bold">
-                        🏷️ Скидка {discountPercent}% от основной цены
+                         Скидка {discountPercent}% от основной цены
                       </p>
                     ) : null}
                   </div>
@@ -1618,14 +1623,14 @@ export default function ProductsPage() {
                             type="text"
                             value={color.name_ru}
                             onChange={(e) => updateColor(colorIdx, 'name_ru', e.target.value)}
-                            placeholder="Название RU 🇷🇺 *"
+                            placeholder="Название RU RU *"
                             className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
                           />
                           <input
                             type="text"
                             value={color.name_uz || ''}
                             onChange={(e) => updateColor(colorIdx, 'name_uz', e.target.value)}
-                            placeholder="Название UZ 🇺🇿"
+                            placeholder="Название UZ UZ"
                             className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
                           />
                           <button
@@ -1709,7 +1714,7 @@ export default function ProductsPage() {
                 {!subcategory ? (
                   <div className="flex items-center gap-3 p-3 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl">
                     <div className="w-9 h-9 rounded-full bg-white dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                      <span className="text-base">💡</span>
+                      <Lightbulb size={18} />
                     </div>
                     <p className="text-sm text-[#1B2A4A] dark:text-white">
                       Выберите подкатегорию в секции «Категория и бренд» — здесь появятся нужные размеры.

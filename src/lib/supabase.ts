@@ -1,11 +1,22 @@
+import { createDataFetch } from './dataFetch'
+import { invalidateAllCaches } from './cache'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: createDataFetch(invalidateAllCaches) } })
+let cacheUserId: string | null = null
+export const getAdminCacheScope = () => cacheUserId || 'anonymous'
+supabase.auth.onAuthStateChange((event, session) => {
+  const nextUserId = session?.user.id || null
+  if (nextUserId !== cacheUserId || event === 'SIGNED_OUT') {
+    cacheUserId = nextUserId
+    invalidateAllCaches()
+  }
+})
 
-async function privateFile(value: string | null, bucket: string) {
+export async function privateFile(value: string | null, bucket: string) {
   if (!value) return null
   let path: string
   const marker = `private:${bucket}/`

@@ -1,7 +1,8 @@
+import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, Package } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, getAdminCacheScope } from '../lib/supabase'
 
 interface OrderNotification {
   id: number
@@ -16,10 +17,8 @@ const STORAGE_KEY = 'admin_orders_last_seen'
 
 // ✅ Module-level кеш: переживает размонтирование компонента,
 // чтобы при открытии/закрытии дропдауна не было повторных запросов
-let notificationsCache: OrderNotification[] | null = null
-let notificationsCacheTimestamp = 0
-let notificationsLastSeen: string = ''
-const NOTIFICATIONS_TTL = 30_000 // 30 секунд (совпадает с интервалом polling)
+const NOTIFICATIONS_TTL = 30_000
+const seenStorageKey = () => `${STORAGE_KEY}:${getAdminCacheScope()}`
 
 export default function NotificationBell() {
   const navigate = useNavigate()
@@ -29,21 +28,12 @@ export default function NotificationBell() {
   const [newOrders, setNewOrders] = useState<OrderNotification[]>([])
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY) || new Date().toISOString()
+    return localStorage.getItem(seenStorageKey()) || new Date().toISOString()
   })
 
   const loadNewOrders = async (force = false) => {
-    // ✅ Кеш: если lastSeen не изменился и кеш свежий — возвращаем без запроса
-    if (
-      !force &&
-      notificationsLastSeen === lastSeen &&
-      notificationsCache &&
-      Date.now() - notificationsCacheTimestamp < NOTIFICATIONS_TTL
-    ) {
-      setNewOrders(notificationsCache)
-      return
-    }
-
+    const cached = !force ? dataCache.get<{ lastSeen: string; list: OrderNotification[] }>('admin:notifications') : null
+    if (cached && cached.lastSeen === lastSeen) { setNewOrders(cached.list); return }
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -55,9 +45,7 @@ export default function NotificationBell() {
         return
       }
       const list = data || []
-      notificationsCache = list
-      notificationsCacheTimestamp = Date.now()
-      notificationsLastSeen = lastSeen
+      dataCache.set('admin:notifications', { list, lastSeen }, NOTIFICATIONS_TTL)
       setNewOrders(list)
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error)
@@ -66,7 +54,7 @@ export default function NotificationBell() {
 
   // ✅ Polling каждые 30 секунд
   useEffect(() => {
-    loadNewOrders(true)
+    loadNewOrders()
     const interval = setInterval(() => loadNewOrders(), 30_000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,13 +90,13 @@ export default function NotificationBell() {
 
   const markAllRead = () => {
     const now = new Date().toISOString()
-    localStorage.setItem(STORAGE_KEY, now)
+    localStorage.setItem(seenStorageKey(), now)
     setLastSeen(now)
     setNewOrders([])
     setOpen(false)
     // Сбрасываем кеш, чтобы следующий polling увидел актуальные данные
-    notificationsCache = null
-    notificationsCacheTimestamp = 0
+    dataCache.invalidate('admin:notifications')
+    dataCache.invalidate('http:')
   }
 
   // ✅ Относительное форматирование времени: «только что», «5 мин назад», «2 ч назад», «12.10»

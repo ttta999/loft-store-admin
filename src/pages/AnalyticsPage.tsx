@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, privateFile } from '../lib/supabase'
 import {
   analyticsCacheApi,
   type AnalyticsPeriod,
@@ -35,11 +35,11 @@ const WORK_STATUSES = ['Активный', 'В обработке', 'Готов'
 
 // ✅ Подписи категорий для графика
 const CATEGORY_LABELS: Record<string, string> = {
-  shoes: 'Обувь 👟',
-  clothes: 'Одежда 👕',
-  accessories: 'Аксессуары 🧢',
-  special: 'Спецзаказы 🌍',
-  other: 'Прочее 📦',
+  shoes: 'Обувь ',
+  clothes: 'Одежда ',
+  accessories: 'Аксессуары ',
+  special: 'Спецзаказы ',
+  other: 'Прочее ',
 }
 
 // ✅ KPI-карточка
@@ -91,8 +91,16 @@ function MiniStat({ icon, label, value, percent }: {
   )
 }
 
+function ProductThumbnail({ image, name }: { image?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  return <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
+    {image && !failed ? <img src={image} alt={name} loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={() => setFailed(true)} /> : <Package size={20} className="text-[#8A8275] dark:text-gray-400" />}
+  </div>
+}
+
 export default function AnalyticsPage() {
   const navigate = useNavigate()
+  const loadRequest = useRef(0)
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
   const [orderStats, setOrderStats] = useState<OrderStatsEntry | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStatsEntry[]>([])
@@ -119,6 +127,7 @@ export default function AnalyticsPage() {
   }
 
   const loadAnalytics = async (selectedPeriod: AnalyticsPeriod, forceRefresh = false) => {
+    const request = ++loadRequest.current
     if (!forceRefresh) {
       const cached = analyticsCacheApi.get(selectedPeriod)
       if (cached) {
@@ -134,12 +143,11 @@ export default function AnalyticsPage() {
     try {
       const entry = await computeAnalytics(selectedPeriod)
       analyticsCacheApi.set(selectedPeriod, entry)
-      applyData({ ...entry, timestamp: Date.now() })
+      if (request === loadRequest.current) applyData({ ...entry, timestamp: Date.now() })
     } catch (error) {
       console.error('Ошибка загрузки аналитики:', error)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (request === loadRequest.current) { setLoading(false); setRefreshing(false) }
     }
   }
 
@@ -163,15 +171,16 @@ export default function AnalyticsPage() {
       ordersQuery = ordersQuery.gte('created_at', dateFilter)
     }
 
-    const [{ data: ordersRaw }, { data: productsRaw }] = await Promise.all([
+    const [{ data: ordersRaw, error: ordersError }, { data: productsRaw, error: productsError }] = await Promise.all([
       ordersQuery,
-      supabase.from('products').select('id, category, brand'),
+      supabase.from('products').select('id, category, brand, images'),
     ])
 
+    if (ordersError || productsError) throw ordersError || productsError
     const orders = ordersRaw || []
-    const productMap: Record<string, { category: string; brand: string | null }> = {}
+    const productMap: Record<string, { category: string; brand: string | null; images?: string[] }> = {}
     ;(productsRaw || []).forEach((p: any) => {
-      productMap[p.id] = { category: p.category, brand: p.brand || null }
+      productMap[p.id] = { category: p.category, brand: p.brand, images: p.images || null }
     })
 
     // -------- Основные метрики --------
@@ -228,6 +237,7 @@ export default function AnalyticsPage() {
           productMapStats[productId] = {
             product_id: productId,
             product_name: item.name,
+            product_image: productMap[productId]?.images?.[0] || item.image || null,
             total_sold: 0,
             revenue: 0,
           }
@@ -255,9 +265,10 @@ export default function AnalyticsPage() {
       })
     })
 
-    const topProducts = Object.values(productMapStats)
+    const topProducts = await Promise.all(Object.values(productMapStats)
       .sort((a, b) => b.total_sold - a.total_sold)
       .slice(0, 5)
+      .map(async product => ({ ...product, product_image: product.product_image?.startsWith('private:') || product.product_image?.includes('/storage/v1/object/public/china-requests/') ? await privateFile(product.product_image || null, 'china-requests') : product.product_image })))
     const categoryStats = Object.values(categoryMapStats).sort((a, b) => b.revenue - a.revenue)
     const brandStats = Object.values(brandMapStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
@@ -574,6 +585,7 @@ export default function AnalyticsPage() {
                     }`}>
                       {index + 1}
                     </div>
+                    <ProductThumbnail key={product.product_image || product.product_id} image={product.product_image} name={product.product_name} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">{product.product_name}</p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Продано: {product.total_sold} шт.</p>

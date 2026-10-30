@@ -1,3 +1,6 @@
+import { ClipboardList } from 'lucide-react'
+import { CheckCircle2, CircleSlash } from 'lucide-react'
+import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -15,7 +18,7 @@ import {
   Moon,
   Monitor,
 } from 'lucide-react'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 
 interface SettingsCacheData {
   exchangeRate: number
@@ -28,25 +31,9 @@ interface SettingsCacheData {
   timestamp: number
 }
 
-let settingsCache: SettingsCacheData | null = null
-const SETTINGS_CACHE_TTL = 5 * 60 * 1000
-
-const getSettingsCache = (): SettingsCacheData | null => {
-  if (!settingsCache) return null
-  if (Date.now() - settingsCache.timestamp > SETTINGS_CACHE_TTL) {
-    settingsCache = null
-    return null
-  }
-  return settingsCache
-}
-
-const setSettingsCache = (data: Omit<SettingsCacheData, 'timestamp'>) => {
-  settingsCache = { ...data, timestamp: Date.now() }
-}
-
-const invalidateSettingsCache = () => {
-  settingsCache = null
-}
+const getSettingsCache = () => dataCache.get<SettingsCacheData>('admin:settings')
+const setSettingsCache = (data: Omit<SettingsCacheData, 'timestamp'>) => dataCache.set('admin:settings', { ...data, timestamp: Date.now() }, 60_000)
+const invalidateSettingsCache = () => { dataCache.invalidate('admin:settings'); dataCache.invalidate('http:') }
 
 function InfoToggle({ open, onClick, title }: { open: boolean; onClick: () => void; title: string }) {
   return (
@@ -130,6 +117,7 @@ export default function SettingsPage() {
         threshold = typeof (thresholdData.value as any)?.amount === 'number' ? (thresholdData.value as any).amount : 0
       }
 
+      if (rateError || saleError || deliveryError || thresholdError) throw new Error('Не удалось загрузить настройки')
       setExchangeRate(rate)
       setUpdatedBy(updBy)
       setCurrentVersion(version)
@@ -204,7 +192,7 @@ export default function SettingsPage() {
       if (error) throw error
       setSaleMode(newValue)
       setSettingsCache({ exchangeRate, saleMode: newValue, deliveryPrice, freeDeliveryThreshold, lastUpdated, updatedBy, currentVersion })
-      toast.success(newValue ? '🏷️ Режим скидок ВКЛЮЧЁН' : '🏷️ Режим скидок ВЫКЛЮЧЕН')
+      toast.success(newValue ? ' Режим скидок ВКЛЮЧЁН' : ' Режим скидок ВЫКЛЮЧЕН')
     } catch (error) {
       console.error('Ошибка переключения режима скидок:', error)
       toast.error('Ошибка сохранения')
@@ -235,7 +223,7 @@ export default function SettingsPage() {
       }, { onConflict: 'key' })
 
       setSettingsCache({ exchangeRate, saleMode, deliveryPrice, freeDeliveryThreshold, lastUpdated, updatedBy, currentVersion })
-      toast.success('Настройки доставки сохранены ✅')
+      toast.success('Настройки доставки сохранены ')
     } catch (error) {
       console.error('Ошибка сохранения цены доставки:', error)
       toast.error('Ошибка сохранения')
@@ -261,7 +249,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors theme={theme} />
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
@@ -359,7 +346,7 @@ export default function SettingsPage() {
           <div className="p-5 flex items-center justify-between gap-6 mt-auto">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                <span className="text-lg">{saleMode ? '✅' : '⛔'}</span>
+                <span>{saleMode ? <CheckCircle2 size={20} /> : <CircleSlash size={20} />}</span>
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">{saleMode ? 'Скидки включены' : 'Скидки выключены'}</p>
@@ -469,15 +456,15 @@ export default function SettingsPage() {
             <div className="bg-[#F5F1E8]/60 dark:bg-dark-accent/40 border border-[#E8E2D5] dark:border-dark-border rounded-xl p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-9 h-9 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">📋</span>
+                  <ClipboardList size={18} />
                 </div>
                 <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">Последнее обновление</p>
               </div>
               {lastUpdated ? (
                 <div className="space-y-2 text-xs text-[#8A8275] dark:text-gray-300">
-                  <p className="flex justify-between gap-4"><span>📅 Дата:</span><span className="font-bold text-[#1B2A4A] dark:text-white text-right">{lastUpdated}</span></p>
-                  <p className="flex justify-between gap-4"><span>👤 Кем:</span><span className="font-bold text-[#1B2A4A] dark:text-white">{updatedBy === 'admin' ? 'Менеджером' : 'Автоматически'}</span></p>
-                  <p className="flex justify-between gap-4"><span>🔢 Версия:</span><span className="font-bold text-[#1B2A4A] dark:text-white">{currentVersion}</span></p>
+                  <p className="flex justify-between gap-4"><span> Дата:</span><span className="font-bold text-[#1B2A4A] dark:text-white text-right">{lastUpdated}</span></p>
+                  <p className="flex justify-between gap-4"><span> Кем:</span><span className="font-bold text-[#1B2A4A] dark:text-white">{updatedBy === 'admin' ? 'Менеджером' : 'Автоматически'}</span></p>
+                  <p className="flex justify-between gap-4"><span> Версия:</span><span className="font-bold text-[#1B2A4A] dark:text-white">{currentVersion}</span></p>
                 </div>
               ) : (
                 <p className="text-xs text-[#8A8275] dark:text-gray-300">Курс ещё не обновлялся вручную</p>

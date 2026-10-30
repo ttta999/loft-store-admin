@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getChinaRequests, updateChinaRequestStatus, sendClientNotification } from '../lib/supabase'
 import { chinaCacheApi } from '../lib/cache'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   Globe,
@@ -22,11 +22,11 @@ import {
 } from 'lucide-react'
 
 const STATUSES = [
-  { old: 'На рассмотрении', new: 'Принят 📄', color: 'yellow' },
-  { old: 'Оценён', new: 'Оценён 💎', color: 'purple' },
-  { old: 'Оплачен', new: 'Оплачен ✅', color: 'green' },
-  { old: 'Отменён клиентом', new: 'Отменён вами 🙅‍♂️', color: 'orange' },
-  { old: 'Отклонён', new: 'Отклонён 🛑', color: 'red' },
+  { old: 'На рассмотрении', new: 'Принят ', color: 'yellow' },
+  { old: 'Оценён', new: 'Оценён ', color: 'purple' },
+  { old: 'Оплачен', new: 'Оплачен ', color: 'green' },
+  { old: 'Отменён клиентом', new: 'Отменён вами ', color: 'orange' },
+  { old: 'Отклонён', new: 'Отклонён ', color: 'red' },
 ]
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -148,7 +148,7 @@ export default function ChinaPage() {
         }
 
         if (sent) {
-          toast.success(`Статус изменён на «${newStatus}» ✅ Уведомление отправлено`)
+          toast.success(`Статус изменён на «${newStatus}»  Уведомление отправлено`)
         } else if (clientChatId) {
           toast.warning(`Статус изменён на «${newStatus}», но уведомление не ушло`)
         } else {
@@ -190,7 +190,7 @@ export default function ChinaPage() {
         }
 
         if (sent) {
-          toast.success(`Цена $${managerPrice} установлена ✅ Уведомление отправлено`)
+          toast.success(`Цена $${managerPrice} установлена  Уведомление отправлено`)
         } else if (selectedRequest.user_id) {
           toast.warning(`Цена установлена, но уведомление не ушло`)
         } else {
@@ -234,7 +234,7 @@ export default function ChinaPage() {
         }
 
         if (sent) {
-          toast.success(`Спецзаказ отклонён ✅ Уведомление отправлено`)
+          toast.success(`Спецзаказ отклонён  Уведомление отправлено`)
         } else if (selectedRequest.user_id) {
           toast.warning('Спецзаказ отклонён, но уведомление не ушло')
         } else {
@@ -286,7 +286,6 @@ export default function ChinaPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
-      <Toaster position="top-center" richColors />
 
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
@@ -419,7 +418,7 @@ export default function ChinaPage() {
                         </p>
                         {request.image_url && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
-                            📷
+                            
                           </span>
                         )}
                       </div>
@@ -523,7 +522,7 @@ export default function ChinaPage() {
                           </div>
                           {request.manager_comment && (
                             <p className="mt-2 text-xs text-[#1B2A4A] dark:text-white bg-[#C9A961]/5 dark:bg-gold/10 border border-[#C9A961]/20 dark:border-gold/30 rounded-lg p-2 italic">
-                              💬 {request.manager_comment}
+                               {request.manager_comment}
                             </p>
                           )}
                         </div>
