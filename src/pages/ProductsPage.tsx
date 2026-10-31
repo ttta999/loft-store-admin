@@ -930,7 +930,7 @@ export default function ProductsPage() {
       {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <button
               onClick={() => navigate('/')}
               className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
@@ -1273,11 +1273,11 @@ export default function ProductsPage() {
       {/* ✅ МОДАЛКА ТОВАРА */}
       {showModal && (
         <div
-          className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="loft-modal fixed inset-0 w-screen h-dvh overflow-hidden bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => !saving && setShowModal(false)}
         >
           <div
-            className="bg-[#F5F1E8] dark:bg-dark-bg rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl border border-[#E8E2D5] dark:border-dark-border"
+            className="bg-[#F5F1E8] dark:bg-dark-bg rounded-2xl w-full min-w-0 max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl border border-[#E8E2D5] dark:border-dark-border"
             onClick={(e) => e.stopPropagation()}
           >
             {/* ✅ Шапка модалки */}

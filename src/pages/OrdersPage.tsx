@@ -271,9 +271,10 @@ export default function OrdersPage() {
     if (!confirmed) return
     const success = await confirmPayment(order.id)
     if (success) {
-      if (order.user_chat_id) {
+      const clientChatId = order.user_chat_id || order.user_id
+      if (clientChatId) {
         const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
-        await sendClientNotification(order.user_chat_id, message)
+        await sendClientNotification(clientChatId, message)
       }
       toast.success('Оплата подтверждена! Заказ активирован.')
       ordersCacheApi.invalidate()

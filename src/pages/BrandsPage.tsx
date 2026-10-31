@@ -252,7 +252,7 @@ export default function BrandsPage() {
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Tag size={18} className="text-[#C9A961]" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-[120px]">
               <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Все бренды</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                 Управление списком брендов магазина
@@ -273,7 +273,7 @@ export default function BrandsPage() {
               brands.map((brand) => {
                 const safeName = brand.name || '—'
                 return (
-                  <div key={brand.id} className="flex items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors">
+                  <div key={brand.id} className="flex flex-wrap items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors">
                     {/* ✅ Круглая иконка: Логотип или первая буква */}
                     <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border overflow-hidden bg-white dark:bg-dark-card ${
                       !brand.logo_url && (brand.is_active
@@ -287,7 +287,7 @@ export default function BrandsPage() {
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[120px]">
                       <p className={`font-bold truncate ${brand.is_active ? 'text-[#1B2A4A] dark:text-white' : 'text-[#8A8275] dark:text-gray-400 line-through'}`}>
                         {safeName}
                       </p>
@@ -343,7 +343,7 @@ export default function BrandsPage() {
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Info size={18} className="text-[#1B2A4A] dark:text-white" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-[120px]">
               <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Как это работает</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Подсказки по управлению брендами</p>
             </div>

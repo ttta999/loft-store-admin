@@ -1,3 +1,4 @@
+import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
@@ -186,8 +187,8 @@ export default function DashboardPage() {
     navigate('/login')
   }
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.total_price_usd || 0), 0)
-  const activeOrders = orders.filter(o => o.status === 'Активный').length
+  const totalRevenue = confirmedRevenue(orders)
+  const activeOrders = orders.filter(o => WORK_STATUSES.includes(o.status)).length
   const pendingRequests = chinaRequests.filter(r => r.status === 'На рассмотрении').length
 
   if (loading) {
@@ -206,8 +207,8 @@ export default function DashboardPage() {
 
       {/* ✅ Sticky-шапка (десктоп): лого слева, действия справа */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-[220px]">
             <div className="w-11 h-11 rounded-full bg-[#1B2A4A] dark:bg-gold flex items-center justify-center flex-shrink-0">
               <Store size={20} className="text-white dark:text-[#1B2A4A]" />
             </div>
@@ -258,7 +259,7 @@ export default function DashboardPage() {
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
             label="Выручка"
             value={`$${totalRevenue.toLocaleString()}`}
-            subtitle="По всем заказам"
+            subtitle="Подтверждённая оплата"
             accent
           />
         </div>

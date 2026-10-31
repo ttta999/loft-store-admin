@@ -1,3 +1,4 @@
+import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, privateFile } from '../lib/supabase'
@@ -30,8 +31,6 @@ import {
 } from 'lucide-react'
 
 // ✅ Статусы, дающие реальную выручку (исключаем отменённые и неоплаченные)
-const VALID_REVENUE_STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан', 'Доставлен']
-const WORK_STATUSES = ['Активный', 'В обработке', 'Готов', 'Выдан']
 
 // ✅ Подписи категорий для графика
 const CATEGORY_LABELS: Record<string, string> = {
@@ -166,7 +165,7 @@ export default function AnalyticsPage() {
 
     let ordersQuery = supabase
       .from('orders')
-      .select('id, total_price_usd, status, created_at, items, delivery_method, payment_method, client_phone')
+      .select('id, total_price_usd, status, created_at, items, delivery_method, payment_method, client_phone, payment_status, paid_at')
     if (dateFilter) {
       ordersQuery = ordersQuery.gte('created_at', dateFilter)
     }
@@ -184,8 +183,8 @@ export default function AnalyticsPage() {
     })
 
     // -------- Основные метрики --------
-    const valid = orders.filter((o: any) => VALID_REVENUE_STATUSES.includes(o.status))
-    const totalRevenue = valid.reduce((sum: number, o: any) => sum + (o.total_price_usd || 0), 0)
+    const valid = orders.filter(isConfirmedRevenue)
+    const totalRevenue = confirmedRevenue(valid)
     const totalOrders = valid.length
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
     const activeOrders = orders.filter((o: any) => WORK_STATUSES.includes(o.status)).length
@@ -212,7 +211,7 @@ export default function AnalyticsPage() {
       if (!statsByDay[dateKey]) {
         statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
       }
-      statsByDay[dateKey].revenue += o.total_price_usd || 0
+      statsByDay[dateKey].revenue += Number(o.total_price_usd) || 0
       statsByDay[dateKey].orders += 1
     })
     const dailyStats = Object.values(statsByDay)
