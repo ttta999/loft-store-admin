@@ -368,7 +368,7 @@ export default function BrandsPage() {
 
       {/* ✅ Модалка добавления бренда */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowAddModal(false); setNewBrandName(''); setNewBrandLogo('') }}>
+        <div className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowAddModal(false); setNewBrandName(''); setNewBrandLogo('') }}>
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-2 mb-5">
               <div className="flex items-center gap-3">
@@ -415,7 +415,7 @@ export default function BrandsPage() {
 
       {/* ✅ Модалка редактирования бренда */}
       {editingBrand && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingBrand(null)}>
+        <div className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingBrand(null)}>
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-2 mb-5">
               <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
+import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import OrdersPage from './pages/OrdersPage'
@@ -48,7 +49,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppToaster />
-      <Routes>
+      <AnimatedRoutes>
         <Route path="/login" element={<LoginPage onLogin={() => {}} />} />
         <Route path="/" element={
           <ProtectedRoute>
@@ -90,7 +91,7 @@ export default function App() {
             <CategoriesPage />
           </ProtectedRoute>
         } />
-      </Routes>
+      </AnimatedRoutes>
     </BrowserRouter>
   )
 }

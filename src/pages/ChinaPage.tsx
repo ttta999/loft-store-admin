@@ -558,7 +558,7 @@ export default function ChinaPage() {
       {/* ✅ Модалка для ввода цены */}
       {showPriceModal && (
         <div
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => {
             if (!submitting) {
               setShowPriceModal(false)
@@ -674,7 +674,7 @@ export default function ChinaPage() {
       {/* ✅ Модалка для отклонения с причиной */}
       {showRejectModal && (
         <div
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => {
             if (!submitting) {
               setShowRejectModal(false)

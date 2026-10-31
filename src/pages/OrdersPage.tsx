@@ -762,7 +762,7 @@ export default function OrdersPage() {
       {/* ✅ МОДАЛКА: ССЫЛКА НА ТРЕК КУРЬЕРА */}
       {courierModalOrder && (
         <div
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setCourierModalOrder(null)}
         >
           <div
