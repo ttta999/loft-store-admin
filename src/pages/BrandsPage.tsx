@@ -246,7 +246,7 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-4">
+      <div data-loft-content className="max-w-6xl mx-auto p-6 space-y-4">
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">

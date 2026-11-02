@@ -126,8 +126,8 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function OrdersPage() {
   const navigate = useNavigate()
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
+  const [loading, setLoading] = useState(() => !ordersCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -463,7 +463,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6 space-y-4">
+      <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
         {/* ✅ Блок «Ожидают оплаты» — компактные строки */}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border-2 border-[#C9A961]/40 dark:border-gold/40 overflow-hidden">

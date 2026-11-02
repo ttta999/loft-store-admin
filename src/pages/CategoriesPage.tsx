@@ -284,7 +284,7 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6 space-y-4">
+      <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
         {tree.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">

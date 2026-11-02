@@ -64,8 +64,8 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function ChinaPage() {
   const navigate = useNavigate()
-  const [requests, setRequests] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
+  const [loading, setLoading] = useState(() => !chinaCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -370,7 +370,7 @@ export default function ChinaPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6">
+      <div data-loft-content className="max-w-5xl mx-auto p-6">
         {filteredRequests.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">

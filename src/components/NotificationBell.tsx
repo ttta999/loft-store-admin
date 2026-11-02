@@ -28,7 +28,7 @@ export default function NotificationBell() {
   const [newOrders, setNewOrders] = useState<OrderNotification[]>([])
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<string>(() => {
-    return localStorage.getItem(seenStorageKey()) || new Date().toISOString()
+    return localStorage.getItem(seenStorageKey()) || dataCache.get<{ lastSeen: string }>('admin:notifications')?.lastSeen || new Date().toISOString()
   })
 
   const loadNewOrders = async (force = false) => {

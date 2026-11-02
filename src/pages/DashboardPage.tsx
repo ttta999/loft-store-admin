@@ -84,11 +84,11 @@ function NavCard({ icon, title, description, count, onClick }: {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const [orders, setOrders] = useState<any[]>([])
-  const [chinaRequests, setChinaRequests] = useState<any[]>([])
-  const [productsCount, setProductsCount] = useState(0)
-  const [brandsCount, setBrandsCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
+  const [chinaRequests, setChinaRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
+  const [productsCount, setProductsCount] = useState(() => dashboardCountsCacheApi.get()?.productsCount || 0)
+  const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount || 0)
+  const [loading, setLoading] = useState(() => !(ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
@@ -239,7 +239,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
+      <div data-loft-content className="max-w-6xl mx-auto p-6">
         {/* ✅ KPI-строка: 3 карточки со счётчиками */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard

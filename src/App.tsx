@@ -1,16 +1,10 @@
+import { OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
 import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import OrdersPage from './pages/OrdersPage'
-import ChinaPage from './pages/ChinaPage'
-import ProductsPage from './pages/ProductsPage'
-import AnalyticsPage from './pages/AnalyticsPage'
-import SettingsPage from './pages/SettingsPage'
-import BrandsPage from './pages/BrandsPage'
-import CategoriesPage from './pages/CategoriesPage'
 import { getCurrentUser } from './lib/auth'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
