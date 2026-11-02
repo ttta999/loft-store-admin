@@ -13,3 +13,5 @@ Admin-specific Node tests cover MFA, cache behavior, notification authorization/
 Verified fixes include consistent confirmed revenue (pending/cancelled/unconfirmed legacy payments excluded), notification recipient fallback for new orders, and responsive product/dashboard/brand layouts. Telegram message text was preserved. Real customers received no test messages.
 
 2026-11-02: page modules are split on demand, cached order/request/dashboard data renders immediately, notification cache reuses its initial last-seen value, and shared transitions use 280 ms directional slides with spring-like button presses. Cross-app motion/cache regressions are in storefront `e2e/motion.spec.ts`. Telegram message templates and database schema are unchanged.
+
+Premium-motion revision (2026-11-02): admin navigation now fades only page content for 200 ms; fixed headers no longer receive document snapshots or sideways travel. Press feedback is 98% without bounce. Prepared page modules render synchronously. Storefront `e2e/premium.spec.ts` adds shared-photo, gallery, panel, Telegram Back and flight-success checks.

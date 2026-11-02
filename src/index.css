@@ -74,51 +74,15 @@ body {
 }
 :root [data-sonner-toaster].loft-toaster [data-sonner-toast] { border-radius: 16px; }
 
-/* Short directional slides, with fixed chrome kept outside the moving snapshots. */
+/* Quiet UI motion; the fixed header is never part of a moving page snapshot. */
 :root { --loft-motion-ease: cubic-bezier(0.22, 1, 0.36, 1); }
-::view-transition { pointer-events: none; }
-::view-transition-group(root) { animation: none; overflow: clip; }
-::view-transition-image-pair(root) { isolation: isolate; }
-::view-transition-old(root), ::view-transition-new(root) {
-  animation: 280ms var(--loft-motion-ease) both;
-  mix-blend-mode: normal;
-}
-::view-transition-old(root) { animation-name: loft-page-out; }
-::view-transition-new(root) { animation-name: loft-page-in; }
-:root[data-loft-direction="back"]::view-transition-old(root) { animation-name: loft-page-back-out; z-index: 2; }
-:root[data-loft-direction="back"]::view-transition-new(root) { animation-name: loft-page-back-in; }
-@keyframes loft-page-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
-@keyframes loft-page-out { from { transform: translateX(0); } to { transform: translateX(-22%); } }
-@keyframes loft-page-back-in { from { transform: translateX(-22%); } to { transform: translateX(0); } }
-@keyframes loft-page-back-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
-.loft-header { view-transition-name: loft-header; }
-.loft-navigation { view-transition-name: loft-navigation; }
-:root:has(.loft-modal) :is(.loft-header, .loft-navigation) { view-transition-name: none; }
-::view-transition-group(loft-header), ::view-transition-group(loft-navigation) { animation: none; }
-::view-transition-old(loft-header), ::view-transition-old(loft-navigation) { display: none; }
-::view-transition-new(loft-header), ::view-transition-new(loft-navigation) { animation: none; mix-blend-mode: normal; }
 :where(button, a[role="button"], input[type="submit"]) {
   -webkit-tap-highlight-color: transparent;
   transition-property: background-color, border-color, color, box-shadow, opacity, transform, scale, translate, rotate;
-  transition-duration: 280ms;
-  transition-timing-function: cubic-bezier(0.22, 1.4, 0.36, 1);
+  transition-duration: 200ms;
+  transition-timing-function: var(--loft-motion-ease);
 }
-:where(button, a[role="button"], input[type="submit"]):not(:disabled):not([aria-disabled="true"]):active {
-  scale: 0.95;
-  transition-duration: 100ms;
-  transition-timing-function: ease-out;
-}
-.loft-modal > :not(.loft-header) { animation: loft-panel-in 240ms var(--loft-motion-ease); }
-@keyframes loft-panel-in { from { translate: 0 12px; } to { translate: 0 0; } }
-.loft-detail { view-transition-name: loft-detail; }
-.loft-detail > :not(.loft-header) { animation: none; }
-/* Detail snapshots slide over the unchanged, opaque list in both directions. */
-:root[data-loft-detail-transition]::view-transition-old(root),
-:root[data-loft-detail-transition]::view-transition-new(root) { animation: none; }
-::view-transition-group(loft-detail) { animation: none; }
-::view-transition-old(loft-detail) { animation: loft-page-back-out 280ms var(--loft-motion-ease) both; mix-blend-mode: normal; }
-::view-transition-new(loft-detail) { animation: loft-page-in 280ms var(--loft-motion-ease) both; mix-blend-mode: normal; }
+:where(button, a[role="button"], input[type="submit"]):not(:disabled):not([aria-disabled="true"]):active { scale: 0.98; transition-duration: 80ms; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
-  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.01ms !important; }
 }
