@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ICON_REGISTRY, type IconGroup, type IconEntry } from '../lib/iconRegistry'
+import { ICON_REGISTRY, selectedIcon, type IconGroup, type IconEntry } from '../lib/iconRegistry'
 import { Search, Check, Footprints, Shirt, Gem, Shapes, type LucideIcon } from 'lucide-react'
 
 const GROUP_LABELS: Record<IconGroup, { label: string; icon: LucideIcon }> = {
@@ -99,13 +99,15 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
       ) : (
         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5 max-h-64 overflow-y-auto p-2 bg-[#F5F1E8]/50 dark:bg-dark-accent/30 rounded-xl border border-[#E8E2D5] dark:border-dark-border">
           {filteredIcons.map((icon) => {
-            const isSelected = value === icon.key
+            const isSelected = selectedIcon(value)?.key === icon.key
             const Icon = icon.Component
             return (
               <button
                 key={icon.key}
                 onClick={() => onChange(icon.key)}
-                title={`${icon.labelRu} (${icon.key})`}
+                title={icon.labelRu}
+                aria-label={icon.labelRu}
+                aria-pressed={isSelected}
                 className={`relative aspect-square rounded-lg flex items-center justify-center transition-all ${
                   isSelected
                     ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] ring-2 ring-offset-2 ring-[#C9A961] dark:ring-gold'
@@ -126,8 +128,8 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
 
       {/* Подсказка с выбранным ключом */}
       {value && (
-        <p className="text-xs text-[#8A8275] dark:text-gray-400 font-mono">
-          Выбрано: <span className="text-[#C9A961] dark:text-gold font-bold">{value}</span>
+        <p className="text-xs text-[#8A8275] dark:text-gray-400">
+          Выбрано: <span className="text-[#C9A961] dark:text-gold font-bold">{selectedIcon(value)?.labelRu || 'Все товары'}</span>
         </p>
       )}
     </div>

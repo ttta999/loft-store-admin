@@ -25,6 +25,7 @@ import {
 import { logout } from '../lib/auth'
 import { toast } from 'sonner'
 import NotificationBell from '../components/NotificationBell'
+import { warmPage } from '../lib/pagePreload'
 
 // ✅ KPI-карточка в стиле страницы заказа (десктоп)
 function KpiCard({ icon, label, value, subtitle, accent = false }: {
@@ -53,15 +54,20 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
 }
 
 // ✅ Карточка-ссылка на раздел (десктоп)
-function NavCard({ icon, title, description, count, onClick }: {
+function NavCard({ icon, title, description, count, destination, onClick }: {
   icon: React.ReactNode
   title: string
   description: string
   count?: string
+  destination: string
   onClick: () => void
 }) {
   return (
     <button
+      data-admin-card={destination}
+      onPointerEnter={() => warmPage(destination)}
+      onPointerDown={() => warmPage(destination)}
+      onFocus={() => warmPage(destination)}
       onClick={onClick}
       className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 text-left hover:shadow-md hover:border-[#C9A961] dark:hover:border-gold transition-all group"
     >
@@ -271,6 +277,7 @@ export default function DashboardPage() {
             title="Заказы"
             description="Управление заказами клиентов"
             count={`Всего: ${orders.length}`}
+            destination="/orders"
             onClick={() => navigate('/orders')}
           />
           <NavCard
@@ -278,6 +285,7 @@ export default function DashboardPage() {
             title="Спецзаказы"
             description="Заявки на спецзаказы из Китая"
             count={`Всего: ${chinaRequests.length}`}
+            destination="/china"
             onClick={() => navigate('/china')}
           />
           <NavCard
@@ -285,24 +293,28 @@ export default function DashboardPage() {
             title="Товары"
             description="Управление каталогом и остатками"
             count={`Всего: ${productsCount}`}
+            destination="/products"
             onClick={() => navigate('/products')}
           />
           <NavCard
             icon={<Layers size={20} className="text-[#C9A961]" />}
             title="Категории"
             description="Категории, подкатегории и размеры"
+            destination="/categories"
             onClick={() => navigate('/categories')}
           />
           <NavCard
             icon={<BarChart3 size={20} className="text-[#C9A961]" />}
             title="Аналитика"
             description="Статистика и отчёты продаж"
+            destination="/analytics"
             onClick={() => navigate('/analytics')}
           />
           <NavCard
             icon={<Settings size={20} className="text-[#1B2A4A] dark:text-white" />}
             title="Настройки"
             description="Курс валют, скидки, доставка"
+            destination="/settings"
             onClick={() => navigate('/settings')}
           />
           <NavCard
@@ -310,6 +322,7 @@ export default function DashboardPage() {
             title="Бренды"
             description="Управление списком брендов"
             count={`Всего: ${brandsCount}`}
+            destination="/brands"
             onClick={() => navigate('/brands')}
           />
         </div>

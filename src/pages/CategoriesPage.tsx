@@ -5,7 +5,6 @@ import {
   fetchCategoriesTree,
   invalidateCategoriesCache,
   logCategoryChange,
-  slugify,
   type CategoryTree,
   type SubcategoryRow,
 } from '../lib/categories'
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react'
 import IconPicker from '../components/IconPicker'
 import CategoryIcon from '../components/CategoryIcon'
+import { newCategoryIdentifier } from '../lib/categoryIdentifiers'
 
 const SIZE_TYPES = [
   { value: 'numeric', label: 'Числовая (38–47)' },
@@ -98,7 +98,7 @@ export default function CategoriesPage() {
       await load(true)
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.code === '23505' ? 'Категория с таким ID уже существует' : 'Ошибка сохранения')
+      toast.error(error?.code === '23505' ? 'Не удалось добавить категорию. Обновите список и повторите попытку.' : 'Ошибка сохранения')
     }
   }
 
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
       await load(true)
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.code === '23505' ? 'Подкатегория с таким ID уже существует' : 'Ошибка сохранения')
+      toast.error(error?.code === '23505' ? 'Не удалось добавить подкатегорию. Обновите список и повторите попытку.' : 'Ошибка сохранения')
     }
   }
 
@@ -297,6 +297,7 @@ export default function CategoriesPage() {
           tree.map((category, catIndex) => (
             <div
               key={category.id}
+              data-category-row={category.id}
               className={`bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border overflow-hidden ${
                 category.is_active
                   ? 'border-[#E8E2D5] dark:border-dark-border'
@@ -320,8 +321,7 @@ export default function CategoriesPage() {
                     </span>
                   </div>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                    {category.name_uz} · {category.subcategories.length} подкатегорий · ID: {category.id}
-                    {category.icon && <span className="ml-1 font-mono text-[#C9A961]">· {category.icon}</span>}
+                    {category.name_uz} · {category.subcategories.length} подкатегорий
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -353,7 +353,7 @@ export default function CategoriesPage() {
                 {category.subcategories.map((sub, subIndex) => {
                   const subIcon = (sub as any).icon as string | null | undefined
                   return (
-                    <div key={sub.id} className={`flex items-center gap-4 p-3.5 ${!sub.is_active ? 'opacity-60' : ''}`}>
+                    <div key={sub.id} data-subcategory-row={sub.id} className={`flex items-center gap-4 p-3.5 ${!sub.is_active ? 'opacity-60' : ''}`}>
                       <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                         <CategoryIcon
                           name={subIcon || category.icon}
@@ -377,7 +377,6 @@ export default function CategoriesPage() {
                           {sub.name_uz}
                           {sub.sizes.length > 0 && ` · ${sub.sizes.slice(0, 6).join(', ')}${sub.sizes.length > 6 ? ` +${sub.sizes.length - 6}` : ''}`}
                           {sub.sizes.length === 0 && ' · без размеров'}
-                          {subIcon && <span className="ml-1 font-mono text-[#C9A961]">· {subIcon}</span>}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -460,12 +459,9 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
   const [icon, setIcon] = useState<string>(initial?.icon || 'package')
-  const [id, setId] = useState(initial?.id || '')
-  const [idTouched, setIdTouched] = useState(!!initial)
 
   const handleNameRuChange = (value: string) => {
     setNameRu(value)
-    if (!idTouched) setId(slugify(value))
   }
 
   const submit = () => {
@@ -473,11 +469,7 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
       toast.error('Укажите название (RU)')
       return
     }
-    const finalId = (id.trim() || slugify(nameRu)).toLowerCase()
-    if (!initial && existingIds.includes(finalId)) {
-      toast.error('Категория с таким ID уже существует')
-      return
-    }
+    const finalId = initial?.id || newCategoryIdentifier(nameRu, existingIds)
     onSave(
       { id: finalId, name_ru: nameRu.trim(), name_uz: nameUz.trim() || nameRu.trim(), icon: icon.trim() || 'package' },
       initial?.id || null
@@ -527,20 +519,6 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-              ID (slug) {initial && '· не изменяется'}
-            </label>
-            <input
-              type="text"
-              value={id}
-              onChange={(e) => { setIdTouched(true); setId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')) }}
-              disabled={!!initial}
-              placeholder="shoes"
-              className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-mono disabled:opacity-60"
-            />
-          </div>
-
           {/* ✅ Иконка через пикер */}
           <div>
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
@@ -580,13 +558,10 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
   const [sizeType, setSizeType] = useState(initial?.size_type || 'numeric')
   const [sizes, setSizes] = useState<string[]>(initial?.sizes || [])
   const [newSize, setNewSize] = useState('')
-  const [id, setId] = useState(initial?.id || '')
-  const [idTouched, setIdTouched] = useState(!!initial)
   const [icon, setIcon] = useState<string | null>(initial?.icon || null)
 
   const handleNameRuChange = (value: string) => {
     setNameRu(value)
-    if (!idTouched) setId(slugify(value))
   }
 
   const addSize = () => {
@@ -605,11 +580,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
       toast.error('Укажите название (RU)')
       return
     }
-    const finalId = (id.trim() || slugify(nameRu)).toLowerCase()
-    if (!initial && existingIds.includes(finalId)) {
-      toast.error('Подкатегория с таким ID уже существует')
-      return
-    }
+    const finalId = initial?.id || newCategoryIdentifier(nameRu, existingIds)
     onSave(
       {
         id: finalId,
@@ -666,20 +637,6 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                 className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-              ID (slug) {initial && '· не изменяется'}
-            </label>
-            <input
-              type="text"
-              value={id}
-              onChange={(e) => { setIdTouched(true); setId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')) }}
-              disabled={!!initial}
-              placeholder="sneakers"
-              className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-mono disabled:opacity-60"
-            />
           </div>
 
           {/* ✅ Иконка подкатегории (пусто = наследует иконку категории) */}
