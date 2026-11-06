@@ -137,14 +137,15 @@ export default function ChinaPage() {
 
     setSubmitting(true)
     try {
-      const updated = await updateChinaRequestStatus(requestId, newStatus)
-      if (updated) {
-        const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
-        const message = messageTemplate.replace('{requestId}', requestId)
+      const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
+      const message = messageTemplate.replace('{requestId}', requestId)
+      const notice = { key: crypto.randomUUID(), message }
+      const updated = await updateChinaRequestStatus(requestId, newStatus, undefined, notice)
 
+      if (updated) {
         let sent = false
         if (clientChatId) {
-          sent = !!(await sendClientNotification(clientChatId, message))
+          sent = !!(await sendClientNotification(clientChatId, message, notice.key))
         }
 
         if (sent) {
@@ -173,20 +174,20 @@ export default function ChinaPage() {
     if (!managerPrice || !selectedRequest) return
     setSubmitting(true)
     try {
+      const message = STATUS_MESSAGES['Оценён']
+        .replace('{requestId}', selectedRequest.id)
+        .replace('{managerPrice}', managerPrice)
+        .replace('{managerComment}', managerComment || 'Без комментария')
+      const notice = { key: crypto.randomUUID(), message }
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Оценён', {
         manager_price: parseFloat(managerPrice),
         manager_comment: managerComment
-      })
+      }, notice)
 
       if (updated) {
-        const message = STATUS_MESSAGES['Оценён']
-          .replace('{requestId}', selectedRequest.id)
-          .replace('{managerPrice}', managerPrice)
-          .replace('{managerComment}', managerComment || 'Без комментария')
-
         let sent = false
         if (selectedRequest.user_id) {
-          sent = !!(await sendClientNotification(selectedRequest.user_id, message))
+          sent = !!(await sendClientNotification(selectedRequest.user_id, message, notice.key))
         }
 
         if (sent) {
@@ -219,18 +220,18 @@ export default function ChinaPage() {
     if (!selectedRequest || rejectReason.trim().length < 5) return
     setSubmitting(true)
     try {
+      const message = STATUS_MESSAGES['Отклонён']
+        .replace('{requestId}', selectedRequest.id)
+        .replace('{managerComment}', rejectReason || 'Не указана')
+      const notice = { key: crypto.randomUUID(), message }
       const updated = await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', {
         manager_comment: rejectReason
-      })
+      }, notice)
 
       if (updated) {
-        const message = STATUS_MESSAGES['Отклонён']
-          .replace('{requestId}', selectedRequest.id)
-          .replace('{managerComment}', rejectReason || 'Не указана')
-
         let sent = false
         if (selectedRequest.user_id) {
-          sent = !!(await sendClientNotification(selectedRequest.user_id, message))
+          sent = !!(await sendClientNotification(selectedRequest.user_id, message, notice.key))
         }
 
         if (sent) {

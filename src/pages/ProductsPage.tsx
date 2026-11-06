@@ -1,3 +1,4 @@
+import { readAll } from '../lib/readAll'
 import { Lightbulb } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -69,6 +70,7 @@ const MAX_IMAGES = 8
 
 interface Product {
   id: string
+  catalog_version?: number
   name_ru: string
   name_uz: string
   description_ru: string
@@ -177,6 +179,7 @@ export default function ProductsPage() {
   const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [editBaseline, setEditBaseline] = useState<{ version: number; variants: { id: string; stock: number }[] } | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
   const [dbCategories, setDbCategories] = useState<Category[]>([])
   const [dbSubcategories, setDbSubcategories] = useState<Subcategory[]>([])
@@ -286,16 +289,16 @@ export default function ProductsPage() {
       const [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes, colorsRes] = await Promise.all([
         productsValid
           ? Promise.resolve({ data: cachedProducts, error: null })
-          : supabase.from('products').select('*').order('created_at', { ascending: false }),
+          : readAll(supabase.from('products').select('*').order('created_at', { ascending: false })),
         variantsValid
           ? Promise.resolve({ data: cachedVariants, error: null })
-          : supabase.from('product_variants').select('*'),
+          : readAll(supabase.rpc('store_admin_variants')),
         brandsValid
           ? Promise.resolve({ data: cachedBrands, error: null })
           : supabase.from('brands').select('*').order('name'),
         !forceRefresh && categoryRowsCacheApi.get() ? Promise.resolve({ data: categoryRowsCacheApi.get(), error: null }) : supabase.from('categories').select('*').order('sort_order', { ascending: true }),
         !forceRefresh && subcategoriesCacheApi.get() ? Promise.resolve({ data: subcategoriesCacheApi.get(), error: null }) : supabase.from('subcategories').select('*').order('sort_order', { ascending: true }),
-        !forceRefresh && colorsCacheApi.get() ? Promise.resolve({ data: colorsCacheApi.get(), error: null }) : supabase.from('product_colors').select('*').order('sort_order', { ascending: true }),
+        !forceRefresh && colorsCacheApi.get() ? Promise.resolve({ data: colorsCacheApi.get(), error: null }) : readAll(supabase.from('product_colors').select('*').order('sort_order', { ascending: true })),
       ])
 
       const failed = [productsRes, variantsRes, brandsRes, categoriesRes, subcategoriesRes, colorsRes].find(result => result.error)
@@ -541,6 +544,7 @@ export default function ProductsPage() {
 
   const openEditModal = (product: Product) => {
     setEditingProduct(product)
+    setEditBaseline({ version: product.catalog_version || 0, variants: variants.filter(v => v.product_id === product.id).map(v => ({ id: v.id, stock: v.stock })).sort((a,b) => a.id.localeCompare(b.id)) })
     setNameRu(product.name_ru)
     setNameUz(product.name_uz)
     setDescriptionRu(product.description_ru || '')
@@ -658,6 +662,7 @@ export default function ProductsPage() {
       sale_price: salePriceUsd && parseFloat(salePriceUsd) > 0 ? parseFloat(salePriceUsd) : null,
       images,
       size_type: sizeType,
+      brand: brand || null,
     }
     if (brand) {
       productData.brand = brand
@@ -668,91 +673,16 @@ export default function ProductsPage() {
 
     setSaving(true)
     try {
-      // 1. Сохраняем товар
-      let targetProductId: string
-      if (editingProduct) {
-        const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', editingProduct.id)
-          .select()
-        if (error) {
-          console.error('Ошибка Supabase:', error)
-          toast.error(`Ошибка при обновлении: ${error.message}`)
-          return
-        }
-        targetProductId = editingProduct.id
-      } else {
-        const { data: newProduct, error } = await supabase
-          .from('products')
-          .insert(productData)
-          .select()
-          .single()
-        if (error) {
-          console.error('Ошибка Supabase:', error)
-          toast.error(`Ошибка при создании: ${error.message}`)
-          return
-        }
-        targetProductId = newProduct.id
-      }
-
-      // 2. ✅ Цвета: удаляем старые, вставляем новые, запоминаем oldKey → newId
-      const validColors = productColors.filter(c => c.name_ru && c.name_ru.trim())
-      const colorKeyToNewId: Record<string, string> = {}
-      await supabase.from('product_colors').delete().eq('product_id', targetProductId)
-      for (let i = 0; i < validColors.length; i++) {
-        const c = validColors[i]
-        const { data: inserted, error: cErr } = await supabase
-          .from('product_colors')
-          .insert({
-            product_id: targetProductId,
-            name_ru: c.name_ru.trim(),
-            name_uz: c.name_uz?.trim() || null,
-            hex_code: c.hex_code || null,
-            images: c.images || [],
-            sort_order: i,
-          })
-          .select()
-          .single()
-        if (cErr || !inserted) {
-          console.error('Ошибка сохранения цвета:', cErr)
-          toast.error(`Ошибка сохранения цвета: ${cErr?.message || 'неизвестная'}`)
-          return
-        }
-        colorKeyToNewId[c.id] = inserted.id
-      }
-
-      // 3. ✅ Варианты: удаляем старые, вставляем новые (с color_id)
-      await supabase.from('product_variants').delete().eq('product_id', targetProductId)
-      const newVariants: any[] = []
-      if (validColors.length > 0) {
-        for (const c of validColors) {
-          const newColorId = colorKeyToNewId[c.id]
-          const map = sizesByColor[c.id] || {}
-          Object.entries(map)
-            .filter(([_, stock]) => stock > 0)
-            .forEach(([size_value, stock]) => {
-              newVariants.push({ product_id: targetProductId, size_value, stock, color_id: newColorId })
-            })
-        }
-      } else {
-        Object.entries(selectedSizes)
-          .filter(([_, stock]) => stock > 0)
-          .forEach(([size_value, stock]) => {
-            newVariants.push({ product_id: targetProductId, size_value, stock, color_id: null })
-          })
-      }
-      if (newVariants.length > 0) {
-        const { error: variantsError } = await supabase
-          .from('product_variants')
-          .insert(newVariants)
-        if (variantsError) {
-          console.error('Ошибка вариантов:', variantsError)
-          toast.error(`Ошибка при сохранении размеров: ${variantsError.message}`)
-          return
-        }
-      }
-
+      const validColors = productColors.filter(c => c.name_ru?.trim())
+      const desiredVariants = validColors.length
+        ? validColors.flatMap(c => Object.entries(sizesByColor[c.id] || {}).map(([size_value, stock]) => ({ size_value, stock, color_key: c.id })))
+        : Object.entries(selectedSizes).map(([size_value, stock]) => ({ size_value, stock, color_key: null }))
+      const { error } = await supabase.rpc('store_admin_save_product', {
+        p_id: editingProduct?.id || null, p_product: productData,
+        p_colors: validColors.map((c, i) => ({ key: c.id, name_ru: c.name_ru.trim(), name_uz: c.name_uz?.trim() || null, hex_code: c.hex_code || null, images: c.images || [], sort_order: i })),
+        p_variants: desiredVariants, p_expected: editingProduct ? editBaseline : null,
+      })
+      if (error) throw error
       toast.success(editingProduct ? 'Товар обновлён! ' : 'Товар добавлен! ')
       setShowModal(false)
       productsCacheApi.invalidate()
@@ -769,14 +699,7 @@ export default function ProductsPage() {
   const handleDelete = async (productId: string) => {
     if (!confirm('Удалить этот товар? Это действие нельзя отменить.')) return
     try {
-      await supabase
-        .from('product_variants')
-        .delete()
-        .eq('product_id', productId)
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productId)
+      const { error } = await supabase.rpc('store_admin_delete_product', { p_id: productId })
       if (error) throw error
       toast.success('Товар удалён! ')
       productsCacheApi.invalidate()
@@ -789,10 +712,7 @@ export default function ProductsPage() {
 
   const toggleActive = async (productId: string, currentActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_active: !currentActive })
-        .eq('id', productId)
+      const { error } = await supabase.rpc('store_admin_product_visibility', { p_id: productId, p_active: !currentActive })
       if (error) throw error
       toast.success(currentActive
         ? 'Товар скрыт из приложения '

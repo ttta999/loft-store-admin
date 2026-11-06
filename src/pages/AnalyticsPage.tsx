@@ -1,3 +1,4 @@
+import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -171,8 +172,8 @@ export default function AnalyticsPage() {
     }
 
     const [{ data: ordersRaw, error: ordersError }, { data: productsRaw, error: productsError }] = await Promise.all([
-      ordersQuery,
-      supabase.from('products').select('id, category, brand, images'),
+      readAll(ordersQuery),
+      readAll(supabase.from('products').select('id, category, brand, images')),
     ])
 
     if (ordersError || productsError) throw ordersError || productsError

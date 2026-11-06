@@ -1,103 +1,26 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-
+import type { VercelRequest, VercelResponse } from '../server/types.ts'
+import { createClient } from '@supabase/supabase-js'
+import { exchangeRate } from '../server/exchangeRate.ts'
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Разрешаем CORS
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end()
-  }
-
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   try {
-    console.log('🔄 Получаем курс USD к UZS...')
-    
-    // ✅ Пробуем получить курс с CBU.uz
-    const response = await fetch('https://cbu.uz/oz/arkhiv-kursa-valyut/json/', {
-      headers: {
-        'User-Agent': 'LOFT-Store/1.0',
-        'Accept': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`CBU API returned ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log(' Данные от CBU:', JSON.stringify(data).substring(0, 200))
-    
-    // Ищем USD в массиве (обычно первый элемент с кодом USD)
-    const usdItem = data.find((item: any) => 
-      item.Ccy === 'USD' || item.code === 'USD' || item.CcyNm_UZ === 'AQSh dollari'
-    )
-    
-    if (usdItem && usdItem.Rate) {
-      const rate = parseFloat(usdItem.Rate)
-      console.log('✅ Курс USD получен:', rate)
-      
-      return res.status(200).json({ 
-        success: true, 
-        rate: rate,
-        source: 'CBU.uz',
-        timestamp: new Date().toISOString()
-      })
-    }
-    
-    // Если не нашли USD, пробуем первый элемент
-    if (data.length > 0 && data[0].Rate) {
-      const rate = parseFloat(data[0].Rate)
-      console.log('⚠️ Используем первый элемент:', rate)
-      
-      return res.status(200).json({ 
-        success: true, 
-        rate: rate,
-        source: 'CBU.uz (first item)',
-        timestamp: new Date().toISOString()
-      })
-    }
-    
-    throw new Error('Курс USD не найден в ответе CBU')
-
-  } catch (error) {
-    console.error(' Ошибка получения курса с CBU:', error)
-    
-    // ✅ Fallback: пробуем другой API
-    try {
-      console.log('🔄 Пробуем альтернативный API...')
-      
-      const altResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
-        headers: {
-          'User-Agent': 'LOFT-Store/1.0',
-        },
-      })
-      
-      if (altResponse.ok) {
-        const altData = await altResponse.json()
-        const rate = altData.rates?.UZS
-        
-        if (rate && rate > 0) {
-          console.log('✅ Курс из альтернативного API:', rate)
-          
-          return res.status(200).json({ 
-            success: true, 
-            rate: rate,
-            source: 'exchangerate-api.com',
-            timestamp: new Date().toISOString()
-          })
-        }
-      }
-    } catch (altError) {
-      console.error('❌ Альтернативный API тоже не сработал:', altError)
-    }
-    
-    // Если ничего не сработало - возвращаем ошибку
-    res.status(200).json({ 
-      success: false, 
-      rate: 12100,
-      source: 'fallback',
-      error: 'Не удалось получить актуальный курс'
-    })
-  }
+    const authorization = req.headers.authorization
+    if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) return res.status(401).json({ error: 'Войдите в админку' })
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+    const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key || !serviceKey) return res.status(503).json({ error: 'Сервис временно недоступен' })
+    const db = createClient(url,key,{global:{headers:{Authorization:authorization}},auth:{persistSession:false,autoRefreshToken:false}})
+    const { data: { user }, error } = await db.auth.getUser(authorization.slice(7))
+    if (error || !user) return res.status(401).json({ error: 'Войдите в админку' })
+    const { data: allowed, error: roleError } = await db.rpc('store_is_admin')
+    if (roleError || allowed !== true) return res.status(403).json({ error: 'Нет доступа' })
+    const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { data: withinLimit, error: limitError } = await service.rpc('store_rate_limit', { p_user: user.id, p_action: 'exchange-rate', p_limit: 12, p_seconds: 60 })
+    if (limitError || !withinLimit) return res.status(429).json({ error: 'Повторите позже' })
+    const { rate, source, timestamp } = await exchangeRate()
+    return res.json({ success: true, rate, source, timestamp })
+  } catch { return res.status(503).json({ success: false, error: 'Не удалось получить актуальный курс' }) }
 }

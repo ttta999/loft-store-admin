@@ -165,7 +165,9 @@ export default function SettingsPage() {
   const handleFetchFromAPI = async () => {
     setSaving(true)
     try {
-      const response = await fetch('/api/getExchangeRate')
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Требуется авторизация')
+      const response = await fetch('/api/getExchangeRate', { headers: { Authorization: `Bearer ${session.access_token}` } })
       const data = await response.json()
       if (data.success && data.rate) {
         setExchangeRate(data.rate)

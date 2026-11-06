@@ -17,6 +17,9 @@ test('manager notifications require a verified manager, a known customer and rat
   if(url.pathname.endsWith('/auth/v1/user'))return Response.json({id:'fixture-admin'})
   if(url.pathname.endsWith('/rpc/store_is_admin'))return Response.json(allowed)
   if(url.pathname.endsWith('/rpc/store_rate_limit'))return Response.json(capacity)
+  if(url.pathname.endsWith('/rpc/store_queue_admin_message'))return Response.json({id:1001,user_id:body.chatId,payload:{message:body.message}})
+  if(url.pathname.endsWith('/rpc/store_claim_custom_notification'))return Response.json({id:1001,user_id:body.chatId,payload:{message:body.message}})
+  if(url.pathname.endsWith('/rpc/store_complete_notification'))return Response.json(null)
   if(url.pathname.endsWith('/orders')||url.pathname.endsWith('/china_requests')) {assert.equal(url.searchParams.get('user_id'),'eq.900000001');return Response.json(known?[{id:1}]:[])}
   throw Error('Unexpected request')
  }

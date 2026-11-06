@@ -25,3 +25,9 @@ dist-ssr
 
 playwright-report/
 test-results/
+
+# Server credentials must never be committed or exposed to Vite.
+.env
+.env.*
+!.env.example
+*.token

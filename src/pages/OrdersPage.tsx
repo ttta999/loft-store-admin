@@ -189,31 +189,29 @@ export default function OrdersPage() {
   // ✅ Применение смены статуса (+ опционально ссылка курьера)
   const applyStatusChange = async (order: any, newStatus: string, clientChatId: string, courierLinkValue: string | null) => {
     try {
+      const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
+      let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
+      if (courierLinkValue) {
+        messageTemplate += `\n\n🔗 Отследить курьера: ${courierLinkValue}`
+      }
+      const message = messageTemplate.replace('{orderId}', order.id)
+
+      const notice = { key: crypto.randomUUID(), message }
       let updated: any = null
 
       if (courierLinkValue) {
-        const { data, error } = await supabase
-          .from('orders')
-          .update({ status: newStatus, courier_link: courierLinkValue })
-          .eq('id', order.id)
-          .select()
+        const { data, error } = await supabase.rpc('store_admin_order_status', { p_id: order.id, p_status: newStatus, p_courier: courierLinkValue, p_notice: notice })
         if (error) throw error
-        updated = data?.[0] || null
+        updated = data || null
       } else {
-        updated = await updateOrderStatus(order.id, newStatus)
+        updated = await updateOrderStatus(order.id, newStatus, notice)
       }
 
       if (updated) {
-        const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
-        let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
-        if (courierLinkValue) {
-          messageTemplate += `\n\n🔗 Отследить курьера: ${courierLinkValue}`
-        }
-        const message = messageTemplate.replace('{orderId}', order.id)
 
         let sent = false
         if (clientChatId) {
-          sent = !!(await sendClientNotification(clientChatId, message))
+          sent = !!(await sendClientNotification(clientChatId, message, notice.key))
         }
 
         if (sent) {
@@ -269,12 +267,13 @@ export default function OrdersPage() {
   const handleConfirmPayment = async (order: any) => {
     const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
     if (!confirmed) return
-    const success = await confirmPayment(order.id)
+    const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
+    const notice = { key: crypto.randomUUID(), message }
+    const success = await confirmPayment(order.id, notice)
     if (success) {
       const clientChatId = order.user_chat_id || order.user_id
       if (clientChatId) {
-        const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
-        await sendClientNotification(clientChatId, message)
+        await sendClientNotification(clientChatId, message, notice.key)
       }
       toast.success('Оплата подтверждена! Заказ активирован.')
       ordersCacheApi.invalidate()

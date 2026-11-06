@@ -1,3 +1,4 @@
+import { readAll } from './readAll'
 import { createDataFetch } from './dataFetch'
 import { invalidateAllCaches } from './cache'
 import { createClient } from '@supabase/supabase-js'
@@ -35,10 +36,7 @@ export async function privateFile(value: string | null, bucket: string) {
 }
 
 export const getOrders = async () => {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data, error } = await readAll(supabase.from('orders').select('*').order('created_at', { ascending: false }))
   
   if (error) {
     console.error('Ошибка при загрузке заказов:', error)
@@ -53,10 +51,7 @@ export const getOrders = async () => {
 }
 
 export const getChinaRequests = async () => {
-  const { data, error } = await supabase
-    .from('china_requests')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data, error } = await readAll(supabase.from('china_requests').select('*').order('created_at', { ascending: false }))
   
   if (error) {
     console.error('Ошибка при загрузке спецзаказов:', error)
@@ -66,50 +61,21 @@ export const getChinaRequests = async () => {
   return Promise.all((data || []).map(async request => ({ ...request, image_url: await privateFile(request.image_url, 'china-requests') })))
 }
 
-export const updateOrderStatus = async (orderId: string, status: string) => {
-  if (status === 'Отменён') {
-    const { data, error } = await supabase.rpc('store_admin_cancel_order', { p_order_id: orderId })
-    if (error) throw error
-    return data
-  }
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ status })
-    .eq('id', orderId)
-    .select()
-  
-  if (error) {
-    console.error('Ошибка при обновлении статуса:', error)
-    return null
-  }
-  
-  return data?.[0] || null
+export type AdminNotice = { key: string; message: string }
+export const updateOrderStatus = async (orderId: string, status: string, notice?: AdminNotice) => {
+  const { data, error } = await supabase.rpc('store_admin_order_status', { p_id: orderId, p_status: status, p_notice: notice || null })
+  if (error) throw error
+  return data
 }
 
-export const updateChinaRequestStatus = async (
-  requestId: string, 
-  status: string, 
-  extraData?: any
-) => {
-  const { data, error } = await supabase
-    .from('china_requests')
-    .update({ 
-      status,
-      ...extraData 
-    })
-    .eq('id', requestId)
-    .select()
-  
-  if (error) {
-    console.error('Ошибка обновления статуса спецзаказа:', error)
-    return null
-  }
-  
-  return Array.isArray(data) ? data[0] : data
+export const updateChinaRequestStatus = async (requestId: string, status: string, extraData?: Record<string, unknown>, notice?: AdminNotice) => {
+  const { data, error } = await supabase.rpc('store_admin_request_status', { p_id: requestId, p_status: status, p_extra: extraData || {}, p_notice: notice || null })
+  if (error) throw error
+  return data
 }
 
 // ✅ ИСПРАВЛЕНО: Отправка уведомления КЛИЕНТУ (через клиентский бот)
-export const sendClientNotification = async (chatId: string, message: string) => {
+export const sendClientNotification = async (chatId: string, message: string, requestKey = crypto.randomUUID()) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return false
@@ -122,6 +88,7 @@ export const sendClientNotification = async (chatId: string, message: string) =>
       body: JSON.stringify({ 
         chatId, 
         message,
+        requestKey,
         botType: 'client' // ✅ Отправляем через КЛИЕНТСКИЙ бот
       }),
     })

@@ -1,6 +1,6 @@
-import { supabase } from './supabase'
+import { supabase, type AdminNotice } from './supabase'
 
-export const confirmPayment = async (orderId: string) => {
-  const { data, error } = await supabase.rpc('store_admin_confirm_payment', { p_order_id: orderId })
+export const confirmPayment = async (orderId: string, notice?: AdminNotice) => {
+  const { data, error } = await supabase.rpc('store_admin_confirm_payment_with_notice', { p_order_id: orderId, p_notice: notice || null })
   return !error && data === true
 }
