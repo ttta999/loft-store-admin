@@ -32,12 +32,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const requestKey = typeof req.body?.requestKey === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(req.body.requestKey) ? req.body.requestKey : randomUUID()
     const cleanMessage = message.replace(/<\/?(?:b|i|u|s|code|pre)>/g,'')
     const { data: event, error: queueError } = await service.rpc('store_queue_admin_message', { p_actor: user.id, p_user: String(chatId), p_message: cleanMessage, p_key: requestKey })
-    if (queueError || !event) return res.status(503).json({ error: 'Уведомления временно недоступны' })
+    if (queueError || !event?.id) return res.status(503).json({ error: 'Уведомления временно недоступны' })
     if (event.user_id !== String(chatId) || event.payload?.message !== cleanMessage) return res.status(409).json({ error: 'Запрос сообщения уже использован' })
     if (event.sent_at) return res.json({ success: true })
     const { data: claimed, error: claimError } = await service.rpc('store_claim_custom_notification', { p_id: event.id })
     if (claimError) return res.status(503).json({ error: 'Уведомления временно недоступны' })
-    if (!claimed) return res.status(202).json({ success: false, queued: true })
+    if (!claimed?.id) return res.status(202).json({ success: false, queued: true })
     const token = process.env.TELEGRAM_BOT_TOKEN
     if(!token) return res.status(503).json({error:'Уведомления временно недоступны'})
     const response=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{

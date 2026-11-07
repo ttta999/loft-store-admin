@@ -37,3 +37,18 @@ test('manager notification input cannot select another bot, inject a recipient o
   const method=response();await handler(request(body,'','GET'),method as any);assert.equal(method.statusCode,405);assert.equal(sent,0)
  }finally{globalThis.fetch=original}
 })
+
+test('empty custom claim returns queued without trying to deliver the notification',async()=>{
+ const original=globalThis.fetch;let sent=0
+ globalThis.fetch=async(input)=>{
+  const url=new URL(String(input))
+  if(url.hostname==='api.telegram.org'){sent++;throw Error('Duplicate sending forbidden')}
+  if(url.pathname.endsWith('/auth/v1/user'))return Response.json({id:'fixture-admin'})
+  if(url.pathname.endsWith('/rpc/store_is_admin')||url.pathname.endsWith('/rpc/store_rate_limit'))return Response.json(true)
+  if(url.pathname.endsWith('/orders')||url.pathname.endsWith('/china_requests'))return Response.json([{id:1}])
+  if(url.pathname.endsWith('/rpc/store_queue_admin_message'))return Response.json({id:1001,user_id:body.chatId,payload:{message:body.message}})
+  if(url.pathname.endsWith('/rpc/store_claim_custom_notification'))return Response.json({id:null,user_id:null,payload:null})
+  throw Error('Unexpected request')
+ }
+ try{const res=response();await handler(request(body),res as any);assert.equal(res.statusCode,202);assert.equal(sent,0);assert.equal(res.body.queued,true)}finally{globalThis.fetch=original}
+})
