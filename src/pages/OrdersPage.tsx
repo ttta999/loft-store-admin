@@ -249,11 +249,7 @@ export default function OrdersPage() {
 
   const handleCourierSubmit = async () => {
     const link = courierLink.trim()
-    if (!link) {
-      toast.error('Вставьте ссылку на отслеживание курьера')
-      return
-    }
-    if (!/^https?:\/\//i.test(link)) {
+    if (link && !/^https?:\/\//i.test(link)) {
       toast.error('Ссылка должна начинаться с http:// или https://')
       return
     }
@@ -261,7 +257,7 @@ export default function OrdersPage() {
     if (!order) return
     const clientChatId = order.user_chat_id || order.user_id
     setCourierModalOrder(null)
-    await applyStatusChange(order, 'Выдан', clientChatId, link)
+    await applyStatusChange(order, 'Выдан', clientChatId, link || null)
   }
 
   const handleConfirmPayment = async (order: any) => {
@@ -791,7 +787,7 @@ export default function OrdersPage() {
             </p>
 
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-              Ссылка на трек
+              Ссылка на трек (необязательно)
             </label>
             <input
               type="text"

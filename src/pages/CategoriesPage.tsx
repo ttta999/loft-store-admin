@@ -38,8 +38,9 @@ const SIZE_TYPES = [
 
 export default function CategoriesPage() {
   const navigate = useNavigate()
-  const [tree, setTree] = useState<CategoryTree[]>([])
-  const [loading, setLoading] = useState(true)
+  const [cached] = useState(() => categoriesCacheApi.get() as CategoryTree[] | null)
+  const [tree, setTree] = useState<CategoryTree[]>(cached ?? [])
+  const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
 
   const [categoryModal, setCategoryModal] = useState<{ mode: 'create' } | { mode: 'edit'; category: CategoryTree } | null>(null)
@@ -51,7 +52,7 @@ export default function CategoriesPage() {
 
   const load = async (force: boolean) => {
     if (force) setRefreshing(true)
-    else setLoading(true)
+    else if (!categoriesCacheApi.get()) setLoading(true)
     try {
       const data = await fetchCategoriesTree(force)
       setTree(data)

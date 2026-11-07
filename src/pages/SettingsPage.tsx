@@ -55,18 +55,19 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
 
-  const [exchangeRate, setExchangeRate] = useState<number>(12100)
-  const [loading, setLoading] = useState(true)
+  const [cached] = useState(getSettingsCache)
+  const [exchangeRate, setExchangeRate] = useState<number>(cached?.exchangeRate ?? 12100)
+  const [loading, setLoading] = useState(!cached)
   const [saving, setSaving] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
-  const [updatedBy, setUpdatedBy] = useState<string>('system')
-  const [currentVersion, setCurrentVersion] = useState<number>(0)
+  const [lastUpdated, setLastUpdated] = useState<string>(cached?.lastUpdated ?? '')
+  const [updatedBy, setUpdatedBy] = useState<string>(cached?.updatedBy ?? 'system')
+  const [currentVersion, setCurrentVersion] = useState<number>(cached?.currentVersion ?? 0)
 
-  const [saleMode, setSaleMode] = useState(false)
+  const [saleMode, setSaleMode] = useState(cached?.saleMode ?? false)
   const [savingSaleMode, setSavingSaleMode] = useState(false)
 
-  const [deliveryPrice, setDeliveryPrice] = useState<number>(0)
-  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState<number>(0) // ✅ НОВОЕ
+  const [deliveryPrice, setDeliveryPrice] = useState<number>(cached?.deliveryPrice ?? 0)
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState<number>(cached?.freeDeliveryThreshold ?? 0) // ✅ НОВОЕ
   const [savingDelivery, setSavingDelivery] = useState(false)
 
   const [showThemeInfo, setShowThemeInfo] = useState(false)

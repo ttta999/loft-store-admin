@@ -3,7 +3,7 @@ import { Lightbulb } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { productsCacheApi, brandsCacheApi, variantsCacheApi, invalidateAllCaches, categoryRowsCacheApi, subcategoriesCacheApi, colorsCacheApi } from '../lib/cache'
+import { productsCacheApi, brandsCacheApi, variantsCacheApi, categoryRowsCacheApi, subcategoriesCacheApi, colorsCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
@@ -177,15 +177,16 @@ function FieldLabel({ text, flag, required, hint }: { text: string; flag?: strin
 
 export default function ProductsPage() {
   const navigate = useNavigate()
-  const [products, setProducts] = useState<Product[]>([])
-  const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [cachedProducts] = useState(() => { const rows = productsCacheApi.get(); return rows && isFullProductRows(rows) ? rows as Product[] : null })
+  const [products, setProducts] = useState<Product[]>(cachedProducts ?? [])
+  const [variants, setVariants] = useState<ProductVariant[]>(() => variantsCacheApi.get() as ProductVariant[] ?? [])
   const [editBaseline, setEditBaseline] = useState<{ version: number; variants: { id: string; stock: number }[] } | null>(null)
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [dbCategories, setDbCategories] = useState<Category[]>([])
-  const [dbSubcategories, setDbSubcategories] = useState<Subcategory[]>([])
+  const [brands, setBrands] = useState<Brand[]>(() => brandsCacheApi.get() as Brand[] ?? [])
+  const [dbCategories, setDbCategories] = useState<Category[]>(() => categoryRowsCacheApi.get() as Category[] ?? [])
+  const [dbSubcategories, setDbSubcategories] = useState<Subcategory[]>(() => subcategoriesCacheApi.get() as Subcategory[] ?? [])
   // ✅ Все цвета всех товаров (для списка и модалки)
-  const [colors, setColors] = useState<ProductColorRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [colors, setColors] = useState<ProductColorRow[]>(() => colorsCacheApi.get() as ProductColorRow[] ?? [])
+  const [loading, setLoading] = useState(!cachedProducts)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -260,7 +261,14 @@ export default function ProductsPage() {
   }, [])
 
   const loadAll = async (forceRefresh = false) => {
-    if (forceRefresh) invalidateAllCaches()
+    if (forceRefresh) {
+      productsCacheApi.invalidate()
+      variantsCacheApi.invalidate()
+      brandsCacheApi.invalidate()
+      categoryRowsCacheApi.invalidate()
+      subcategoriesCacheApi.invalidate()
+      colorsCacheApi.invalidate()
+    }
     const cachedProducts = !forceRefresh ? productsCacheApi.get() : null
     const cachedVariants = !forceRefresh ? variantsCacheApi.get() : null
     const cachedBrands = !forceRefresh ? brandsCacheApi.get() : null

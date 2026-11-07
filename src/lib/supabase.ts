@@ -40,7 +40,7 @@ export const getOrders = async () => {
   
   if (error) {
     console.error('Ошибка при загрузке заказов:', error)
-    return []
+    throw error
   }
   
   return Promise.all((data || []).map(async order => ({
@@ -55,7 +55,7 @@ export const getChinaRequests = async () => {
   
   if (error) {
     console.error('Ошибка при загрузке спецзаказов:', error)
-    return []
+    throw error
   }
   
   return Promise.all((data || []).map(async request => ({ ...request, image_url: await privateFile(request.image_url, 'china-requests') })))

@@ -101,15 +101,16 @@ function ProductThumbnail({ image, name }: { image?: string | null; name: string
 export default function AnalyticsPage() {
   const navigate = useNavigate()
   const loadRequest = useRef(0)
+  const [cached] = useState(() => analyticsCacheApi.get('month'))
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
-  const [orderStats, setOrderStats] = useState<OrderStatsEntry | null>(null)
-  const [dailyStats, setDailyStats] = useState<DailyStatsEntry[]>([])
-  const [topProducts, setTopProducts] = useState<ProductStatsEntry[]>([])
-  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
-  const [brandStats, setBrandStats] = useState<BrandStat[]>([])
-  const [loading, setLoading] = useState(true)
+  const [orderStats, setOrderStats] = useState<OrderStatsEntry | null>(cached?.orderStats ?? null)
+  const [dailyStats, setDailyStats] = useState<DailyStatsEntry[]>(cached?.dailyStats ?? [])
+  const [topProducts, setTopProducts] = useState<ProductStatsEntry[]>(cached?.topProducts ?? [])
+  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>(cached?.categoryStats ?? [])
+  const [brandStats, setBrandStats] = useState<BrandStat[]>(cached?.brandStats ?? [])
+  const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [lastUpdated, setLastUpdated] = useState<string>(cached ? new Date(cached.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '')
 
   useEffect(() => {
     loadAnalytics(period, false)

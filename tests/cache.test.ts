@@ -69,3 +69,21 @@ test('Data API reads reuse consumable responses, while writes, inventory and fai
     assert.equal(calls, 13, 'independently cancellable requests are not shared')
   } finally { globalThis.fetch = original; dataCache.clear() }
 })
+
+
+test('invalidating an unrelated resource preserves pending reads; matching invalidation discards them', async () => {
+  const cache = new ResourceCache()
+  let finish!: (value: number) => void
+  const pending = cache.load('products', () => new Promise<number>(resolve => { finish = resolve }))
+  await Promise.resolve()
+  cache.invalidate('notifications')
+  finish(1)
+  await pending
+  assert.equal(cache.get('products'), 1)
+  const outdated = cache.load('orders', () => new Promise<number>(resolve => { finish = resolve }))
+  await Promise.resolve()
+  cache.invalidate('orders')
+  finish(2)
+  await outdated
+  assert.equal(cache.get('orders'), null)
+})

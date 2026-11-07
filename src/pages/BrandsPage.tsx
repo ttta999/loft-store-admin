@@ -31,8 +31,9 @@ const isFullBrandRows = (list: any[]): boolean =>
 
 export default function BrandsPage() {
   const navigate = useNavigate()
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [loading, setLoading] = useState(true)
+  const [cached] = useState(() => { const rows = brandsCacheApi.get(); return rows && isFullBrandRows(rows) ? rows as Brand[] : null })
+  const [brands, setBrands] = useState<Brand[]>(cached ?? [])
+  const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
   
   // Модалка добавления
