@@ -1,3 +1,4 @@
+import PaymentCardsSettings from '../components/PaymentCardsSettings'
 import { ClipboardList } from 'lucide-react'
 import { CheckCircle2, CircleSlash } from 'lucide-react'
 import { dataCache } from '../lib/resourceCache'
@@ -33,7 +34,7 @@ interface SettingsCacheData {
 
 const getSettingsCache = () => dataCache.get<SettingsCacheData>('admin:settings')
 const setSettingsCache = (data: Omit<SettingsCacheData, 'timestamp'>) => dataCache.set('admin:settings', { ...data, timestamp: Date.now() }, 60_000)
-const invalidateSettingsCache = () => { dataCache.invalidate('admin:settings'); dataCache.invalidate('http:') }
+const invalidateSettingsCache = () => { dataCache.invalidate('admin:settings'); dataCache.invalidate('admin:payment-cards'); dataCache.invalidate('http:') }
 
 function InfoToggle({ open, onClick, title }: { open: boolean; onClick: () => void; title: string }) {
   return (
@@ -275,6 +276,7 @@ export default function SettingsPage() {
       </div>
 
       <div data-loft-content className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PaymentCardsSettings />
         {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2 flex flex-col">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">

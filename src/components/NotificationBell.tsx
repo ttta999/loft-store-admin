@@ -1,6 +1,6 @@
 import { readAll } from '../lib/readAll'
 import { dataCache } from '../lib/resourceCache'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, Package, Globe } from 'lucide-react'
 import { supabase, getAdminCacheScope } from '../lib/supabase'
@@ -31,6 +31,27 @@ export default function NotificationBell() {
   const loadGeneration = useRef(0)
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [open, setOpen] = useState(false)
+  const [present, setPresent] = useState(false)
+  const motionFrame = useRef<{ opacity: string; transform: string } | null>(null)
+  useLayoutEffect(() => {
+    if (!present) { motionFrame.current = null; return }
+    const element = dropdownRef.current
+    if (!element) return
+    element.inert = !open
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const animation = element.animate([
+      motionFrame.current || { opacity: '0', transform: 'translateY(-4px) scale(0.97)' },
+      { opacity: open ? '1' : '0', transform: open ? 'translateY(0px) scale(1)' : 'translateY(-2px) scale(0.99)' },
+    ], { duration: reduce ? 0 : open ? 250 : 150, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' })
+    let active = true
+    void animation.finished.then(() => { if (active && !open) setPresent(false) }).catch(() => {})
+    return () => {
+      active = false
+      const style = getComputedStyle(element)
+      motionFrame.current = { opacity: style.opacity, transform: style.transform }
+      animation.cancel()
+    }
+  }, [open, present])
   const [lastSeen, setLastSeen] = useState<string>(() => {
     return localStorage.getItem(seenStorageKey()) || dataCache.get<{ lastSeen: string }>('admin:notifications')?.lastSeen || new Date(0).toISOString()
   })
@@ -137,7 +158,8 @@ export default function NotificationBell() {
       {/* ✅ Кнопка-колокольчик в стиле кнопок админки (круглая с border) */}
       <button
         ref={bellButtonRef}
-        onClick={() => { if (!open) void loadNotifications(true); setOpen(!open) }}
+        aria-expanded={open}
+        onClick={() => { if (!open) { setPresent(true); void loadNotifications(true) } setOpen(!open) }}
         className="relative w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors text-[#1B2A4A] dark:text-white"
         title="Уведомления о новых заказах и спецзаказах"
       >
@@ -150,10 +172,12 @@ export default function NotificationBell() {
       </button>
 
       {/* ✅ Дропдаун в стиле карточки заказа */}
-      {open && (
+      {present && (
         <div
           ref={dropdownRef}
-          className="absolute right-0 top-12 w-80 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl shadow-2xl border border-[#E8E2D5] dark:border-dark-border z-50 overflow-hidden"
+          data-notification-menu aria-hidden={!open}
+          style={{ transition: 'none', pointerEvents: open ? 'auto' : 'none' }}
+          className="absolute left-0 sm:left-auto sm:right-0 top-12 w-80 max-w-[calc(100vw-3rem)] origin-top-left sm:origin-top-right bg-[#FBF9F4] dark:bg-dark-card rounded-2xl shadow-2xl border border-[#E8E2D5] dark:border-dark-border z-50 overflow-hidden"
         >
           {/* Шапка карточки — как шапка заказа */}
           <div className="p-4 border-b border-[#E8E2D5] dark:border-dark-border flex items-center justify-between gap-3">

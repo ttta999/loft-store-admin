@@ -26,6 +26,17 @@ import {
 } from 'lucide-react'
 import { confirmPayment } from '../lib/payments'
 
+function orderItems(order: any): any[] {
+  if (Array.isArray(order.items)) return order.items
+  try { const items = JSON.parse(order.items || '[]'); return Array.isArray(items) ? items : [] } catch { return [] }
+}
+function specialRequestNumber(order: any) {
+  return order.special_order_id || orderItems(order).find(item => item.isSpecialOrder)?.specialRequestId
+}
+function orderComposition(order: any) {
+  return orderItems(order).map(item => `${item.name || 'Товар'}${item.size ? ', ' + item.size : ''}${item.colorName ? ', ' + item.colorName : ''} × ${item.quantity || 1}`).join('\n')
+}
+
 interface StatusItem {
   old: string
   new: string
@@ -261,7 +272,7 @@ export default function OrdersPage() {
   }
 
   const handleConfirmPayment = async (order: any) => {
-    const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
+    const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nТелефон: ${order.client_phone || '—'}${specialRequestNumber(order) ? '\nСпецзаказ №' + specialRequestNumber(order) : ''}\n\nТовары:\n${orderComposition(order)}\n\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
     if (!confirmed) return
     const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
     const notice = { key: crypto.randomUUID(), message }
@@ -478,6 +489,7 @@ export default function OrdersPage() {
                     <div className="flex-1 min-w-[180px]">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
                         Заказ №{order.id}
+                        {specialRequestNumber(order) && <span className="ml-2 text-xs text-purple-700 dark:text-purple-300">Спецзаказ №{specialRequestNumber(order)}</span>}
                         <span className="ml-2 text-xs font-medium text-[#8A8275] dark:text-gray-300">
                           {order.client_name}
                         </span>
@@ -505,6 +517,8 @@ export default function OrdersPage() {
                           </>
                         )}
                       </p>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1">{order.client_phone}</p>
+                      <ul className="mt-2 space-y-1 text-sm text-[#1B2A4A] dark:text-white">{orderItems(order).map((item, index) => <li key={index}>{item.name || 'Товар'}{item.size ? ` · ${item.size}` : ''}{item.colorName ? ` · ${item.colorName}` : ''} × {item.quantity || 1}</li>)}</ul>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -575,9 +589,9 @@ export default function OrdersPage() {
                         }`}>
                           {orderCurrency}
                         </span>
-                        {order.special_order_id && (
+                        {specialRequestNumber(order) && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300">
-                            
+                            Спецзаказ №{specialRequestNumber(order)}
                           </span>
                         )}
                       </div>
