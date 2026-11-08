@@ -1,15 +1,18 @@
+import { readAll } from '../lib/readAll'
 import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck, Package } from 'lucide-react'
+import { Bell, CheckCheck, Package, Globe } from 'lucide-react'
 import { supabase, getAdminCacheScope } from '../lib/supabase'
 
-interface OrderNotification {
+interface AdminNotification {
+  kind: 'order' | 'request'
   id: number
   created_at: string
-  client_name: string
-  total_price_usd: number
-  total_price_uzs: number | null
+  client_name?: string
+  product_name?: string
+  total_price_usd?: number
+  total_price_uzs?: number | null
   status: string
 }
 
@@ -25,28 +28,35 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const bellButtonRef = useRef<HTMLButtonElement>(null)
 
-  const [newOrders, setNewOrders] = useState<OrderNotification[]>([])
+  const loadGeneration = useRef(0)
+  const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<string>(() => {
-    return localStorage.getItem(seenStorageKey()) || dataCache.get<{ lastSeen: string }>('admin:notifications')?.lastSeen || new Date().toISOString()
+    return localStorage.getItem(seenStorageKey()) || dataCache.get<{ lastSeen: string }>('admin:notifications')?.lastSeen || new Date(0).toISOString()
   })
 
-  const loadNewOrders = async (force = false) => {
-    const cached = !force ? dataCache.get<{ lastSeen: string; list: OrderNotification[] }>('admin:notifications') : null
-    if (cached && cached.lastSeen === lastSeen) { setNewOrders(cached.list); return }
+  const loadNotifications = async (force = false) => {
+    const generation = ++loadGeneration.current
+    const scope = getAdminCacheScope()
+    const cached = !force ? dataCache.get<{ lastSeen: string; list: AdminNotification[] }>('admin:notifications') : null
+    if (cached && cached.lastSeen === lastSeen) { setNotifications(cached.list); return }
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, created_at, client_name, total_price_usd, total_price_uzs, status')
-        .gt('created_at', lastSeen)
-        .order('created_at', { ascending: false })
-      if (error) {
-        console.error('Ошибка загрузки уведомлений:', error)
-        return
-      }
-      const list = data || []
+      const [orders, requests] = await Promise.all([
+        readAll<Omit<AdminNotification, 'kind'>>(supabase.from('orders')
+          .select('id, created_at, client_name, total_price_usd, total_price_uzs, status')
+          .gt('created_at', lastSeen).order('created_at', { ascending: false })),
+        readAll<Omit<AdminNotification, 'kind'>>(supabase.from('china_requests')
+          .select('id, created_at, product_name, status')
+          .gt('created_at', lastSeen).order('created_at', { ascending: false })),
+      ])
+      if (orders.error || requests.error) throw orders.error || requests.error
+      if (generation !== loadGeneration.current || scope !== getAdminCacheScope()) return
+      const list: AdminNotification[] = [
+        ...(orders.data || []).map(row => ({ ...row, kind: 'order' as const })),
+        ...(requests.data || []).map(row => ({ ...row, kind: 'request' as const })),
+      ].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       dataCache.set('admin:notifications', { list, lastSeen }, NOTIFICATIONS_TTL)
-      setNewOrders(list)
+      setNotifications(list)
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error)
     }
@@ -54,9 +64,9 @@ export default function NotificationBell() {
 
   // ✅ Polling каждые 30 секунд
   useEffect(() => {
-    loadNewOrders()
-    const interval = setInterval(() => loadNewOrders(), 30_000)
-    return () => clearInterval(interval)
+    loadNotifications()
+    const interval = setInterval(() => loadNotifications(true), 30_000)
+    return () => { clearInterval(interval); loadGeneration.current++ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastSeen])
 
@@ -89,10 +99,11 @@ export default function NotificationBell() {
   }, [open])
 
   const markAllRead = () => {
-    const now = new Date().toISOString()
+    const now = notifications.reduce((latest, item) => Date.parse(item.created_at) > Date.parse(latest) ? item.created_at : latest, lastSeen)
+    loadGeneration.current++
     localStorage.setItem(seenStorageKey(), now)
     setLastSeen(now)
-    setNewOrders([])
+    setNotifications([])
     setOpen(false)
     // Сбрасываем кеш, чтобы следующий polling увидел актуальные данные
     dataCache.invalidate('admin:notifications')
@@ -116,8 +127,8 @@ export default function NotificationBell() {
     })
   }
 
-  const formatPrice = (o: OrderNotification) =>
-    o.total_price_uzs
+  const formatPrice = (o: AdminNotification) =>
+    o.kind === 'request' ? o.status : o.total_price_uzs
       ? `${Number(o.total_price_uzs).toLocaleString('ru-RU')} сум`
       : `$${o.total_price_usd}`
 
@@ -126,14 +137,14 @@ export default function NotificationBell() {
       {/* ✅ Кнопка-колокольчик в стиле кнопок админки (круглая с border) */}
       <button
         ref={bellButtonRef}
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (!open) void loadNotifications(true); setOpen(!open) }}
         className="relative w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors text-[#1B2A4A] dark:text-white"
-        title="Уведомления о новых заказах"
+        title="Уведомления о новых заказах и спецзаказах"
       >
         <Bell size={18} />
-        {newOrders.length > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-[#9B3B3B] dark:bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[#F5F1E8] dark:border-dark-bg shadow animate-pulse">
-            {newOrders.length > 99 ? '99+' : newOrders.length}
+        {notifications.length > 0 && (
+          <span data-notification-count className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-[#9B3B3B] dark:bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[#F5F1E8] dark:border-dark-bg shadow animate-pulse">
+            {notifications.length > 99 ? '99+' : notifications.length}
           </span>
         )}
       </button>
@@ -152,16 +163,16 @@ export default function NotificationBell() {
               </div>
               <div className="min-w-0">
                 <p className="font-bold text-sm text-[#1B2A4A] dark:text-white truncate">
-                  Новые заказы
+                  Новые заказы и спецзаказы
                 </p>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                  {newOrders.length > 0
-                    ? `${newOrders.length} непрочитанных`
+                  {notifications.length > 0
+                    ? `${notifications.length} непрочитанных`
                     : 'Все прочитаны'}
                 </p>
               </div>
             </div>
-            {newOrders.length > 0 && (
+            {notifications.length > 0 && (
               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-300 border border-[#9B3B3B]/20 dark:border-red-500/30 whitespace-nowrap flex-shrink-0">
                 NEW
               </span>
@@ -170,43 +181,43 @@ export default function NotificationBell() {
 
           {/* Тело — строки-иконки с divide-y */}
           <div className="max-h-80 overflow-y-auto divide-y divide-[#E8E2D5] dark:divide-dark-border">
-            {newOrders.length === 0 ? (
+            {notifications.length === 0 ? (
               /* ✅ Пустое состояние — как EmptyStateCard */
               <div className="p-8 text-center">
                 <div className="w-14 h-14 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-3 flex items-center justify-center">
                   <Bell size={22} className="text-[#8A8275] dark:text-gray-300" />
                 </div>
                 <p className="text-sm font-medium text-[#1B2A4A] dark:text-white mb-1">
-                  Нет новых заказов
+                  Нет новых заказов и спецзаказов
                 </p>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300">
                   Уведомления появятся здесь
                 </p>
               </div>
             ) : (
-              newOrders.map((o) => (
+              notifications.map((o) => (
                 <button
-                  key={o.id}
+                  key={`${o.kind}:${o.id}`}
                   onClick={() => {
                     setOpen(false)
-                    navigate('/orders')
+                    navigate(o.kind === 'request' ? '/china' : '/orders')
                   }}
                   className="w-full text-left p-3.5 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent flex gap-3 transition-colors"
                 >
                   <div className="w-9 h-9 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 text-[#1B2A4A] dark:text-gold flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border">
-                    <Package size={16} />
+                    {o.kind === 'request' ? <Globe size={16} /> : <Package size={16} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">
-                        Заказ №{o.id}
+                        {o.kind === 'request' ? 'Спецзаказ' : 'Заказ'} №{o.id}
                       </p>
                       <span className="text-[10px] text-[#8A8275] dark:text-gray-400 whitespace-nowrap flex-shrink-0">
                         {formatTime(o.created_at)}
                       </span>
                     </div>
                     <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">
-                      {o.client_name}
+                      {o.kind === 'request' ? o.product_name : o.client_name}
                     </p>
                     <p className="text-xs font-bold text-[#1B2A4A] dark:text-white mt-0.5">
                       {formatPrice(o)}
@@ -218,7 +229,7 @@ export default function NotificationBell() {
           </div>
 
           {/* Футер с кнопкой «Отметить прочитанными» */}
-          {newOrders.length > 0 && (
+          {notifications.length > 0 && (
             <div className="p-3 border-t border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/40 dark:bg-dark-accent/30">
               <button
                 onClick={markAllRead}

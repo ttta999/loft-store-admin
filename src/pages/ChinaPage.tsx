@@ -1,6 +1,7 @@
+import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getChinaRequests, updateChinaRequestStatus, sendClientNotification } from '../lib/supabase'
+import { getChinaRequests, updateChinaRequestStatus, sendClientNotification, supabase } from '../lib/supabase'
 import { chinaCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
@@ -64,6 +65,7 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function ChinaPage() {
   const navigate = useNavigate()
+  const [exchangeRate, setExchangeRate] = useState<number | null>(() => dataCache.get<number>('admin:exchange-rate'))
   const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
   const [loading, setLoading] = useState(() => !chinaCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
@@ -85,26 +87,24 @@ export default function ChinaPage() {
   }, [])
 
   const loadRequests = async (forceRefresh = false) => {
-    // ✅ Проверяем кеш
-    if (!forceRefresh) {
-      const cached = chinaCacheApi.get()
-      if (cached) {
-        setRequests(cached as any[])
-        setLoading(false)
-        return
-      }
-    }
-
+    const cached = !forceRefresh ? chinaCacheApi.get() : null
     if (forceRefresh) {
       setRefreshing(true)
-    } else {
-      setLoading(true)
-    }
-
+      dataCache.invalidate('admin:exchange-rate')
+    } else if (!cached) setLoading(true)
     try {
-      const data = await getChinaRequests()
+      const [data, rate] = await Promise.all([
+        cached ? Promise.resolve(cached) : getChinaRequests(),
+        dataCache.load('admin:exchange-rate', async () => {
+          const { data, error } = await supabase.from('settings').select('value').eq('key', 'exchange_rate').single()
+          if (error) throw error
+          const rate = Number(data?.value?.rate)
+          if (!Number.isFinite(rate) || rate <= 0) throw new Error('Курс магазина недоступен')
+          return rate
+        }, 60_000).catch(error => { console.error('Ошибка загрузки курса магазина:', error); return null }),
+      ])
+      setExchangeRate(rate)
       setRequests(data)
-      // ✅ Сохраняем в кеш
       chinaCacheApi.set(data)
     } catch (error) {
       console.error('Ошибка загрузки спецзаказов:', error)
@@ -397,9 +397,9 @@ export default function ChinaPage() {
               const requestName =
                 request.product_name || (request.link && !requestLink ? request.link : null)
               const isOpen = expandedId === String(request.id)
-              const priceInSums = request.manager_price
-                ? Math.round(request.manager_price * (request.exchange_rate_at_order || 12100))
-                : 0
+              const priceInSums = request.manager_price && exchangeRate !== null
+                ? Math.round(request.manager_price * exchangeRate)
+                : null
 
               return (
                 <div key={request.id}>
@@ -430,9 +430,9 @@ export default function ChinaPage() {
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      {priceInSums > 0 ? (
+                      {request.manager_price ? (
                         <p className="text-sm font-bold text-[#C9A961]">
-                          {priceInSums.toLocaleString('ru-RU')} сум
+                          {priceInSums !== null ? `${priceInSums.toLocaleString('ru-RU')} сум` : `$${request.manager_price}`}
                         </p>
                       ) : (
                         <p className="text-xs text-[#8A8275] dark:text-gray-400">не оценён</p>
@@ -516,7 +516,7 @@ export default function ChinaPage() {
                                   Оценка менеджера
                                 </p>
                                 <p className="text-sm font-bold text-[#C9A961]">
-                                  ${request.manager_price} ≈ {priceInSums.toLocaleString('ru-RU')} сум
+                                  ${request.manager_price} ≈ {priceInSums !== null ? priceInSums.toLocaleString('ru-RU') : '—'} сум
                                 </p>
                               </div>
                             </div>

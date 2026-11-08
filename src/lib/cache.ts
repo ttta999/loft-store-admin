@@ -89,7 +89,7 @@ export const analyticsCacheApi = {
   },
 }
 export const ordersCacheApi = collection<any[]>('admin:orders', 15_000, ['admin:analytics:', 'admin:notifications'])
-export const chinaCacheApi = collection<any[]>('admin:china', 30_000)
+export const chinaCacheApi = collection<any[]>('admin:china', 30_000, ['admin:notifications'])
 export const productsCacheApi = collection<any[]>('admin:products', DEFAULT_TTL, ['admin:variants', 'admin:colors', 'admin:analytics:', 'admin:counts'])
 export const variantsCacheApi = collection<any[]>('admin:variants', 30_000)
 export const brandsCacheApi = collection<any[]>('admin:brands', DEFAULT_TTL, ['admin:counts', 'admin:analytics:'])
