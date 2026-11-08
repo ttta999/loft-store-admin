@@ -110,13 +110,13 @@ export default function SettingsPage() {
 
       const { data: deliveryData, error: deliveryError } = await supabase.from('settings').select('*').eq('key', 'delivery_price').single()
       if (!deliveryError && deliveryData) {
-        delivery = typeof (deliveryData.value as any)?.price === 'number' ? (deliveryData.value as any).price : 0
+        delivery = Number((deliveryData.value as any)?.price_usd ?? ((deliveryData.value as any)?.price || 0) / rate)
       }
 
       // ✅ Загружаем порог бесплатной доставки
       const { data: thresholdData, error: thresholdError } = await supabase.from('settings').select('*').eq('key', 'free_delivery_threshold').single()
       if (!thresholdError && thresholdData) {
-        threshold = typeof (thresholdData.value as any)?.amount === 'number' ? (thresholdData.value as any).amount : 0
+        threshold = Number((thresholdData.value as any)?.amount_usd ?? ((thresholdData.value as any)?.amount || 0) / rate)
       }
 
       if (rateError || saleError || deliveryError || thresholdError) throw new Error('Не удалось загрузить настройки')
@@ -125,10 +125,10 @@ export default function SettingsPage() {
       setCurrentVersion(version)
       setLastUpdated(updAt)
       setSaleMode(sale)
-      setDeliveryPrice(delivery)
-      setFreeDeliveryThreshold(threshold)
+      setDeliveryPrice(Math.round(delivery * 100) / 100)
+      setFreeDeliveryThreshold(Math.round(threshold * 100) / 100)
 
-      setSettingsCache({ exchangeRate: rate, saleMode: sale, deliveryPrice: delivery, freeDeliveryThreshold: threshold, lastUpdated: updAt, updatedBy: updBy, currentVersion: version })
+      setSettingsCache({ exchangeRate: rate, saleMode: sale, deliveryPrice: Math.round(delivery * 100) / 100, freeDeliveryThreshold: Math.round(threshold * 100) / 100, lastUpdated: updAt, updatedBy: updBy, currentVersion: version })
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error)
       toast.error('Ошибка загрузки настроек')
@@ -206,25 +206,14 @@ export default function SettingsPage() {
 
   // ✅ Сохранение настроек доставки (включая порог бесплатной)
   const handleSaveDelivery = async () => {
-    if (deliveryPrice < 0) {
-      toast.error('Цена доставки не может быть отрицательной')
+    if (![deliveryPrice, freeDeliveryThreshold].every(value => Number.isFinite(value) && value >= 0 && value <= 1000000 && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001)) {
+      toast.error('Введите неотрицательные суммы в долларах, не более двух знаков после точки')
       return
     }
     setSavingDelivery(true)
     try {
-      // 1. Сохраняем цену доставки
-      await supabase.from('settings').upsert({
-        key: 'delivery_price',
-        value: { price: deliveryPrice, updated_by: 'admin', updated_at: new Date().toISOString(), version: Date.now() },
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' })
-
-      // 2. Сохраняем порог бесплатной доставки
-      await supabase.from('settings').upsert({
-        key: 'free_delivery_threshold',
-        value: { amount: freeDeliveryThreshold, updated_by: 'admin', updated_at: new Date().toISOString(), version: Date.now() },
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' })
+      const { error } = await supabase.rpc('store_admin_save_delivery', { p_price_usd: deliveryPrice, p_threshold_usd: freeDeliveryThreshold })
+      if (error) throw error
 
       setSettingsCache({ exchangeRate, saleMode, deliveryPrice, freeDeliveryThreshold, lastUpdated, updatedBy, currentVersion })
       toast.success('Настройки доставки сохранены ')
@@ -392,28 +381,28 @@ export default function SettingsPage() {
           <div className="p-5 space-y-4 mt-auto">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">
-                <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">Цена доставки (сум)</label>
-                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{deliveryPrice > 0 ? `Сейчас: ${deliveryPrice.toLocaleString('ru-RU')} сум` : 'Сейчас: доставка бесплатная'}</p>
+                <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">Цена доставки (USD)</label>
+                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{deliveryPrice > 0 ? `Сейчас: ${deliveryPrice.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} USD` : 'Сейчас: доставка бесплатная'}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <input type="number" value={deliveryPrice} onChange={(e) => setDeliveryPrice(Math.max(0, Number(e.target.value) || 0))} className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right" step="1000" min="0" />
-                <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">сум</span>
+                <input aria-label="Цена доставки (USD)" type="number" value={deliveryPrice} onChange={(e) => setDeliveryPrice(Math.max(0, Number(e.target.value) || 0))} className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right" step="0.01" min="0" />
+                <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">USD</span>
               </div>
             </div>
 
             {/* ✅ НОВОЕ: Порог бесплатной доставки */}
             <div className="flex items-center justify-between gap-6 pt-4 border-t border-[#E8E2D5] dark:border-dark-border">
               <div className="min-w-0">
-                <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">Порог бесплатной доставки</label>
+                <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">Порог бесплатной доставки (USD)</label>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
                   {freeDeliveryThreshold > 0 
-                    ? `При заказе от ${freeDeliveryThreshold.toLocaleString('ru-RU')} сум` 
+                    ? `При заказе от ${freeDeliveryThreshold.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} USD`
                     : 'Отключено (всегда платная)'}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <input type="number" value={freeDeliveryThreshold} onChange={(e) => setFreeDeliveryThreshold(Math.max(0, Number(e.target.value) || 0))} className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right" step="100000" min="0" placeholder="0" />
-                <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">сум</span>
+                <input aria-label="Порог бесплатной доставки (USD)" type="number" value={freeDeliveryThreshold} onChange={(e) => setFreeDeliveryThreshold(Math.max(0, Number(e.target.value) || 0))} className="w-40 px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-base font-bold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-right" step="0.01" min="0" placeholder="0" />
+                <span className="px-4 py-3 bg-[#E8E2D5] dark:bg-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-sm font-bold">USD</span>
               </div>
             </div>
 
