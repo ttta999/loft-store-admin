@@ -6,4 +6,5 @@ test('confirmed revenue excludes unpaid, cancelled and historical unconfirmed pa
  assert.equal(isConfirmedRevenue(paid),true)
  for(const change of [{payment_status:'pending'},{status:'Отменён'},{paid_at:null},{paid_at:'invalid'},{total_price_usd:-1},{total_price_usd:'invalid'}])assert.equal(isConfirmedRevenue({...paid,...change}),false)
  assert.equal(confirmedRevenue([paid,{...paid,total_price_usd:'50'},{...paid,status:'Отменён'},{...paid,payment_status:'pending'},{...paid,paid_at:null}]),150)
+ for(const status of ['Принят','Заказан у поставщика','В пути','Прибыл в страну','Собирается','Готов к выдаче','Получен','Упакован','Передан курьеру']) assert.equal(isConfirmedRevenue({...paid,status}),true)
 })

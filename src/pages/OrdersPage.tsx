@@ -1,4 +1,4 @@
-import { specialOrderIds } from '../lib/specialOrders'
+import { specialOrderIds, specialStatusTone, usesSpecialFulfillment, nextSpecialStatuses, SPECIAL_PICKUP, SPECIAL_DELIVERY } from '../lib/specialOrders'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification, supabase } from '../lib/supabase'
@@ -110,6 +110,7 @@ const formatItemPrice = (item: any, order: any) => {
 
 // ✅ Цвет статус-пиллы (единый с основным приложением)
 const getStatusColor = (status: string): string => {
+  status = specialStatusTone(status)
   return {
     'Активный': 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30',
     'В обработке': 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-500/30',
@@ -202,6 +203,14 @@ export default function OrdersPage() {
   // ✅ Применение смены статуса (+ опционально ссылка курьера)
   const applyStatusChange = async (order: any, newStatus: string, clientChatId: string, courierLinkValue: string | null) => {
     try {
+      if (usesSpecialFulfillment(order)) {
+        const { error } = await supabase.rpc('store_admin_order_status', { p_id: order.id, p_status: newStatus, p_courier: courierLinkValue })
+        if (error) throw error
+        toast.success('Статус сохранён. Уведомление поставлено в очередь.')
+        ordersCacheApi.invalidate()
+        await loadOrders(true)
+        return
+      }
       const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
       let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
       if (courierLinkValue) {
@@ -249,10 +258,12 @@ export default function OrdersPage() {
 
   const handleStatusChange = async (_orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
     if (newStatus === 'Отменён') {
-      if (!confirm(` Отменить заказ №${order.id}?`)) return
+      const warning = usesSpecialFulfillment(order) && ['Заказан у поставщика','В пути','Прибыл в страну','Собирается','Готов к выдаче','Упакован','Передан курьеру'].includes(order.status)
+        ? '\nТовар уже заказан у поставщика. Согласуйте отмену закупки и возврат вручную. Деньги автоматически не возвращаются.' : ''
+      if (!confirm(` Отменить заказ №${order.id}?${warning}`)) return
     }
 
-    if (newStatus === 'Выдан' && deliveryMethod === 'delivery') {
+    if ((newStatus === 'Выдан' || newStatus === 'Передан курьеру') && deliveryMethod === 'delivery') {
       setCourierModalOrder(order)
       setCourierLink('')
       return
@@ -270,7 +281,7 @@ export default function OrdersPage() {
     if (!order) return
     const clientChatId = order.user_chat_id || order.user_id
     setCourierModalOrder(null)
-    await applyStatusChange(order, 'Выдан', clientChatId, link || null)
+    await applyStatusChange(order, usesSpecialFulfillment(order) ? 'Передан курьеру' : 'Выдан', clientChatId, link || null)
   }
 
   const handleConfirmPayment = async (order: any) => {
@@ -278,10 +289,10 @@ export default function OrdersPage() {
     if (!confirmed) return
     const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
     const notice = { key: crypto.randomUUID(), message }
-    const success = await confirmPayment(order.id, notice)
+    const success = await confirmPayment(order.id, usesSpecialFulfillment(order) ? undefined : notice)
     if (success) {
       const clientChatId = order.user_chat_id || order.user_id
-      if (clientChatId) {
+      if (clientChatId && !usesSpecialFulfillment(order)) {
         await sendClientNotification(clientChatId, message, notice.key)
       }
       toast.success('Оплата подтверждена! Заказ активирован.')
@@ -351,8 +362,8 @@ export default function OrdersPage() {
 
   // ✅ Опции статусов для селекта (объединение для «Все»)
   const statusOptions: StatusItem[] = filter === 'all'
-    ? Array.from(new Map([...DELIVERY_STATUSES, ...PICKUP_STATUSES].map(s => [s.old, s])).values())
-    : getAvailableStatuses(filter)
+    ? Array.from(new Map([...DELIVERY_STATUSES, ...PICKUP_STATUSES, ...SPECIAL_DELIVERY.map(s => ({old:s,new:s})), ...SPECIAL_PICKUP.map(s => ({old:s,new:s}))].map(s => [s.old, s])).values())
+    : Array.from(new Map([...getAvailableStatuses(filter), ...(filter === 'pickup' ? SPECIAL_PICKUP : SPECIAL_DELIVERY).map(s => ({old:s,new:s}))].map(s => [s.old,s])).values())
 
   if (loading) {
     return (
@@ -719,7 +730,7 @@ export default function OrdersPage() {
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
                           Статус:
                         </span>
-                        {getAvailableStatuses(order.delivery_method)
+                        {(usesSpecialFulfillment(order) ? nextSpecialStatuses(order).map(s => ({old:s,new:s})) : getAvailableStatuses(order.delivery_method))
                           .filter((s: StatusItem) => s.old !== order.status)
                           .map((s: StatusItem) => (
                             <button

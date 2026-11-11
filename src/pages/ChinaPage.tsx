@@ -414,7 +414,7 @@ export default function ChinaPage() {
                       )}
 
                       {request.rejection_reason && <InfoMini icon={<Info size={14} />} label="Причина отказа">{request.rejection_reason}</InfoMini>}
-                      {request.status === 'Оформлен' && request.converted_to_order_id && <button onClick={() => navigate(`/orders?order=${request.converted_to_order_id}`)} className="py-2 px-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold">Перейти к заказу №{request.converted_to_order_id}</button>}
+                      {(request.converted_to_order_id || request.reserved_order_id) && <button onClick={() => navigate(`/orders?order=${request.converted_to_order_id || request.reserved_order_id}`)} className="py-2 px-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold">Перейти к заказу №{request.converted_to_order_id || request.reserved_order_id}</button>}
                       {/* Кнопки смены статуса */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">

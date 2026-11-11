@@ -1,5 +1,6 @@
-const revenueStatuses = new Set(['Активный', 'В обработке', 'Готов', 'Выдан', 'Доставлен'])
-export const WORK_STATUSES = ['Активный', 'В обработке', 'Готов']
+const specialStatuses = ['Принят','Заказан у поставщика','В пути','Прибыл в страну','Собирается','Готов к выдаче','Получен','Упакован','Передан курьеру']
+const revenueStatuses = new Set(['Активный', 'В обработке', 'Готов', 'Выдан', 'Доставлен', ...specialStatuses])
+export const WORK_STATUSES = ['Активный', 'В обработке', 'Готов', ...specialStatuses.filter(status => status !== 'Получен')]
 export function isConfirmedRevenue(order: { status?: string; payment_status?: string; paid_at?: string | null; total_price_usd?: unknown }) {
   const amount = Number(order.total_price_usd)
   return revenueStatuses.has(order.status || '') && order.payment_status === 'paid'
