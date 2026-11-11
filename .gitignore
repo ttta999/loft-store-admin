@@ -31,3 +31,6 @@ test-results/
 .env.*
 !.env.example
 *.token
+
+# Machine-specific Codex hook installed by Graphify
+/.codex/hooks.json
