@@ -1,5 +1,6 @@
+import { specialOrderIds } from '../lib/specialOrders'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getOrders, updateOrderStatus, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
@@ -31,7 +32,7 @@ function orderItems(order: any): any[] {
   try { const items = JSON.parse(order.items || '[]'); return Array.isArray(items) ? items : [] } catch { return [] }
 }
 function specialRequestNumber(order: any) {
-  return order.special_order_id || orderItems(order).find(item => item.isSpecialOrder)?.specialRequestId
+  return specialOrderIds(order).join(", №")
 }
 function orderComposition(order: any) {
   return orderItems(order).map(item => `${item.name || 'Товар'}${item.size ? ', ' + item.size : ''}${item.colorName ? ', ' + item.colorName : ''} × ${item.quantity || 1}`).join('\n')
@@ -137,13 +138,14 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function OrdersPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
   const [loading, setLoading] = useState(() => !ordersCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('order'))
   const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
   const [customMessageText, setCustomMessageText] = useState('')
 
@@ -672,7 +674,7 @@ export default function OrdersPage() {
                               {/* Миниатюра фото товара (заглушка для старых заказов без фото) */}
                               {item.image ? (
                                 <img
-                                  src={item.image}
+                                  src={item.image || undefined}
                                   alt={item.name}
                                   className="w-12 h-12 rounded-lg object-cover border border-[#E8E2D5] dark:border-dark-border flex-shrink-0"
                                 />

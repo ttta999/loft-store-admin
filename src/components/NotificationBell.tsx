@@ -1,3 +1,4 @@
+import { specialOrderIds } from '../lib/specialOrders'
 import { readAll } from '../lib/readAll'
 import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
@@ -11,6 +12,7 @@ interface AdminNotification {
   created_at: string
   client_name?: string
   special_order_id?: number | null
+  items?: any[]
   product_name?: string
   total_price_usd?: number
   total_price_uzs?: number | null
@@ -65,7 +67,7 @@ export default function NotificationBell() {
     try {
       const [orders, requests] = await Promise.all([
         readAll<Omit<AdminNotification, 'kind'>>(supabase.from('orders')
-          .select('id, created_at, client_name, special_order_id, total_price_usd, total_price_uzs, status')
+          .select('id, created_at, client_name, special_order_id, items, total_price_usd, total_price_uzs, status')
           .gt('created_at', lastSeen).order('created_at', { ascending: false })),
         readAll<Omit<AdminNotification, 'kind'>>(supabase.from('china_requests')
           .select('id, created_at, product_name, status')
@@ -244,7 +246,7 @@ export default function NotificationBell() {
                     <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">
                       {o.kind === 'request' ? o.product_name : o.client_name}
                     </p>
-                    {o.kind === 'order' && o.special_order_id && <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">Спецзаказ №{o.special_order_id}</p>}
+                    {o.kind === 'order' && specialOrderIds(o).length > 0 && <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">Спецзаказ №{specialOrderIds(o).join(", №")}</p>}
                     <p className="text-xs font-bold text-[#1B2A4A] dark:text-white mt-0.5">
                       {formatPrice(o)}
                     </p>

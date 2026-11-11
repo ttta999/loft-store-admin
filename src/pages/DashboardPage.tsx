@@ -195,7 +195,7 @@ export default function DashboardPage() {
 
   const totalRevenue = confirmedRevenue(orders)
   const activeOrders = orders.filter(o => WORK_STATUSES.includes(o.status)).length
-  const pendingRequests = chinaRequests.filter(r => r.status === 'На рассмотрении').length
+  const pendingRequests = chinaRequests.filter(r => r.status === 'На оценке').length
 
   if (loading) {
     return (

@@ -1,7 +1,7 @@
 import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getChinaRequests, updateChinaRequestStatus, sendClientNotification, supabase } from '../lib/supabase'
+import { getChinaRequests, updateChinaRequestStatus, supabase } from '../lib/supabase'
 import { chinaCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
@@ -23,27 +23,19 @@ import {
 } from 'lucide-react'
 
 const STATUSES = [
-  { old: 'На рассмотрении', new: 'Принят ', color: 'yellow' },
+  { old: 'На оценке', new: 'На оценке', color: 'yellow' },
   { old: 'Оценён', new: 'Оценён ', color: 'purple' },
-  { old: 'Оплачен', new: 'Оплачен ', color: 'green' },
-  { old: 'Отменён клиентом', new: 'Отменён вами ', color: 'orange' },
+  { old: 'Оформлен', new: 'Оформлен', color: 'green' },
+  { old: 'Отменён', new: 'Отменён', color: 'orange' },
   { old: 'Отклонён', new: 'Отклонён ', color: 'red' },
 ]
 
-const STATUS_MESSAGES: Record<string, string> = {
-  'На рассмотрении': '📄 Принят: Ваш спецзаказ №{requestId} принят! Менеджер уже изучает детали, чтобы рассчитать точную стоимость. Обычно это занимает немного времени. Скоро вернемся с ответом 🔍',
-  'Оценён': '💎 Оценён: Ваш спецзаказ №{requestId} оценён в ${managerPrice}! ✨\n\nКомментарий менеджера: {managerComment}\n\nВы можете принять условия и оплатить заказ или отменить заявку. 📲',
-  'Оплачен': '✅ Оплачен: Оплата спецзаказа №{requestId} успешно принята, спасибо! 🎉 Менеджер уже приступил к оформлению и подготовке!',
-  'Отменён клиентом': '🙅‍️ Отменён вами: Заявка на спецзаказ №{requestId} отменена вами. 👋 Если вы захотите изменить параметры, вы всегда можете отправить новую заявку.',
-  'Отклонён': '🛑 Отклонён: К сожалению, мы вынуждены отклонить заявку на спецзаказ №{requestId}. 😔\n\nПричина: {managerComment}\n\nПриносим извинения за неудобства. Наша поддержка всегда готова помочь вам подобрать альтернативу! ✉️',
-}
-
 const getStatusColor = (status: string) => {
   return {
-    'На рассмотрении': 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-500/30',
+    'На оценке': 'bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30',
     'Оценён': 'bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30',
-    'Оплачен': 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30',
-    'Отменён клиентом': 'bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30',
+    'Оформлен': 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30',
+    'Отменён': 'bg-gray-100 dark:bg-gray-500/20 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30',
     'Отклонён': 'bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-500/30',
   }[status] || 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
 }
@@ -120,146 +112,38 @@ export default function ChinaPage() {
     loadRequests(true)
   }
 
-  const handleStatusChange = async (requestId: string, newStatus: string, clientChatId: string) => {
-    if (newStatus === 'Оценён') {
-      const request = requests.find(r => r.id === requestId)
-      setSelectedRequest(request)
-      setShowPriceModal(true)
-      return
-    }
-
-    if (newStatus === 'Отклонён') {
-      const request = requests.find(r => r.id === requestId)
-      setSelectedRequest(request)
-      setShowRejectModal(true)
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const messageTemplate = STATUS_MESSAGES[newStatus] || `Статус спецзаказа №${requestId} изменён на: ${newStatus}`
-      const message = messageTemplate.replace('{requestId}', requestId)
-      const notice = { key: crypto.randomUUID(), message }
-      const updated = await updateChinaRequestStatus(requestId, newStatus, undefined, notice)
-
-      if (updated) {
-        let sent = false
-        if (clientChatId) {
-          sent = !!(await sendClientNotification(clientChatId, message, notice.key))
-        }
-
-        if (sent) {
-          toast.success(`Статус изменён на «${newStatus}»  Уведомление отправлено`)
-        } else if (clientChatId) {
-          toast.warning(`Статус изменён на «${newStatus}», но уведомление не ушло`)
-        } else {
-          toast.error(`Статус изменён, но Chat ID клиента не найден`)
-        }
-
-        // ✅ Сбрасываем кеш и перезагружаем
-        chinaCacheApi.invalidate()
-        await loadRequests(true)
-      } else {
-        toast.error('Ошибка при обновлении статуса')
-      }
-    } catch (error) {
-      console.error('Ошибка:', error)
-      toast.error('Произошла ошибка при обновлении')
-    } finally {
-      setSubmitting(false)
-    }
+  const handleStatusChange = (requestId: string, newStatus: string, _clientChatId: string) => {
+    const request = requests.find(r => String(r.id) === String(requestId))
+    if (!request || request.status !== 'На оценке') return
+    setSelectedRequest(request)
+    if (newStatus === 'Оценён') setShowPriceModal(true)
+    if (newStatus === 'Отклонён') setShowRejectModal(true)
   }
-
   const handlePriceSubmit = async () => {
-    if (!managerPrice || !selectedRequest) return
+    if (submitting || !selectedRequest) return
+    const price = Number(managerPrice)
+    if (!Number.isFinite(price) || price <= 0 || price > 1000000 || Math.abs(price * 100 - Math.round(price * 100)) > 0.000001) { toast.error('Укажите цену в USD с точностью до цента'); return }
     setSubmitting(true)
     try {
-      const message = STATUS_MESSAGES['Оценён']
-        .replace('{requestId}', selectedRequest.id)
-        .replace('{managerPrice}', managerPrice)
-        .replace('{managerComment}', managerComment || 'Без комментария')
-      const notice = { key: crypto.randomUUID(), message }
-      const updated = await updateChinaRequestStatus(selectedRequest.id, 'Оценён', {
-        manager_price: parseFloat(managerPrice),
-        manager_comment: managerComment
-      }, notice)
-
-      if (updated) {
-        let sent = false
-        if (selectedRequest.user_id) {
-          sent = !!(await sendClientNotification(selectedRequest.user_id, message, notice.key))
-        }
-
-        if (sent) {
-          toast.success(`Цена $${managerPrice} установлена  Уведомление отправлено`)
-        } else if (selectedRequest.user_id) {
-          toast.warning(`Цена установлена, но уведомление не ушло`)
-        } else {
-          toast.error('Цена установлена, но Chat ID клиента не найден')
-        }
-
-        setShowPriceModal(false)
-        setManagerPrice('')
-        setManagerComment('')
-        
-        // ✅ Сбрасываем кеш и перезагружаем
-        chinaCacheApi.invalidate()
-        await loadRequests(true)
-      } else {
-        toast.error('Ошибка при установке цены')
-      }
-    } catch (error: any) {
-      console.error('Ошибка:', error)
-      toast.error('Ошибка: ' + (error.message || 'неизвестно'))
-    } finally {
-      setSubmitting(false)
-    }
+      await updateChinaRequestStatus(selectedRequest.id, 'Оценён', { manager_price: price, manager_comment: managerComment })
+      toast.success('Оценка сохранена. Уведомление добавлено в очередь.')
+      setShowPriceModal(false); setManagerPrice(''); setManagerComment('')
+      chinaCacheApi.invalidate(); await loadRequests(true)
+    } catch (error: any) { toast.error(error.message || 'Не удалось сохранить оценку') }
+    finally { setSubmitting(false) }
   }
-
   const handleRejectSubmit = async () => {
-    if (!selectedRequest || rejectReason.trim().length < 5) return
+    if (submitting || !selectedRequest || !rejectReason.trim()) return
     setSubmitting(true)
     try {
-      const message = STATUS_MESSAGES['Отклонён']
-        .replace('{requestId}', selectedRequest.id)
-        .replace('{managerComment}', rejectReason || 'Не указана')
-      const notice = { key: crypto.randomUUID(), message }
-      const updated = await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', {
-        manager_comment: rejectReason
-      }, notice)
-
-      if (updated) {
-        let sent = false
-        if (selectedRequest.user_id) {
-          sent = !!(await sendClientNotification(selectedRequest.user_id, message, notice.key))
-        }
-
-        if (sent) {
-          toast.success(`Спецзаказ отклонён  Уведомление отправлено`)
-        } else if (selectedRequest.user_id) {
-          toast.warning('Спецзаказ отклонён, но уведомление не ушло')
-        } else {
-          toast.error('Спецзаказ отклонён, но Chat ID клиента не найден')
-        }
-
-        setShowRejectModal(false)
-        setRejectReason('')
-        
-        // ✅ Сбрасываем кеш и перезагружаем
-        chinaCacheApi.invalidate()
-        await loadRequests(true)
-      } else {
-        toast.error('Ошибка при отклонении спецзаказа')
-      }
-    } catch (error: any) {
-      console.error('Ошибка:', error)
-      toast.error('Ошибка: ' + (error.message || 'неизвестно'))
-    } finally {
-      setSubmitting(false)
-    }
+      await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', { rejection_reason: rejectReason.trim() })
+      toast.success('Заявка отклонена. Уведомление добавлено в очередь.')
+      setShowRejectModal(false); setRejectReason('')
+      chinaCacheApi.invalidate(); await loadRequests(true)
+    } catch (error: any) { toast.error(error.message || 'Не удалось отклонить заявку') }
+    finally { setSubmitting(false) }
   }
 
-  // ✅ ПОИСК: по номеру заявки, названию товара, ссылке, комментарию
   const q = searchQuery.trim().toLowerCase()
   const searchFiltered = q
     ? requests.filter(r => {
@@ -529,13 +413,15 @@ export default function ChinaPage() {
                         </div>
                       )}
 
+                      {request.rejection_reason && <InfoMini icon={<Info size={14} />} label="Причина отказа">{request.rejection_reason}</InfoMini>}
+                      {request.status === 'Оформлен' && request.converted_to_order_id && <button onClick={() => navigate(`/orders?order=${request.converted_to_order_id}`)} className="py-2 px-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold">Перейти к заказу №{request.converted_to_order_id}</button>}
                       {/* Кнопки смены статуса */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
                           Статус:
                         </span>
                         {STATUSES
-                          .filter(({ old }) => old !== request.status)
+                          .filter(({ old }) => request.status === 'На оценке' && ['Оценён', 'Отклонён'].includes(old))
                           .map(({ old, new: newLabel }) => (
                             <button
                               key={old}
