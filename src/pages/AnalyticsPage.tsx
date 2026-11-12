@@ -414,7 +414,7 @@ export default function AnalyticsPage() {
                   <Clock size={18} className="text-orange-700 dark:text-orange-300" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[#8A8275] dark:text-gray-300">Ожидают оплаты</p>
+                  <p className="text-xs text-[#8A8275] dark:text-gray-300">На обработке</p>
                   <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{orderStats.pendingPaymentOrders}</p>
                 </div>
                 <p className="text-xs text-[#8A8275] dark:text-gray-400 max-w-[140px]">Деньги ещё не получены</p>

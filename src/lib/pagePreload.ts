@@ -37,7 +37,11 @@ const CategoriesPageResource = deferredPage(() => import('../pages/CategoriesPag
 const loadCategoriesPage = CategoriesPageResource.load
 export const CategoriesPage = CategoriesPageResource.Component
 
+const RefundsPageResource = deferredPage(() => import('../pages/RefundsPage'))
+export const RefundsPage = RefundsPageResource.Component
+
 const loaders: Record<string, () => Promise<unknown>> = {
+  '/refunds': RefundsPageResource.load,
   '/orders': loadOrdersPage,
   '/china': loadChinaPage,
   '/products': loadProductsPage,

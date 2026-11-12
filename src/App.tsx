@@ -1,4 +1,4 @@
-import { OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
+import { RefundsPage, OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
 import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
 import { useState, useEffect } from 'react'
@@ -50,6 +50,7 @@ export default function App() {
             <DashboardPage />
           </ProtectedRoute>
         } />
+        <Route path="/refunds" element={<ProtectedRoute><RefundsPage /></ProtectedRoute>} />
         <Route path="/orders" element={
           <ProtectedRoute>
             <OrdersPage />

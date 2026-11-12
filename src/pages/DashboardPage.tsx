@@ -1,3 +1,5 @@
+import {getRefunds} from '../lib/refunds'
+import {refundsCacheApi} from '../lib/cache'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +11,7 @@ import {
   invalidateAllCaches,
 } from '../lib/cache'
 import {
+  Undo2,
   Package,
   Globe,
   LogOut,
@@ -90,6 +93,7 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const [refunds,setRefunds]=useState<any[]>(()=>refundsCacheApi.get()||[])
   const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
   const [chinaRequests, setChinaRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
   const [productsCount, setProductsCount] = useState(() => dashboardCountsCacheApi.get()?.productsCount || 0)
@@ -136,14 +140,16 @@ export default function DashboardPage() {
 
     try {
       // 3. ✅ Параллельная загрузка только того, чего нет в кеше
-      const [ordersData, chinaData, counts] = await Promise.all([
+      const [ordersData, chinaData, counts, refundData] = await Promise.all([
         cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
         cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
         cachedCounts ? Promise.resolve([cachedCounts.productsCount, cachedCounts.brandsCount] as [number, number]) : fetchCounts(),
+        getRefunds(forceRefresh),
       ])
 
       const [pCount, bCount] = counts
 
+      setRefunds(refundData)
       setOrders(ordersData as any[])
       setChinaRequests(chinaData as any[])
       setProductsCount(pCount)
@@ -317,6 +323,7 @@ export default function DashboardPage() {
             destination="/settings"
             onClick={() => navigate('/settings')}
           />
+          <NavCard icon={<Undo2 size={20} className="text-[#C9A961]" />} title="Возвраты" description="Проверка платежей и ручной возврат средств" count={`Активных: ${refunds.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length}`} destination="/refunds" onClick={()=>navigate('/refunds')} />
           <NavCard
             icon={<Tag size={20} className="text-[#C9A961]" />}
             title="Бренды"

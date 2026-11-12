@@ -1,7 +1,9 @@
+import {orderStatus, nextOrdinaryStatuses, canManagerCancel, formatOrderMoney, formatMoney} from '../lib/orderState'
+import CancelOrderModal from '../components/CancelOrderModal'
 import { specialOrderIds, specialStatusTone, usesSpecialFulfillment, nextSpecialStatuses, SPECIAL_PICKUP, SPECIAL_DELIVERY } from '../lib/specialOrders'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getOrders, updateOrderStatus, sendClientNotification, supabase } from '../lib/supabase'
+import { getOrders, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
@@ -60,52 +62,26 @@ const PICKUP_STATUSES: StatusItem[] = [
   { old: 'Отменён', new: 'Отменен ' },
 ]
 
-const DELIVERY_MESSAGES: Record<string, string> = {
-  'Активный': '✅ Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
-  'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Скоро отправим!',
-  'Готов': '🛍️ Упакован: Отличные новости! Ваш заказ №{orderId} собран и ждет курьера.',
-  'Выдан': '🚀 Передан курьеру: Ваш заказ №{orderId} передан курьеру и уже в пути к вам!',
-  'Доставлен': '✅ Доставлен: Ваш заказ №{orderId} успешно доставлен! Надеемся, всё понравилось! ❤️',
-  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
-}
-
-const PICKUP_MESSAGES: Record<string, string> = {
-  'Активный': '✅ Оформлен: Ваш заказ №{orderId} успешно создан и уже поступил в систему!',
-  'В обработке': '📦 Собирается: Ваш заказ №{orderId} уже собирается. Пожалуйста, дождитесь уведомления о готовности.',
-  'Готов': '🎉 Готов к выдаче: Отличные новости! Ваш заказ №{orderId} собран и ожидает получения в магазине по адресу: ТЦ Меркато, 2 этаж, магазин 34.',
-  'Выдан': '🤝 Получен: Заказ №{orderId} успешно выдан. Будем рады новым заказам!',
-  'Отменён': '🚫 Отменен: Ваш заказ №{orderId} отменен. Если это произошло по ошибке, пожалуйста, свяжитесь с нами.',
-}
-
 // ✅ Валюта заказа: берём из поля order_currency (USD/UZS), для старых заказов фолбэк UZS
-const getOrderCurrency = (order: any): 'USD' | 'UZS' => {
+const getOrderCurrency = (order: any): 'USD' | 'UZS' | '—' => {
   if (order?.order_currency === 'USD') return 'USD'
   if (order?.order_currency === 'UZS') return 'UZS'
-  return 'UZS'
+  return '—'
 }
 
 // ✅ Форматирование цены заказа — в ВАЛЮТЕ ЗАКАЗА
-const formatOrderPrice = (order: any) => {
-  const cur = getOrderCurrency(order)
-  if (cur === 'USD') {
-    return `$${Number(order.total_price_usd || 0).toLocaleString()}`
-  }
-  const uzs = order.total_price_uzs != null
-    ? Number(order.total_price_uzs)
-    : Math.round((order.total_price_usd || 0) * (order.exchange_rate_at_order || 12100))
-  return `${uzs.toLocaleString()} сум`
-}
+const formatOrderPrice = (order: any) => formatOrderMoney(order)
 
 // ✅ Форматирование цены товара в заказе — в ВАЛЮТЕ ЗАКАЗА
 const formatItemPrice = (item: any, order: any) => {
   const cur = getOrderCurrency(order)
   if (cur === 'USD') {
-    return `$${Number(item.priceUsd || 0)}`
+    return formatMoney(item.priceUsd, 'USD')
   }
   const uzs = item.priceUzs != null
     ? Number(item.priceUzs)
-    : Math.round((item.priceUsd || 0) * (order.exchange_rate_at_order || 12100))
-  return `${uzs.toLocaleString()} сум`
+    : (item.priceUsd != null && order.exchange_rate_at_order > 0 ? Math.round(item.priceUsd * order.exchange_rate_at_order) : null)
+  return formatMoney(uzs, order.order_currency)
 }
 
 // ✅ Цвет статус-пиллы (единый с основным приложением)
@@ -144,6 +120,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(() => !ordersCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
+  const [cancelOrder,setCancelOrder]=useState<any>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('order'))
@@ -201,66 +178,19 @@ export default function OrdersPage() {
   }
 
   // ✅ Применение смены статуса (+ опционально ссылка курьера)
-  const applyStatusChange = async (order: any, newStatus: string, clientChatId: string, courierLinkValue: string | null) => {
+  const applyStatusChange = async (order: any, newStatus: string, _clientChatId: string, courierLinkValue: string | null) => {
     try {
-      if (usesSpecialFulfillment(order)) {
-        const { error } = await supabase.rpc('store_admin_order_status', { p_id: order.id, p_status: newStatus, p_courier: courierLinkValue })
-        if (error) throw error
-        toast.success('Статус сохранён. Уведомление поставлено в очередь.')
-        ordersCacheApi.invalidate()
-        await loadOrders(true)
-        return
-      }
-      const messages = order.delivery_method === 'pickup' ? PICKUP_MESSAGES : DELIVERY_MESSAGES
-      let messageTemplate = messages[newStatus] || `Статус заказа №${order.id} изменён на: ${newStatus}`
-      if (courierLinkValue) {
-        messageTemplate += `\n\n🔗 Отследить курьера: ${courierLinkValue}`
-      }
-      const message = messageTemplate.replace('{orderId}', order.id)
-
-      const notice = { key: crypto.randomUUID(), message }
-      let updated: any = null
-
-      if (courierLinkValue) {
-        const { data, error } = await supabase.rpc('store_admin_order_status', { p_id: order.id, p_status: newStatus, p_courier: courierLinkValue, p_notice: notice })
-        if (error) throw error
-        updated = data || null
-      } else {
-        updated = await updateOrderStatus(order.id, newStatus, notice)
-      }
-
-      if (updated) {
-
-        let sent = false
-        if (clientChatId) {
-          sent = !!(await sendClientNotification(clientChatId, message, notice.key))
-        }
-
-        if (sent) {
-          toast.success(`Статус изменён на «${newStatus}»  Уведомление отправлено`)
-        } else if (clientChatId) {
-          toast.warning(`Статус изменён на «${newStatus}», но уведомление не ушло`)
-        } else {
-          toast.error(`Статус изменён, но Chat ID клиента не найден`)
-        }
-
-        // ✅ Сбрасываем кеш и перезагружаем
-        ordersCacheApi.invalidate()
-        await loadOrders(true)
-      } else {
-        toast.error('Ошибка при обновлении статуса')
-      }
-    } catch (error) {
-      console.error('Ошибка:', error)
-      toast.error('Произошла ошибка при обновлении')
-    }
+      const {error}=await supabase.rpc('store_admin_order_status',{p_id:order.id,p_status:newStatus,p_courier:courierLinkValue})
+      if(error)throw error
+      toast.success('Статус сохранён. Уведомление поставлено в очередь.')
+      ordersCacheApi.invalidate(); await loadOrders(true)
+    } catch(error:any) { toast.error(error.message || 'Не удалось изменить статус') }
   }
 
   const handleStatusChange = async (_orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
-    if (newStatus === 'Отменён') {
-      const warning = usesSpecialFulfillment(order) && ['Заказан у поставщика','В пути','Прибыл в страну','Собирается','Готов к выдаче','Упакован','Передан курьеру'].includes(order.status)
-        ? '\nТовар уже заказан у поставщика. Согласуйте отмену закупки и возврат вручную. Деньги автоматически не возвращаются.' : ''
-      if (!confirm(` Отменить заказ №${order.id}?${warning}`)) return
+    if (newStatus === 'Отменён') { setCancelOrder(order); return }
+    if (newStatus === 'Выдан' && order.delivery_method === 'pickup' && order.payment_method === 'upon_receipt') {
+      if (!confirm('Подтвердите, что заказ выдан клиенту и оплата получена')) return
     }
 
     if ((newStatus === 'Выдан' || newStatus === 'Передан курьеру') && deliveryMethod === 'delivery') {
@@ -287,14 +217,8 @@ export default function OrdersPage() {
   const handleConfirmPayment = async (order: any) => {
     const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nТелефон: ${order.client_phone || '—'}${specialRequestNumber(order) ? '\nСпецзаказ №' + specialRequestNumber(order) : ''}\n\nТовары:\n${orderComposition(order)}\n\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
     if (!confirmed) return
-    const message = `✅ <b>Заказ №${order.id} оплачен!</b>\n\nМы уже начали его обработку. Спасибо за заказ!`
-    const notice = { key: crypto.randomUUID(), message }
-    const success = await confirmPayment(order.id, usesSpecialFulfillment(order) ? undefined : notice)
+    const success = await confirmPayment(order.id)
     if (success) {
-      const clientChatId = order.user_chat_id || order.user_id
-      if (clientChatId && !usesSpecialFulfillment(order)) {
-        await sendClientNotification(clientChatId, message, notice.key)
-      }
       toast.success('Оплата подтверждена! Заказ активирован.')
       ordersCacheApi.invalidate()
       await loadOrders(true)
@@ -328,12 +252,6 @@ export default function OrdersPage() {
     }
   }
 
-  const getStatusLabel = (status: string, deliveryMethod: string): string => {
-    const statuses = deliveryMethod === 'pickup' ? PICKUP_STATUSES : DELIVERY_STATUSES
-    const found = statuses.find(s => s.old === status)
-    return found?.new || status
-  }
-
   const getAvailableStatuses = (deliveryMethod: string): StatusItem[] => {
     return deliveryMethod === 'pickup' ? PICKUP_STATUSES : DELIVERY_STATUSES
   }
@@ -351,19 +269,19 @@ export default function OrdersPage() {
   const filteredOrders = searchFiltered.filter(order => {
     if (filter === 'delivery' && order.delivery_method !== 'delivery') return false
     if (filter === 'pickup' && order.delivery_method !== 'pickup') return false
-    if (statusFilter !== 'all' && order.status !== statusFilter) return false
+    if (statusFilter !== 'all' && (['Отменён клиентом','Отменён магазином'].includes(statusFilter) ? orderStatus(order)!==statusFilter : order.status!==statusFilter)) return false
     return true
   })
 
   const deliveryOrders = searchFiltered.filter(o => o.delivery_method === 'delivery')
   const pickupOrders = searchFiltered.filter(o => o.delivery_method === 'pickup')
-  const pendingPaymentOrders = searchFiltered.filter(o => o.status === 'Ожидает оплаты')
+  const pendingPaymentOrders = filteredOrders.filter(o => o.status === 'Ожидает оплаты')
   const mainOrders = filteredOrders.filter(o => o.status !== 'Ожидает оплаты')
 
   // ✅ Опции статусов для селекта (объединение для «Все»)
   const statusOptions: StatusItem[] = filter === 'all'
-    ? Array.from(new Map([...DELIVERY_STATUSES, ...PICKUP_STATUSES, ...SPECIAL_DELIVERY.map(s => ({old:s,new:s})), ...SPECIAL_PICKUP.map(s => ({old:s,new:s}))].map(s => [s.old, s])).values())
-    : Array.from(new Map([...getAvailableStatuses(filter), ...(filter === 'pickup' ? SPECIAL_PICKUP : SPECIAL_DELIVERY).map(s => ({old:s,new:s}))].map(s => [s.old,s])).values())
+    ? Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...DELIVERY_STATUSES, ...PICKUP_STATUSES, ...SPECIAL_DELIVERY.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s})), ...SPECIAL_PICKUP.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old, s])).values())
+    : Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...getAvailableStatuses(filter), ...(filter === 'pickup' ? SPECIAL_PICKUP : SPECIAL_DELIVERY).map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old,s])).values())
 
   if (loading) {
     return (
@@ -483,7 +401,7 @@ export default function OrdersPage() {
       </div>
 
       <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
-        {/* ✅ Блок «Ожидают оплаты» — компактные строки */}
+        {/* ✅ Блок «На обработке» — компактные строки */}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border-2 border-[#C9A961]/40 dark:border-gold/40 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[#C9A961]/30 dark:border-gold/30 bg-[#C9A961]/5 dark:bg-gold/10">
@@ -491,7 +409,7 @@ export default function OrdersPage() {
                 <Clock size={16} className="text-[#C9A961]" />
               </div>
               <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                Ожидают оплаты <span className="text-[#C9A961]">({pendingPaymentOrders.length})</span>
+                На обработке <span className="text-[#C9A961]">({pendingPaymentOrders.length})</span>
               </p>
             </div>
             <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
@@ -620,7 +538,7 @@ export default function OrdersPage() {
                         {formatOrderPrice(order)}
                       </p>
                       <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(order.status)}`}>
-                        {getStatusLabel(order.status, order.delivery_method)}
+                        {orderStatus(order)}
                       </span>
                     </div>
 
@@ -639,7 +557,7 @@ export default function OrdersPage() {
                           {order.client_name} · {order.client_phone}
                         </InfoMini>
                         <InfoMini icon={<CreditCard size={14} className="text-[#1B2A4A] dark:text-white" />} label="Оплата">
-                          {order.payment_method === 'online_card' ? 'Переводом' : 'При получении'}
+                          {order.payment_method === 'online_card' ? 'Переводом' : 'При получении'} · {order.payment_status==='refunded'?'Возврат выполнен':order.payment_status==='refund_pending'?'Ожидает возврата':order.payment_status==='payment_review'?'Проверка платежа':order.payment_status==='paid'&&order.paid_at?'Оплата подтверждена':order.status==='Отменён'?'Заказ отменён':'Оплата не подтверждена'}
                         </InfoMini>
                         {order.delivery_method === 'delivery' && (
                           <InfoMini icon={<MapPin size={14} className="text-[#1B2A4A] dark:text-white" />} label="Адрес доставки">
@@ -727,10 +645,13 @@ export default function OrdersPage() {
                             {showCustomMessage === order.id ? 'Скрыть' : 'Написать клиенту'}
                           </button>
                         )}
+                        {canManagerCancel(order) && <button onClick={()=>setCancelOrder(order)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#9B3B3B] dark:text-red-300">Отменить заказ</button>}
+                        {order.status==='Отменён' && <button onClick={()=>navigate(`/refunds?order=${order.id}`)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#1B2A4A] dark:text-white">Возврат средств</button>}
+                        {order.cancellation_reason && <p className="w-full text-sm text-[#8A8275] dark:text-gray-300">Причина отмены: {order.cancellation_reason}</p>}
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
                           Статус:
                         </span>
-                        {(usesSpecialFulfillment(order) ? nextSpecialStatuses(order).map(s => ({old:s,new:s})) : getAvailableStatuses(order.delivery_method))
+                        {(usesSpecialFulfillment(order) ? nextSpecialStatuses(order).filter(s=>s!=='Отменён').map(s=>({old:s,new:s==='Ожидает оплаты'?'На обработке':s})) : nextOrdinaryStatuses(order).map(s=>({old:s,new:orderStatus({...order,status:s})})))
                           .filter((s: StatusItem) => s.old !== order.status)
                           .map((s: StatusItem) => (
                             <button
@@ -783,6 +704,7 @@ export default function OrdersPage() {
       </div>
 
       {/* ✅ МОДАЛКА: ССЫЛКА НА ТРЕК КУРЬЕРА */}
+      {cancelOrder && <CancelOrderModal order={cancelOrder} onClose={()=>setCancelOrder(null)} onSaved={()=>{setCancelOrder(null);void loadOrders(true)}}/>}
       {courierModalOrder && (
         <div
           className="loft-modal fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"

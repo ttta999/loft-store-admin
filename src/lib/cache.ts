@@ -88,7 +88,8 @@ export const analyticsCacheApi = {
     dataCache.invalidate('http:')
   },
 }
-export const ordersCacheApi = collection<any[]>('admin:orders', 15_000, ['admin:analytics:', 'admin:notifications'])
+export const ordersCacheApi = collection<any[]>('admin:orders', 15_000, ['admin:analytics:', 'admin:notifications', 'admin:refunds'])
+export const refundsCacheApi = collection<any[]>('admin:refunds', 15_000, ['admin:orders','admin:analytics:','admin:notifications'])
 export const chinaCacheApi = collection<any[]>('admin:china', 30_000, ['admin:notifications'])
 export const productsCacheApi = collection<any[]>('admin:products', DEFAULT_TTL, ['admin:variants', 'admin:colors', 'admin:analytics:', 'admin:counts'])
 export const variantsCacheApi = collection<any[]>('admin:variants', 30_000)

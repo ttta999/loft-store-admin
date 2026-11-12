@@ -1,3 +1,5 @@
+import {formatOrderMoney} from '../lib/orderState'
+import {getRefunds} from '../lib/refunds'
 import { specialOrderIds } from '../lib/specialOrders'
 import { readAll } from '../lib/readAll'
 import { dataCache } from '../lib/resourceCache'
@@ -7,7 +9,11 @@ import { Bell, CheckCheck, Package, Globe } from 'lucide-react'
 import { supabase, getAdminCacheScope } from '../lib/supabase'
 
 interface AdminNotification {
-  kind: 'order' | 'request'
+  kind: 'order' | 'request' | 'refund'
+  receipt_submitted_at?:string
+  order_id?:number
+  order_currency?:string
+  exchange_rate_at_order?:number
   id: number
   created_at: string
   client_name?: string
@@ -65,18 +71,20 @@ export default function NotificationBell() {
     const cached = !force ? dataCache.get<{ lastSeen: string; list: AdminNotification[] }>('admin:notifications') : null
     if (cached && cached.lastSeen === lastSeen) { setNotifications(cached.list); return }
     try {
-      const [orders, requests] = await Promise.all([
+      const [orders, requests, refunds] = await Promise.all([
         readAll<Omit<AdminNotification, 'kind'>>(supabase.from('orders')
-          .select('id, created_at, client_name, special_order_id, items, total_price_usd, total_price_uzs, status')
-          .gt('created_at', lastSeen).order('created_at', { ascending: false })),
+          .select('id, created_at, client_name, special_order_id, items, total_price_usd, total_price_uzs, order_currency, exchange_rate_at_order, receipt_submitted_at, status')
+          .or(`created_at.gt.${lastSeen},receipt_submitted_at.gt.${lastSeen}`).order('created_at', { ascending: false })),
         readAll<Omit<AdminNotification, 'kind'>>(supabase.from('china_requests')
           .select('id, created_at, product_name, status')
           .gt('created_at', lastSeen).order('created_at', { ascending: false })),
+        getRefunds(force),
       ])
       if (orders.error || requests.error) throw orders.error || requests.error
       if (generation !== loadGeneration.current || scope !== getAdminCacheScope()) return
       const list: AdminNotification[] = [
-        ...(orders.data || []).map(row => ({ ...row, kind: 'order' as const })),
+        ...(orders.data || []).map(row => ({ ...row, created_at:row.receipt_submitted_at||row.created_at, kind: 'order' as const })),
+        ...refunds.filter(r=>Date.parse(r.created_at)>Date.parse(lastSeen)&&['Проверка платежа','Ожидает возврата'].includes(r.status)).map(r=>({...r,kind:'refund' as const})),
         ...(requests.data || []).map(row => ({ ...row, kind: 'request' as const })),
       ].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       dataCache.set('admin:notifications', { list, lastSeen }, NOTIFICATIONS_TTL)
@@ -151,10 +159,7 @@ export default function NotificationBell() {
     })
   }
 
-  const formatPrice = (o: AdminNotification) =>
-    o.kind === 'request' ? o.status : o.total_price_uzs
-      ? `${Number(o.total_price_uzs).toLocaleString('ru-RU')} сум`
-      : `$${o.total_price_usd}`
+  const formatPrice = (o: AdminNotification) => o.kind==='order'?formatOrderMoney(o):o.status
 
   return (
     <div className="relative">
@@ -227,7 +232,7 @@ export default function NotificationBell() {
                   key={`${o.kind}:${o.id}`}
                   onClick={() => {
                     setOpen(false)
-                    navigate(o.kind === 'request' ? '/china' : '/orders')
+                    navigate(o.kind === 'refund'?`/refunds?order=${o.order_id}`:o.kind === 'request' ? '/china' : `/orders?order=${o.id}`)
                   }}
                   className="w-full text-left p-3.5 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent flex gap-3 transition-colors"
                 >
@@ -237,7 +242,7 @@ export default function NotificationBell() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">
-                        {o.kind === 'request' ? 'Спецзаказ' : 'Заказ'} №{o.id}
+                        {o.kind==='refund'?'Возврат':o.kind === 'request' ? 'Спецзаказ' : 'Заказ'} №{o.id}
                       </p>
                       <span className="text-[10px] text-[#8A8275] dark:text-gray-400 whitespace-nowrap flex-shrink-0">
                         {formatTime(o.created_at)}
