@@ -1,24 +1,39 @@
 import { supabase, privateFile, getAdminCacheScope } from './supabase'
 import { refundsCacheApi } from './cache'
+import { dataCache } from './resourceCache'
 
 export async function getRefunds(force = false): Promise<any[]> {
-  const cached = !force && refundsCacheApi.get()
-  if (cached) return cached
-  const scope=getAdminCacheScope()
-  const rows: any[] = []
-  let before: number | null = null
-  for (;;) {
-    const {data,error} = await supabase.rpc('store_admin_refunds', {p_before:before})
-    if (error) throw error
-    const page: any[] = data || []
-    rows.push(...page)
-    if (page.length < 100) break
-    before = page[page.length-1].id
-  }
-  if(scope!==getAdminCacheScope())throw new Error('Сеанс изменился. Откройте возвраты повторно')
-  refundsCacheApi.set(rows)
-  return rows
+  const scope = getAdminCacheScope()
+  const entry = await dataCache.load('admin:refunds', async () => {
+    const rows: any[] = []
+    let before: number | null = null
+    for (;;) {
+      const {data,error} = await supabase.rpc('store_admin_refunds', {p_before:before})
+      if (error) throw error
+      const page: any[] = data || []
+      rows.push(...page)
+      if (page.length < 100) break
+      before = page[page.length-1].id
+    }
+    if(scope!==getAdminCacheScope()) throw new Error('Сеанс изменился. Откройте возвраты повторно')
+    return {data:rows,savedAt:Date.now()}
+  },15_000,force)
+  return entry.data
 }
+export async function getRefundDetail(refund:any) {
+  const scope=getAdminCacheScope()
+  return dataCache.load(`admin:refunds:detail:${scope}:${refund.id}:${refund.updated_at||''}`,async()=>{
+    const [history,receipt,proof]=await Promise.all([
+      supabase.rpc('store_admin_refund_history',{p_id:refund.id}),
+      privateFile(refund.orders?.payment_screenshot_url,'payment-screenshots'),
+      privateFile(refund.proof_url,'refund-proofs'),
+    ])
+    if(history.error) throw history.error
+    if(scope!==getAdminCacheScope()) throw new Error('Сеанс изменился')
+    return {history:history.data||[],receipt,proof}
+  },60_000)
+}
+
 export async function refundAction(id:number, action:string, key:string, extra:Record<string,unknown> = {}) {
   const {data,error} = await supabase.rpc('store_admin_refund_action',{p_id:id,p_action:action,p_key:key,...extra})
   if(error) throw error

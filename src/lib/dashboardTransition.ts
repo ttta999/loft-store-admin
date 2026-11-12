@@ -1,7 +1,7 @@
 type Page = { key: string; pathname: string }
 type Origin = { path: string; scroll: number }
 const origins = new Map<string, Origin>()
-const sections = new Set(['/orders', '/china', '/products', '/categories', '/analytics', '/settings', '/brands'])
+const sections = new Set(['/orders', '/china', '/products', '/categories', '/analytics', '/settings', '/brands', '/refunds'])
 const name = 'loft-admin-surface'
 const frames = new Set<HTMLElement>()
 const header = () => document.querySelector<HTMLElement>('.sticky.top-0')

@@ -87,3 +87,18 @@ test('invalidating an unrelated resource preserves pending reads; matching inval
   await outdated
   assert.equal(cache.get('orders'), null)
 })
+
+test('refund list/history reads keep page caches, while refund actions invalidate them',async()=>{
+ const original=globalThis.fetch;let invalidations=0
+ globalThis.fetch=async()=>Response.json([])
+ const request=createDataFetch(()=>{invalidations++;dataCache.clear()})
+ try{
+  dataCache.set('admin:orders',{data:['cached-order']})
+  for(const rpc of ['store_admin_refunds','store_admin_refund_history']) await request(`https://fixture.test/rest/v1/rpc/${rpc}`,{method:'POST',body:'{}'})
+  assert.equal(invalidations,0)
+  assert.deepEqual(dataCache.get('admin:orders'),{data:['cached-order']})
+  await request('https://fixture.test/rest/v1/rpc/store_admin_refund_action',{method:'POST',body:'{}'})
+  assert.equal(invalidations,1)
+  assert.equal(dataCache.get('admin:orders'),null)
+ }finally{globalThis.fetch=original;dataCache.clear()}
+})
