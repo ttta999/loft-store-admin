@@ -43,10 +43,19 @@ export const getOrders = async () => {
     throw error
   }
   
+  const itemsOf=(order:any):any[]=>{try{const value=typeof order.items==='string'?JSON.parse(order.items):order.items;return Array.isArray(value)?value.filter(i=>i&&typeof i==='object'):[]}catch{return []}}
+  const requestId=(order:any,item:any)=>item.specialRequestId || (item.isSpecialOrder ? order.special_order_id : null)
+  const missing=[...new Set((data||[]).flatMap(order=>itemsOf(order).filter(item=>(item.isSpecialOrder||item.specialRequestId)&&!item.image).map(item=>String(requestId(order,item)||'')))).values()].filter(id=>/^[1-9][0-9]*$/.test(id))
+  const photos=new Map<string,string>()
+  for(let offset=0;offset<missing.length;offset+=100){
+    const {data:requests,error:photoError}=await supabase.from('china_requests').select('id,image_url').in('id',missing.slice(offset,offset+100))
+    if(photoError)console.error('Не удалось загрузить фотографии спецзаказов')
+    else for(const request of requests||[])if(request.image_url)photos.set(String(request.id),request.image_url)
+  }
   return Promise.all((data || []).map(async order => ({
     ...order, payment_screenshot_url: await privateFile(order.payment_screenshot_url, 'payment-screenshots'),
-    items: await Promise.all((order.items || []).map(async (item: any) => item.isSpecialOrder
-      ? { ...item, image: await privateFile(item.image, 'china-requests') } : item)),
+    items: await Promise.all(itemsOf(order).map(async (item: any,index:number) => item.isSpecialOrder||item.specialRequestId
+      ? { ...item, _photoKey:`${order.id}-${requestId(order,item)}-${index}`, _specialImageRef:item.image || photos.get(String(requestId(order,item))) || null, image: await privateFile(item.image || photos.get(String(requestId(order,item))) || null, 'china-requests') } : item)),
   })))
 }
 

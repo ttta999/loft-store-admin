@@ -1,3 +1,4 @@
+import SpecialOrderPhoto from '../components/SpecialOrderPhoto'
 import {orderStatus, nextOrdinaryStatuses, canManagerCancel, formatOrderMoney, formatMoney} from '../lib/orderState'
 import CancelOrderModal from '../components/CancelOrderModal'
 import { specialOrderIds, specialStatusTone, usesSpecialFulfillment, nextSpecialStatuses, SPECIAL_PICKUP, SPECIAL_DELIVERY } from '../lib/specialOrders'
@@ -48,7 +49,6 @@ interface StatusItem {
 const DELIVERY_STATUSES: StatusItem[] = [
   { old: 'Активный', new: 'Принят ' },
   { old: 'В обработке', new: 'Собирается ' },
-  { old: 'Готов', new: 'Упакован ' },
   { old: 'Выдан', new: 'Передан курьеру ' },
   { old: 'Доставлен', new: 'Доставлен ' },
   { old: 'Отменён', new: 'Отменен ' },
@@ -449,7 +449,7 @@ export default function OrdersPage() {
                         )}
                       </p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1">{order.client_phone}</p>
-                      <ul className="mt-2 space-y-1 text-sm text-[#1B2A4A] dark:text-white">{orderItems(order).map((item, index) => <li key={index}>{item.name || 'Товар'}{item.size ? ` · ${item.size}` : ''}{item.colorName ? ` · ${item.colorName}` : ''} × {item.quantity || 1}</li>)}</ul>
+                      <ul className="mt-2 space-y-1 text-sm text-[#1B2A4A] dark:text-white">{orderItems(order).map((item, index) => <li key={index} className="flex items-center gap-2">{(item.isSpecialOrder||item.specialRequestId)&&item.image&&<SpecialOrderPhoto item={item} size={40}/>}<span>{item.name || 'Товар'}{item.size ? ` · ${item.size}` : ''}{item.colorName ? ` · ${item.colorName}` : ''} × {item.quantity || 1}</span></li>)}</ul>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -601,13 +601,15 @@ export default function OrdersPage() {
                           {items.map((item: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-3 px-3 py-2">
                               {/* Миниатюра фото товара (заглушка для старых заказов без фото) */}
-                              {item.image ? (
+                              {item.image && (item.isSpecialOrder||item.specialRequestId) ? (
+                                <SpecialOrderPhoto item={item}/>
+                              ) : item.image ? (
                                 <img
                                   src={item.image || undefined}
                                   alt={item.name}
                                   className="w-12 h-12 rounded-lg object-cover border border-[#E8E2D5] dark:border-dark-border flex-shrink-0"
                                 />
-                              ) : (
+                              ) : (item.isSpecialOrder||item.specialRequestId) ? null : (
                                 <div className="w-12 h-12 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                                   <Package size={16} className="text-[#8A8275] dark:text-gray-300" />
                                 </div>
