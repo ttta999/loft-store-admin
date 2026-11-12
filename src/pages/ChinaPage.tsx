@@ -301,11 +301,6 @@ export default function ChinaPage() {
                         <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
                           Спецзаказ №{request.id}
                         </p>
-                        {request.image_url && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
-                            
-                          </span>
-                        )}
                       </div>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
                         {new Date(request.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
