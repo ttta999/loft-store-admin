@@ -1,6 +1,8 @@
+import { useAdminRefresh } from '../lib/adminLive'
+import { displayMoney, moneyNumber } from '../lib/money'
 import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getChinaRequests, updateChinaRequestStatus, supabase } from '../lib/supabase'
 import { chinaCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
@@ -57,13 +59,14 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function ChinaPage() {
   const navigate = useNavigate()
+  const [params]=useSearchParams()
   const [exchangeRate, setExchangeRate] = useState<number | null>(() => dataCache.get<number>('admin:exchange-rate'))
   const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
   const [loading, setLoading] = useState(() => !chinaCacheApi.get())
   const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState(params.get('status')||'all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(params.get('request'))
 
   const [showPriceModal, setShowPriceModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -78,12 +81,14 @@ export default function ChinaPage() {
     loadRequests(false)
   }, [])
 
-  const loadRequests = async (forceRefresh = false) => {
+  useAdminRefresh(['china_requests', 'settings'], () => loadRequests(false, true))
+
+  const loadRequests = async (forceRefresh = false, background = false) => {
     const cached = !forceRefresh ? chinaCacheApi.get() : null
     if (forceRefresh) {
       setRefreshing(true)
       dataCache.invalidate('admin:exchange-rate')
-    } else if (!cached) setLoading(true)
+    } else if (!cached) if (!background) setLoading(true)
     try {
       const [data, rate] = await Promise.all([
         cached ? Promise.resolve(cached) : getChinaRequests(),
@@ -311,7 +316,7 @@ export default function ChinaPage() {
                     <div className="text-right flex-shrink-0">
                       {request.manager_price ? (
                         <p className="text-sm font-bold text-[#C9A961]">
-                          {priceInSums !== null ? `${priceInSums.toLocaleString('ru-RU')} сум` : `$${request.manager_price}`}
+                          {priceInSums !== null ? displayMoney(priceInSums,'UZS') : `$${request.manager_price}`}
                         </p>
                       ) : (
                         <p className="text-xs text-[#8A8275] dark:text-gray-400">не оценён</p>
@@ -395,7 +400,7 @@ export default function ChinaPage() {
                                   Оценка менеджера
                                 </p>
                                 <p className="text-sm font-bold text-[#C9A961]">
-                                  ${request.manager_price} ≈ {priceInSums !== null ? priceInSums.toLocaleString('ru-RU') : '—'} сум
+                                  ${request.manager_price} ≈ {priceInSums !== null ? moneyNumber(priceInSums,'UZS') : '—'} сум
                                 </p>
                               </div>
                             </div>

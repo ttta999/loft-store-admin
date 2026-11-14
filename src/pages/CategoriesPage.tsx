@@ -1,3 +1,4 @@
+import { useAdminRefresh } from '../lib/adminLive'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -50,9 +51,10 @@ export default function CategoriesPage() {
     load(false)
   }, [])
 
-  const load = async (force: boolean) => {
+  useAdminRefresh(['categories', 'subcategories'],()=>load(false,true))
+  const load = async (force: boolean, background = false) => {
     if (force) setRefreshing(true)
-    else if (!categoriesCacheApi.get()) setLoading(true)
+    else if (!categoriesCacheApi.get()) if (!background) setLoading(true)
     try {
       const data = await fetchCategoriesTree(force)
       setTree(data)
@@ -249,7 +251,7 @@ export default function CategoriesPage() {
             </button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Категории</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Категории</h1><button className="text-xs font-bold text-[#8A8275] dark:text-gray-300 underline ml-3" onClick={()=>navigate('/size-charts')}>Таблицы размеров</button>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Layers size={18} className="text-[#C9A961]" />
               </span>

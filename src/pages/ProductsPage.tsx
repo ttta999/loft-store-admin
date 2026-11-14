@@ -1,3 +1,5 @@
+import RecommendationPicker, { type Recommendations } from '../components/RecommendationPicker'
+import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { Lightbulb } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
@@ -193,6 +195,8 @@ export default function ProductsPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden' | 'sale'>('all')
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [recommendations,setRecommendations]=useState<Recommendations>({similar:[],outfit:[]})
+  const [recommendationsReady,setRecommendationsReady]=useState(false)
   const [nameRu, setNameRu] = useState('')
   const [nameUz, setNameUz] = useState('')
   const [descriptionRu, setDescriptionRu] = useState('')
@@ -260,7 +264,9 @@ export default function ProductsPage() {
     loadAll(false)
   }, [])
 
-  const loadAll = async (forceRefresh = false) => {
+  useAdminRefresh(['products', 'product_variants', 'product_colors', 'categories', 'subcategories', 'brands'], () => loadAll(false, true))
+
+  const loadAll = async (forceRefresh = false, background = false) => {
     if (forceRefresh) {
       productsCacheApi.invalidate()
       variantsCacheApi.invalidate()
@@ -289,7 +295,7 @@ export default function ProductsPage() {
 
     if (!productsValid && !variantsValid && !brandsValid) {
       if (forceRefresh) setRefreshing(true)
-      else setLoading(true)
+      else if (!background) setLoading(true)
     }
 
     try {
@@ -643,7 +649,15 @@ export default function ProductsPage() {
     })
   }
 
+  useEffect(()=>{
+    if(!showModal)return
+    let active=true;setRecommendations({similar:[],outfit:[]});setRecommendationsReady(!editingProduct)
+    if(editingProduct)void supabase.from('product_recommendations').select('target_id,kind,position').eq('product_id',editingProduct.id).order('position').then(({data,error})=>{if(!active)return;if(error){toast.error('Не удалось загрузить рекомендации. Откройте товар повторно');return}setRecommendations({similar:(data||[]).filter(v=>v.kind==='similar').map(v=>v.target_id),outfit:(data||[]).filter(v=>v.kind==='outfit').map(v=>v.target_id)});setRecommendationsReady(true)})
+    return()=>{active=false}
+  },[showModal,editingProduct?.id])
+
   const handleSave = async () => {
+    if(!recommendationsReady)return
     const newErrors: Record<string, string> = {}
     if (!nameRu.trim()) newErrors.nameRu = 'Укажите название (RU)'
     if (!priceUsd || parseFloat(priceUsd) <= 0) newErrors.priceUsd = 'Укажите цену больше 0'
@@ -685,7 +699,8 @@ export default function ProductsPage() {
       const desiredVariants = validColors.length
         ? validColors.flatMap(c => Object.entries(sizesByColor[c.id] || {}).map(([size_value, stock]) => ({ size_value, stock, color_key: c.id })))
         : Object.entries(selectedSizes).map(([size_value, stock]) => ({ size_value, stock, color_key: null }))
-      const { error } = await supabase.rpc('store_admin_save_product', {
+      const { error } = await supabase.rpc('store_admin_save_product_recommendations', {
+        p_recommendations:recommendations,
         p_id: editingProduct?.id || null, p_product: productData,
         p_colors: validColors.map((c, i) => ({ key: c.id, name_ru: c.name_ru.trim(), name_uz: c.name_uz?.trim() || null, hex_code: c.hex_code || null, images: c.images || [], sort_order: i })),
         p_variants: desiredVariants, p_expected: editingProduct ? editBaseline : null,
@@ -1737,20 +1752,23 @@ export default function ProductsPage() {
                   </>
                 )}
               </ModalSection>
+              <ModalSection icon={<Star size={16}/>} title="Рекомендации" subtitle="Похожие товары и дополнения к образу">
+                {recommendationsReady?<RecommendationPicker products={products} currentId={editingProduct?.id} value={recommendations} onChange={setRecommendations}/>:<p className="text-sm text-[#8A8275] dark:text-gray-300">Загрузка рекомендаций...</p>}
+              </ModalSection>
             </div>
 
             {/* ✅ Sticky-футер */}
             <div className="flex gap-3 px-5 py-4 border-t border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card rounded-b-2xl flex-shrink-0">
               <button
                 onClick={() => !saving && setShowModal(false)}
-                disabled={saving}
+                disabled={saving || !recommendationsReady}
                 className="flex-1 px-4 py-3 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl font-bold text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors disabled:opacity-50"
               >
                 Отмена
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !recommendationsReady}
                 className="flex-1 px-4 py-3 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] rounded-xl font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {saving ? (

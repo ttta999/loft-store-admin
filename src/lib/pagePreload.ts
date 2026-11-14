@@ -40,7 +40,11 @@ export const CategoriesPage = CategoriesPageResource.Component
 const RefundsPageResource = deferredPage(() => import('../pages/RefundsPage'))
 export const RefundsPage = RefundsPageResource.Component
 
+const CampaignsResource = deferredPage(() => import('../pages/CampaignsPage'))
+export const CampaignsPage = CampaignsResource.Component
+
 const loaders: Record<string, () => Promise<unknown>> = {
+  '/campaigns': CampaignsResource.load,
   '/refunds': RefundsPageResource.load,
   '/orders': loadOrdersPage,
   '/china': loadChinaPage,

@@ -1,3 +1,4 @@
+import { useAdminRefresh } from '../lib/adminLive'
 import { Check as TipCheck, X as TipClose, Trash2 as TipTrash, Image as TipImage } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -48,7 +49,8 @@ export default function BrandsPage() {
     loadBrands(false)
   }, [])
 
-  const loadBrands = async (forceRefresh = false) => {
+  useAdminRefresh(['brands'],()=>loadBrands(false,true))
+  const loadBrands = async (forceRefresh = false, background = false) => {
     if (!forceRefresh) {
       const cached = brandsCacheApi.get()
       if (cached && isFullBrandRows(cached as any[])) {
@@ -60,7 +62,7 @@ export default function BrandsPage() {
     }
 
     if (forceRefresh) setRefreshing(true)
-    else setLoading(true)
+    else if (!background) setLoading(true)
 
     try {
       const { data, error } = await supabase

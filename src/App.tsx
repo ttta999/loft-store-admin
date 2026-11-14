@@ -1,4 +1,7 @@
-import { RefundsPage, OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
+import SizeChartsPage from './pages/SizeChartsPage'
+import { useAdminLive } from './lib/adminLive'
+import { supabase } from './lib/supabase'
+import { CampaignsPage, RefundsPage, OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
 import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
 import { useState, useEffect } from 'react'
@@ -39,11 +42,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function AdminLiveBridge() {
+ const [enabled,setEnabled]=useState(false)
+ useAdminLive(enabled)
+ useEffect(()=>{
+  let active=true,generation=0
+  const check=async()=>{const id=++generation;const user=await getCurrentUser();if(active&&id===generation)setEnabled(!!user)}
+  const {data:{subscription}}=supabase.auth.onAuthStateChange(()=>{queueMicrotask(()=>void check())})
+  void check()
+  return()=>{active=false;generation++;subscription.unsubscribe()}
+ },[])
+ return null
+}
 export default function App() {
   return (
     <BrowserRouter>
       <AppToaster />
+      <AdminLiveBridge />
       <AnimatedRoutes>
+        <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>}/>
+        <Route path="/size-charts" element={<ProtectedRoute><SizeChartsPage /></ProtectedRoute>}/>
         <Route path="/login" element={<LoginPage onLogin={() => {}} />} />
         <Route path="/" element={
           <ProtectedRoute>

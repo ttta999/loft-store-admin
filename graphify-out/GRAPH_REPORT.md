@@ -1,23 +1,23 @@
-# Graph Report - loft-admin-badge  (2026-11-12)
+# Graph Report - loft-admin-badge  (2026-11-13)
 
 ## Corpus Check
-- 70 files · ~44,215 words
+- 79 files · ~46,854 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .css 2, (none) 1)
 
 ## Summary
-- 498 nodes · 1016 edges · 22 communities (17 shown, 5 thin omitted)
+- 545 nodes · 1206 edges · 24 communities (19 shown, 5 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3b227ac5`
+- Built from commit: `33e6537c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Зависимости и инструменты
-- DashboardPage.tsx
+- supabase.ts
 - Иконки и справочники
 - Вход и оболочка
 - Сервер и уведомления
@@ -26,10 +26,11 @@
 - Настройки оплаты
 - CategoriesPage.tsx
 - Браузерные проверки
-- lucide-react
+- react-router-dom
 - Типы клиентского кода
 - Типы инструментов сборки
 - Типы серверного кода
+- ChinaPage.tsx
 - Настройки TypeScript
 - Иконка джинсов
 - Публикация и заголовки
@@ -38,79 +39,80 @@
 - TESTING.md
 - AGENTS.md
 - CACHING.md
+- CampaignsPage.tsx
 
 ## God Nodes (most connected - your core abstractions)
-1. `react` - 26 edges
-2. `OrdersPage()` - 19 edges
-3. `supabase` - 17 edges
-4. `compilerOptions` - 17 edges
-5. `compilerOptions` - 16 edges
-6. `react-router-dom` - 16 edges
-7. `App()` - 15 edges
-8. `lucide-react` - 15 edges
-9. `sonner` - 14 edges
-10. `RefundDetail()` - 13 edges
+1. `react` - 33 edges
+2. `useAdminRefresh()` - 29 edges
+3. `supabase` - 24 edges
+4. `OrdersPage()` - 21 edges
+5. `lucide-react` - 21 edges
+6. `react-router-dom` - 19 edges
+7. `App()` - 18 edges
+8. `compilerOptions` - 17 edges
+9. `sonner` - 17 edges
+10. `compilerOptions` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `handler()` --calls--> `exchangeRate()`  [EXTRACTED]
   api/getExchangeRate.ts → server/exchangeRate.ts
-- `AnalyticsPage()` --indirect_call--> `isConfirmedRevenue()`  [INFERRED]
-  src/pages/AnalyticsPage.tsx → src/lib/revenue.ts
-- `AnalyticsPage()` --calls--> `privateFile()`  [EXTRACTED]
-  src/pages/AnalyticsPage.tsx → src/lib/supabase.ts
-- `getOrders()` --calls--> `readAll()`  [EXTRACTED]
-  src/lib/supabase.ts → src/lib/readAll.ts
-- `OrdersPage()` --calls--> `getOrders()`  [EXTRACTED]
-  src/pages/OrdersPage.tsx → src/lib/supabase.ts
+- `AdminLiveBridge()` --calls--> `useAdminLive()`  [EXTRACTED]
+  src/App.tsx → src/lib/adminLive.ts
+- `App()` --calls--> `AnimatedRoutes()`  [EXTRACTED]
+  src/App.tsx → src/components/AnimatedRoutes.tsx
+- `App()` --calls--> `DashboardPage()`  [EXTRACTED]
+  src/App.tsx → src/pages/DashboardPage.tsx
+- `App()` --calls--> `SizeChartsPage()`  [EXTRACTED]
+  src/App.tsx → src/pages/SizeChartsPage.tsx
 
 ## Import Cycles
 - None detected.
 
-## Communities (22 total, 5 thin omitted)
+## Communities (24 total, 5 thin omitted)
 
 ### Community 0 - "Зависимости и инструменты"
-Cohesion: 0.07
-Nodes (41): devDependencies, eslint@^10.3.0, @eslint/js@^10.0.1, eslint-plugin-react-hooks@^7.1.1, eslint-plugin-react-refresh@^0.5.2, globals@^17.6.0, tailwindcss@^4.3.0, @tailwindcss/vite@^4.3.0 (+33 more)
+Cohesion: 0.05
+Nodes (51): dependencies, lucide-react@^1.17.0, react@^19.2.6, react-dom@^19.2.6, react-icons@^5.7.0, react-router-dom@7.18.2, sonner@^2.0.7, @supabase/supabase-js@2.108.1 (+43 more)
 
-### Community 1 - "DashboardPage.tsx"
-Cohesion: 0.14
-Nodes (20): chinaCacheApi, dashboardCountsCacheApi, invalidateAllCaches(), ChinaPageResource, warmPage(), confirmedRevenue(), isConfirmedRevenue(), revenueStatuses (+12 more)
+### Community 1 - "supabase.ts"
+Cohesion: 0.09
+Nodes (47): groups, ManagerTasks(), names, AdminNotification, NotificationBell(), seenStorageKey(), labels, SpecialOrderPhoto() (+39 more)
 
 ### Community 2 - "Иконки и справочники"
 Cohesion: 0.07
-Nodes (36): CategoryIconProps, ICON_MAP, resolveCategoryIcon(), GROUP_LABELS, GROUP_ORDER, IconPickerProps, BackpackIcon, BeanieIcon (+28 more)
+Nodes (38): CategoryIcon(), CategoryIconProps, ICON_MAP, resolveCategoryIcon(), GROUP_LABELS, GROUP_ORDER, IconPicker(), IconPickerProps (+30 more)
 
 ### Community 3 - "Вход и оболочка"
-Cohesion: 0.08
-Nodes (46): react-dom@^19.2.6, react-router-dom@7.18.2, react, react-dom, react-router-dom, App(), ProtectedRoute(), AnimatedRoutes() (+38 more)
+Cohesion: 0.10
+Nodes (35): react, sonner, AdminLiveBridge(), App(), ProtectedRoute(), AppToaster(), readTheme(), subscribe() (+27 more)
 
 ### Community 4 - "Сервер и уведомления"
 Cohesion: 0.09
 Nodes (10): handler(), handler(), @supabase/supabase-js, typescript, CachedRate, exchangeRate(), valid(), VercelRequest (+2 more)
 
 ### Community 5 - "cache.ts"
-Cohesion: 0.08
-Nodes (37): analyticsCacheApi, AnalyticsCacheEntry, AnalyticsPeriod, BrandStat, categoryRowsCacheApi, CategoryStat, colorsCacheApi, DailyStatsEntry (+29 more)
+Cohesion: 0.06
+Nodes (46): lucide-react, RecommendationPicker(), Recommendations, analyticsCacheApi, AnalyticsCacheEntry, AnalyticsPeriod, BrandStat, categoryRowsCacheApi (+38 more)
 
 ### Community 6 - "OrdersPage.tsx"
-Cohesion: 0.07
-Nodes (59): CancelOrderModal(), AdminNotification, NotificationBell(), seenStorageKey(), SpecialOrderPhoto(), ordersCacheApi, refundsCacheApi, cancellationNeedsReview() (+51 more)
+Cohesion: 0.11
+Nodes (32): CancelOrderModal(), labels, OrderHistory(), ordersCacheApi, cancellationNeedsReview(), canClientCancel(), canManagerCancel(), formatMoney() (+24 more)
 
 ### Community 7 - "Настройки оплаты"
-Cohesion: 0.10
-Nodes (24): PaymentCardsSettings(), createDataFetch(), SettingsPageResource, formatCardNumber(), parsePaymentCards(), PaymentCard, PaymentCards, PaymentCurrency (+16 more)
+Cohesion: 0.09
+Nodes (23): PaymentCardsSettings(), ReminderSettings(), SettingsPageResource, formatCardNumber(), parsePaymentCards(), PaymentCard, PaymentCards, PaymentCurrency (+15 more)
 
 ### Community 8 - "CategoriesPage.tsx"
-Cohesion: 0.21
-Nodes (17): CategoryIcon(), IconPicker(), categoriesCacheApi, CategoryRow, CategoryTree, fetchCategoriesTree(), invalidateCategoriesCache(), logCategoryChange() (+9 more)
+Cohesion: 0.23
+Nodes (15): categoriesCacheApi, CategoryRow, CategoryTree, fetchCategoriesTree(), invalidateCategoriesCache(), logCategoryChange(), slugify(), SubcategoryRow (+7 more)
 
 ### Community 9 - "Браузерные проверки"
 Cohesion: 0.17
 Nodes (13): ADMIN, catalog(), Harness, install(), jwt(), now(), productId, session() (+5 more)
 
-### Community 10 - "lucide-react"
-Cohesion: 0.13
-Nodes (17): dependencies, lucide-react@^1.17.0, react@^19.2.6, react-icons@^5.7.0, sonner@^2.0.7, @supabase/supabase-js@2.108.1, lucide-react, react-icons (+9 more)
+### Community 10 - "react-router-dom"
+Cohesion: 0.16
+Nodes (21): react-router-dom, AnimatedRoutes(), RouteFrame(), getSavedPositions(), ScrollRestoration(), captureAdminHeader(), card(), clearDashboardTransition() (+13 more)
 
 ### Community 11 - "Типы клиентского кода"
 Cohesion: 0.11
@@ -124,6 +126,10 @@ Nodes (17): compilerOptions, allowImportingTsExtensions, erasableSyntaxOnly, lib
 Cohesion: 0.13
 Nodes (14): compilerOptions, allowImportingTsExtensions, lib, module, moduleResolution, noEmit, noUnusedLocals, noUnusedParameters (+6 more)
 
+### Community 14 - "ChinaPage.tsx"
+Cohesion: 0.23
+Nodes (13): chinaCacheApi, catalogMoney(), displayMoney(), MoneyCurrency, moneyNumber(), roundUsd(), ChinaPageResource, getChinaRequests() (+5 more)
+
 ### Community 15 - "Настройки TypeScript"
 Cohesion: 0.40
 Nodes (4): compilerOptions, rewriteRelativeImportExtensions, files, references
@@ -136,23 +142,27 @@ Nodes (6): Deployment order, Inventory and payments, Notifications and monitorin
 Cohesion: 0.50
 Nodes (3): Expanding the ESLint configuration, React Compiler, React + TypeScript + Vite
 
+### Community 23 - "CampaignsPage.tsx"
+Cohesion: 0.20
+Nodes (12): CampaignContent, campaignMessage(), escape(), CampaignsResource, blank(), CampaignsPage(), date(), Draft (+4 more)
+
 ## Knowledge Gaps
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `Вход и оболочка` to `Зависимости и инструменты`, `DashboardPage.tsx`, `Иконки и справочники`, `cache.ts`, `OrdersPage.tsx`, `Настройки оплаты`, `CategoriesPage.tsx`, `lucide-react`?**
-  _High betweenness centrality (0.215) - this node is a cross-community bridge._
+- **Why does `react` connect `Вход и оболочка` to `Зависимости и инструменты`, `supabase.ts`, `Иконки и справочники`, `cache.ts`, `OrdersPage.tsx`, `Настройки оплаты`, `CategoriesPage.tsx`, `react-router-dom`, `ChinaPage.tsx`, `CampaignsPage.tsx`?**
+  _High betweenness centrality (0.212) - this node is a cross-community bridge._
 - **Should `Зависимости и инструменты` be split into smaller, more focused modules?**
-  _Cohesion score 0.06659619450317125 - nodes in this community are weakly interconnected._
-- **Why does `@supabase/supabase-js` connect `Сервер и уведомления` to `Зависимости и инструменты`, `lucide-react`, `OrdersPage.tsx`?**
-  _High betweenness centrality (0.072) - this node is a cross-community bridge._
-- **Should `DashboardPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.14492753623188406 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05241090146750524 - nodes in this community are weakly interconnected._
+- **Why does `@supabase/supabase-js` connect `Сервер и уведомления` to `Зависимости и инструменты`, `supabase.ts`?**
+  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+- **Should `supabase.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.09114183307731695 - nodes in this community are weakly interconnected._
 - **Why does `@playwright/test` connect `Браузерные проверки` to `Зависимости и инструменты`?**
-  _High betweenness centrality (0.063) - this node is a cross-community bridge._
+  _High betweenness centrality (0.059) - this node is a cross-community bridge._
 - **Should `Иконки и справочники` be split into smaller, more focused modules?**
-  _Cohesion score 0.06736353077816493 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06553911205073996 - nodes in this community are weakly interconnected._
 - **Should `Вход и оболочка` be split into smaller, more focused modules?**
-  _Cohesion score 0.07662337662337662 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09513742071881606 - nodes in this community are weakly interconnected._

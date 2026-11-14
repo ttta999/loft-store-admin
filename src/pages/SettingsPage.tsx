@@ -1,3 +1,4 @@
+import ReminderSettings from '../components/ReminderSettings'
 import PaymentCardsSettings from '../components/PaymentCardsSettings'
 import { ClipboardList } from 'lucide-react'
 import { CheckCircle2, CircleSlash } from 'lucide-react'
@@ -57,7 +58,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
 
   const [cached] = useState(getSettingsCache)
-  const [exchangeRate, setExchangeRate] = useState<number>(cached?.exchangeRate ?? 12100)
+  const [exchangeRate, setExchangeRate] = useState<number>(cached?.exchangeRate ?? 0)
   const [loading, setLoading] = useState(!cached)
   const [saving, setSaving] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string>(cached?.lastUpdated ?? '')
@@ -95,11 +96,12 @@ export default function SettingsPage() {
 
     setLoading(true)
     try {
-      let rate = 12100, updBy = 'system', version = 0, updAt = '', sale = false, delivery = 0, threshold = 0
+      let rate = 0, updBy = 'system', version = 0, updAt = '', sale = false, delivery = 0, threshold = 0
 
       const { data: rateData, error: rateError } = await supabase.from('settings').select('*').eq('key', 'exchange_rate').single()
       if (!rateError && rateData) {
-        rate = (rateData.value as any)?.rate || 12100
+        rate = Number((rateData.value as any)?.rate)
+        if (!Number.isFinite(rate) || rate <= 0) throw new Error('Курс магазина недоступен')
         updBy = (rateData.value as any)?.updated_by || 'system'
         version = (rateData.value as any)?.version || 0
         updAt = rateData.updated_at ? new Date(rateData.updated_at).toLocaleString('ru-RU') : ''
@@ -266,6 +268,7 @@ export default function SettingsPage() {
 
       <div data-loft-content className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PaymentCardsSettings />
+        <ReminderSettings/>
         {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2 flex flex-col">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">

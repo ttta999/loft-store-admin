@@ -1,3 +1,4 @@
+import { useAdminRefresh } from '../lib/adminLive'
 import {formatOrderMoney} from '../lib/orderState'
 import {getRefunds} from '../lib/refunds'
 import { specialOrderIds } from '../lib/specialOrders'
@@ -93,6 +94,8 @@ export default function NotificationBell() {
       console.error('Ошибка загрузки уведомлений:', error)
     }
   }
+
+  useAdminRefresh(['orders','china_requests','refunds'],()=>loadNotifications())
 
   // ✅ Polling каждые 30 секунд
   useEffect(() => {

@@ -1,3 +1,6 @@
+import ManagerTasks from '../components/ManagerTasks'
+import { displayMoney } from '../lib/money'
+import { useAdminRefresh } from '../lib/adminLive'
 import {getRefunds} from '../lib/refunds'
 import {refundsCacheApi} from '../lib/cache'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
@@ -11,6 +14,7 @@ import {
   invalidateAllCaches,
 } from '../lib/cache'
 import {
+  Bell,
   Undo2,
   Package,
   Globe,
@@ -105,7 +109,9 @@ export default function DashboardPage() {
     loadData(false)
   }, [])
 
-  const loadData = async (forceRefresh = false) => {
+  useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => loadData(false, true))
+
+  const loadData = async (forceRefresh = false, background = false) => {
     // 1. Читаем все три кеша
     const cachedOrders = !forceRefresh ? ordersCacheApi.get() : null
     const cachedChina = !forceRefresh ? chinaCacheApi.get() : null
@@ -132,7 +138,7 @@ export default function DashboardPage() {
         }
         setLoading(false)
       } else {
-        setLoading(true)
+        if (!background) setLoading(true)
       }
     }
 
@@ -270,11 +276,13 @@ export default function DashboardPage() {
           <KpiCard
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
             label="Выручка"
-            value={`$${totalRevenue.toLocaleString()}`}
+            value={displayMoney(totalRevenue, 'USD')}
             subtitle="Подтверждённая оплата"
             accent
           />
         </div>
+
+        <ManagerTasks/>
 
         {/* ✅ Сетка разделов: карточки-ссылки */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -332,6 +340,7 @@ export default function DashboardPage() {
             destination="/brands"
             onClick={() => navigate('/brands')}
           />
+          <NavCard icon={<Bell size={20} className="text-[#C9A961]" />} title="Рассылки" description="Новости и предложения для подписавшихся клиентов" destination="/campaigns" onClick={()=>navigate('/campaigns')} />
         </div>
       </div>
     </div>

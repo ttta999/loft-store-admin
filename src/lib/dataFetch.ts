@@ -10,7 +10,8 @@ export function createDataFetch(onMutation: () => void) {
     if (!table) return fetch(input, liveInit)
     if (table === 'rpc') {
       const response = await fetch(input, liveInit)
-      const readOnly = ['get_product_popularity', 'store_is_admin', 'store_admin_auth_state', 'store_available_sizes', 'store_product_available', 'store_admin_variants', 'store_admin_refunds', 'store_admin_refund_history'].includes(url.pathname.split('/').pop() || '')
+      const settingsRead=url.pathname.endsWith('/store_admin_reminder_settings')&&(()=>{try{return JSON.parse(String(init?.body||'{}')).p_value==null}catch{return false}})()
+      const readOnly = settingsRead || ['store_admin_campaign_audience', 'store_admin_campaign_tests', 'store_admin_tasks','store_admin_order_history','get_product_popularity', 'store_is_admin', 'store_admin_auth_state', 'store_available_sizes', 'store_product_available', 'store_admin_variants', 'store_admin_refunds', 'store_admin_refund_history'].includes(url.pathname.split('/').pop() || '')
       if (response.ok && !readOnly && method !== 'GET' && method !== 'HEAD') onMutation()
       return response
     }
@@ -20,7 +21,7 @@ export function createDataFetch(onMutation: () => void) {
       return response
     }
     // Inventory can change between viewing an item and checkout; never cache its HTTP response.
-    if (table === 'product_variants' || init?.signal || (input instanceof Request && input.signal.aborted)) return fetch(input, liveInit)
+    if (table === 'store_data_revisions' || table === 'product_variants' || init?.signal || (input instanceof Request && input.signal.aborted)) return fetch(input, liveInit)
     const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
     const key = `http:${method}:${url.href}:${headers.get('authorization')}:${headers.get('accept')}:${headers.get('range')}:${headers.get('prefer')}`
     const response = await dataCache.load(key, async () => {

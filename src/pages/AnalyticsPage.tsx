@@ -1,3 +1,5 @@
+import { displayMoney } from '../lib/money'
+import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect, useRef } from 'react'
@@ -127,7 +129,9 @@ export default function AnalyticsPage() {
     }))
   }
 
-  const loadAnalytics = async (selectedPeriod: AnalyticsPeriod, forceRefresh = false) => {
+  useAdminRefresh(['orders','refunds','products','brands','categories','subcategories'], () => loadAnalytics(period, false, true))
+
+  const loadAnalytics = async (selectedPeriod: AnalyticsPeriod, forceRefresh = false, background = false) => {
     const request = ++loadRequest.current
     if (!forceRefresh) {
       const cached = analyticsCacheApi.get(selectedPeriod)
@@ -139,7 +143,7 @@ export default function AnalyticsPage() {
     }
 
     if (forceRefresh) setRefreshing(true)
-    else setLoading(true)
+    else if (!background) setLoading(true)
 
     try {
       const entry = await computeAnalytics(selectedPeriod)
@@ -367,7 +371,7 @@ export default function AnalyticsPage() {
           <KpiCard
             icon={<DollarSign size={20} className="text-[#C9A961]" />}
             label="Выручка"
-            value={`$${Math.round(orderStats?.totalRevenue || 0).toLocaleString()}`}
+            value={displayMoney(orderStats?.totalRevenue || 0, 'USD')}
             subtitle="Подтверждённая, за период"
             accent
           />
@@ -471,7 +475,7 @@ export default function AnalyticsPage() {
                       />
                     </div>
                     <span className="text-xs font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap w-20 text-right">
-                      ${Math.round(cat.revenue).toLocaleString()}
+                      {displayMoney(cat.revenue, 'USD')}
                     </span>
                     <span className="text-[10px] text-[#8A8275] dark:text-gray-300 whitespace-nowrap w-14 text-right">
                       {cat.sold} шт.
@@ -511,7 +515,7 @@ export default function AnalyticsPage() {
                       </div>
                     </div>
                     <p className="text-sm font-bold text-[#C9A961] whitespace-nowrap">
-                      ${Math.round(b.revenue).toLocaleString()}
+                      {displayMoney(b.revenue, 'USD')}
                     </p>
                   </div>
                 ))
@@ -547,7 +551,7 @@ export default function AnalyticsPage() {
                         style={{ width: `${Math.min((day.revenue / maxRevenue) * 100, 100)}%` }}
                       />
                       <span className="text-sm font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap">
-                        ${Math.round(day.revenue).toLocaleString()}
+                        {displayMoney(day.revenue, 'USD')}
                       </span>
                     </div>
                   </div>
@@ -593,7 +597,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                   <p className="text-sm font-bold text-[#C9A961] whitespace-nowrap ml-3">
-                    ${Math.round(product.revenue).toLocaleString()}
+                    {displayMoney(product.revenue, 'USD')}
                   </p>
                 </div>
               ))

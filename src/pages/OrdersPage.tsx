@@ -1,3 +1,5 @@
+import OrderHistory from '../components/OrderHistory'
+import { useAdminRefresh } from '../lib/adminLive'
 import SpecialOrderPhoto from '../components/SpecialOrderPhoto'
 import {orderStatus, nextOrdinaryStatuses, canManagerCancel, formatOrderMoney, formatMoney} from '../lib/orderState'
 import CancelOrderModal from '../components/CancelOrderModal'
@@ -135,7 +137,9 @@ export default function OrdersPage() {
     loadOrders(false)
   }, [])
 
-  const loadOrders = async (forceRefresh = false) => {
+  useAdminRefresh(['orders', 'refunds'], () => loadOrders(false, true))
+
+  const loadOrders = async (forceRefresh = false, background = false) => {
     // ✅ Проверяем кеш
     if (!forceRefresh) {
       const cached = ordersCacheApi.get()
@@ -152,7 +156,7 @@ export default function OrdersPage() {
     if (forceRefresh) {
       setRefreshing(true)
     } else {
-      setLoading(true)
+      if (!background) setLoading(true)
     }
 
     try {
@@ -267,6 +271,11 @@ export default function OrdersPage() {
     : orders
 
   const filteredOrders = searchFiltered.filter(order => {
+    const task=searchParams.get('task')
+    if(task==='payment'&&!(order.payment_method==='online_card'&&order.receipt_submitted_at&&order.payment_status==='pending'&&order.status!=='Отменён'))return false
+    if(task==='supplier'&&!(order.special_fulfillment&&order.status==='Принят'&&order.payment_status==='paid'&&order.paid_at))return false
+    if(task==='prepare'&&order.payment_method==='online_card'&&!(order.payment_status==='paid'&&order.paid_at))return false
+    if(task==='prepare'&&!((!order.special_fulfillment&&['Активный','В обработке'].includes(order.status))||(order.special_fulfillment&&order.status==='Собирается')))return false
     if (filter === 'delivery' && order.delivery_method !== 'delivery') return false
     if (filter === 'pickup' && order.delivery_method !== 'pickup') return false
     if (statusFilter !== 'all' && (['Отменён клиентом','Отменён магазином'].includes(statusFilter) ? orderStatus(order)!==statusFilter : order.status!==statusFilter)) return false
@@ -635,6 +644,8 @@ export default function OrdersPage() {
                           ))}
                         </div>
                       )}
+
+                      <OrderHistory order={order} open={isOpen}/>
 
                       {/* Действия: сообщение + статусы */}
                       <div className="flex flex-wrap items-center gap-2">
