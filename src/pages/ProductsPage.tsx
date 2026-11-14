@@ -1,3 +1,5 @@
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
+import PageSkeleton from '../components/PageSkeleton'
 import RecommendationPicker, { type Recommendations } from '../components/RecommendationPicker'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
@@ -146,6 +148,8 @@ function ModalSection({ icon, title, subtitle, right, children }: {
   right?: React.ReactNode
   children: React.ReactNode
 }) {
+ useAdminLanguage()
+
   return (
     <section className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
       <div className="flex items-center justify-between gap-3 p-4 border-b border-[#E8E2D5] dark:border-dark-border">
@@ -154,8 +158,8 @@ function ModalSection({ icon, title, subtitle, right, children }: {
             {icon}
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-[#1B2A4A] dark:text-white leading-tight">{title}</h3>
-            {subtitle && <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{subtitle}</p>}
+            <h3 className="font-bold text-[#1B2A4A] dark:text-white leading-tight">{tx(title)}</h3>
+            {subtitle && <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{tx(subtitle)}</p>}
           </div>
         </div>
         {right && <div className="flex-shrink-0">{right}</div>}
@@ -167,17 +171,21 @@ function ModalSection({ icon, title, subtitle, right, children }: {
 
 // ✅ Лейбл поля формы
 function FieldLabel({ text, flag, required, hint }: { text: string; flag?: string; required?: boolean; hint?: string }) {
+ useAdminLanguage()
+
   return (
     <label className="flex items-center gap-1.5 text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5">
-      <span>{text}</span>
+      <span>{tx(text)}</span>
       {flag && <span className="text-sm leading-none">{flag}</span>}
       {required && <span className="text-[#9B3B3B] dark:text-red-400">*</span>}
-      {hint && <span className="text-[10px] font-normal text-[#8A8275] dark:text-gray-400 normal-case tracking-normal">— {hint}</span>}
+      {hint && <span className="text-[10px] font-normal text-[#8A8275] dark:text-gray-400 normal-case tracking-normal">— {tx(hint)}</span>}
     </label>
   )
 }
 
 export default function ProductsPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [cachedProducts] = useState(() => { const rows = productsCacheApi.get(); return rows && isFullProductRows(rows) ? rows as Product[] : null })
   const [products, setProducts] = useState<Product[]>(cachedProducts ?? [])
@@ -341,7 +349,7 @@ export default function ProductsPage() {
     } catch (error) {
       console.error('Ошибка загрузки:', error)
       if (!productsValid && !variantsValid && !brandsValid) {
-        toast.error('Ошибка при загрузке товаров')
+        toast.error(uiError('Ошибка при загрузке товаров'))
       }
     } finally {
       setLoading(false)
@@ -362,12 +370,12 @@ export default function ProductsPage() {
 
     const remaining = MAX_IMAGES - images.length
     if (remaining <= 0) {
-      toast.error(`Максимум ${MAX_IMAGES} фото`)
+      toast.error(uiError(`Максимум ${MAX_IMAGES} фото`))
       return
     }
     const filesToUpload = Array.from(files).slice(0, remaining)
     if (files.length > remaining) {
-      toast.info(`Загрузим первые ${remaining} фото — лимит ${MAX_IMAGES}`)
+      toast.info(tx(t("Загрузим первые {0} фото — лимит {1}",[remaining,MAX_IMAGES])))
     }
 
     setUploading(true)
@@ -381,7 +389,7 @@ export default function ProductsPage() {
           .upload(fileName, file)
         if (uploadError) {
           console.error('Ошибка загрузки:', uploadError)
-          toast.error('Ошибка загрузки фото')
+          toast.error(uiError('Ошибка загрузки фото'))
           continue
         }
         const { data: urlData } = supabase.storage
@@ -393,7 +401,7 @@ export default function ProductsPage() {
       }
     } catch (error) {
       console.error('Ошибка:', error)
-      toast.error('Ошибка при загрузке')
+      toast.error(uiError('Ошибка при загрузке'))
     }
     setUploading(false)
     e.target.value = ''
@@ -461,7 +469,7 @@ export default function ProductsPage() {
           .upload(fileName, file)
         if (uploadError) {
           console.error('Ошибка загрузки:', uploadError)
-          toast.error('Ошибка загрузки фото')
+          toast.error(uiError('Ошибка загрузки фото'))
           continue
         }
         const { data: urlData } = supabase.storage
@@ -474,7 +482,7 @@ export default function ProductsPage() {
       ))
     } catch (error) {
       console.error('Ошибка:', error)
-      toast.error('Ошибка при загрузке')
+      toast.error(uiError('Ошибка при загрузке'))
     }
     setUploading(false)
     e.target.value = ''
@@ -652,7 +660,7 @@ export default function ProductsPage() {
   useEffect(()=>{
     if(!showModal)return
     let active=true;setRecommendations({similar:[],outfit:[]});setRecommendationsReady(!editingProduct)
-    if(editingProduct)void supabase.from('product_recommendations').select('target_id,kind,position').eq('product_id',editingProduct.id).order('position').then(({data,error})=>{if(!active)return;if(error){toast.error('Не удалось загрузить рекомендации. Откройте товар повторно');return}setRecommendations({similar:(data||[]).filter(v=>v.kind==='similar').map(v=>v.target_id),outfit:(data||[]).filter(v=>v.kind==='outfit').map(v=>v.target_id)});setRecommendationsReady(true)})
+    if(editingProduct)void supabase.from('product_recommendations').select('target_id,kind,position').eq('product_id',editingProduct.id).order('position').then(({data,error})=>{if(!active)return;if(error){toast.error(uiError('Не удалось загрузить рекомендации. Откройте товар повторно'));return}setRecommendations({similar:(data||[]).filter(v=>v.kind==='similar').map(v=>v.target_id),outfit:(data||[]).filter(v=>v.kind==='outfit').map(v=>v.target_id)});setRecommendationsReady(true)})
     return()=>{active=false}
   },[showModal,editingProduct?.id])
 
@@ -669,7 +677,7 @@ export default function ProductsPage() {
     }
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) {
-      toast.error('Заполните обязательные поля')
+      toast.error(uiError('Заполните обязательные поля'))
       return
     }
 
@@ -706,30 +714,30 @@ export default function ProductsPage() {
         p_variants: desiredVariants, p_expected: editingProduct ? editBaseline : null,
       })
       if (error) throw error
-      toast.success(editingProduct ? 'Товар обновлён! ' : 'Товар добавлен! ')
+      toast.success(tx(editingProduct?t("Товар обновлён! "):t("Товар добавлен! ")))
       setShowModal(false)
       productsCacheApi.invalidate()
       variantsCacheApi.invalidate()
       await loadAll(true)
     } catch (error: any) {
       console.error('Полная ошибка:', error)
-      toast.error('Ошибка при сохранении: ' + (error?.message || error || 'Неизвестная ошибка'))
+      toast.error(uiError('Ошибка при сохранении: ' + (error?.message || error || 'Неизвестная ошибка')))
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (productId: string) => {
-    if (!confirm('Удалить этот товар? Это действие нельзя отменить.')) return
+    if (!confirm(tx(t("Удалить этот товар? Это действие нельзя отменить.")))) return
     try {
       const { error } = await supabase.rpc('store_admin_delete_product', { p_id: productId })
       if (error) throw error
-      toast.success('Товар удалён! ')
+      toast.success(tx(t("Товар удалён! ")))
       productsCacheApi.invalidate()
       await loadAll(true)
     } catch (error) {
       console.error('Ошибка:', error)
-      toast.error('Ошибка при удалении')
+      toast.error(uiError('Ошибка при удалении'))
     }
   }
 
@@ -737,14 +745,12 @@ export default function ProductsPage() {
     try {
       const { error } = await supabase.rpc('store_admin_product_visibility', { p_id: productId, p_active: !currentActive })
       if (error) throw error
-      toast.success(currentActive
-        ? 'Товар скрыт из приложения '
-        : 'Товар снова виден ')
+      toast.success(tx(currentActive?t("Товар скрыт из приложения "):t("Товар снова виден ")))
       productsCacheApi.invalidate()
       await loadAll(true)
     } catch (error: any) {
       console.error('Ошибка:', error)
-      toast.error('Ошибка: ' + (error?.message || 'Неизвестная ошибка'))
+      toast.error(uiError('Ошибка: ' + (error?.message || 'Неизвестная ошибка')))
     }
   }
 
@@ -856,16 +862,7 @@ export default function ProductsPage() {
     return null
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка товаров...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Товары")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
@@ -881,11 +878,10 @@ export default function ProductsPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Товары</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Товары")}</h1>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Package size={18} className="text-[#1B2A4A] dark:text-white" />
               </span>
@@ -896,7 +892,7 @@ export default function ProductsPage() {
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-                title="Обновить"
+                title={t("Обновить")}
               >
                 <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
               </button>
@@ -905,8 +901,7 @@ export default function ProductsPage() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
               >
                 <Plus size={16} />
-                Добавить товар
-              </button>
+                {t("Добавить товар")}</button>
             </div>
           </div>
 
@@ -920,7 +915,7 @@ export default function ProductsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Поиск по названию или бренду..."
+                placeholder={t("Поиск по названию или бренду...")}
                 className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
               />
               {search && (
@@ -944,7 +939,7 @@ export default function ProductsPage() {
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              Все <span className="opacity-70">({products.length})</span>
+              {t("Все")}{' '}<span className="opacity-70">({products.length})</span>
             </button>
             {(dbCategories.length > 0 ? dbCategories : CATEGORIES.map(c => ({ id: c.value, name_ru: c.label.replace(/ \S+$/, ''), is_active: true } as Category))).map(cat => {
               const count = products.filter(p => p.category === cat.id).length
@@ -960,7 +955,7 @@ export default function ProductsPage() {
                   } ${disabled ? 'opacity-70' : ''}`}
                 >
                   {cat.name_ru}
-                  {disabled && <span className="ml-1 text-[10px] text-[#C9A961] dark:text-gold">(скрыто)</span>}
+                  {disabled && <span className="ml-1 text-[10px] text-[#C9A961] dark:text-gold">{t("(скрыто)")}</span>}
                   <span className="opacity-70"> ({count})</span>
                 </button>
               )
@@ -977,7 +972,7 @@ export default function ProductsPage() {
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              Все ({products.length})
+              {t("Все (")}{products.length})
             </button>
             <button
               onClick={() => setVisibilityFilter('active')}
@@ -988,7 +983,7 @@ export default function ProductsPage() {
               }`}
             >
               <Eye size={14} />
-              Видимые ({activeCount})
+              {t("Видимые (")}{activeCount})
             </button>
             <button
               onClick={() => setVisibilityFilter('hidden')}
@@ -999,7 +994,7 @@ export default function ProductsPage() {
               }`}
             >
               <EyeOff size={14} />
-              Скрытые ({hiddenCount})
+              {t("Скрытые (")}{hiddenCount})
             </button>
             <button
               onClick={() => setVisibilityFilter('sale')}
@@ -1009,7 +1004,7 @@ export default function ProductsPage() {
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-               Скидки ({saleCount})
+               {t("Скидки (")}{saleCount})
             </button>
           </div>
         </div>
@@ -1022,11 +1017,9 @@ export default function ProductsPage() {
               <Package size={28} className="text-[#8A8275] dark:text-gray-300" />
             </div>
             <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">
-              Товары не найдены
-            </p>
+              {t("Товары не найдены")}</p>
             <p className="text-sm text-[#8A8275] dark:text-gray-300">
-              Попробуйте изменить фильтры или добавьте новый товар
-            </p>
+              {t("Попробуйте изменить фильтры или добавьте новый товар")}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -1076,27 +1069,24 @@ export default function ProductsPage() {
                         </h3>
                         {!isActive && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap">
-                             Скрыт
-                          </span>
+                             {t("Скрыт")}</span>
                         )}
                         {isActive && !visibleInApp && (
                           <span
                             className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold whitespace-nowrap"
                             title={hiddenReason || ''}
                           >
-                             Скрыт из приложения{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
+                             {t("Скрыт из приложения")}{hiddenReason ? ` (${hiddenReason.toLowerCase()})` : ''}
                           </span>
                         )}
                         {sale && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9B3B3B]/10 dark:bg-red-500/20 text-[#9B3B3B] dark:text-red-400 whitespace-nowrap">
-                             Скидка
-                          </span>
+                             {t("Скидка")}</span>
                         )}
                         {/* ✅ Плашка цветов */}
                         {productColorsList.length > 0 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1B2A4A]/10 dark:bg-gold/20 text-[#1B2A4A] dark:text-gold whitespace-nowrap">
-                             {productColorsList.length} цвет.
-                          </span>
+                             {productColorsList.length} {' '}{t("цвет.")}</span>
                         )}
                       </div>
                       {product.name_uz && product.name_uz !== product.name_ru && (
@@ -1112,7 +1102,7 @@ export default function ProductsPage() {
                             : 'bg-[#F5F1E8] dark:bg-dark-accent border-[#E8E2D5] dark:border-dark-border'
                         }`}>
                           {getCategoryLabel(product.category)}
-                          {isCategoryDisabled(product.category) && ' (скрыто)'}
+                          {isCategoryDisabled(product.category) && t(" (скрыто)")}
                         </span>
                         {product.subcategory && (
                           <>
@@ -1123,7 +1113,7 @@ export default function ProductsPage() {
                                 : 'bg-[#F5F1E8] dark:bg-dark-accent border-[#E8E2D5] dark:border-dark-border'
                             }`}>
                               {getSubcategoryLabel(product.category, product.subcategory)}
-                              {isSubcategoryDisabled(product.subcategory) && ' (скрыто)'}
+                              {isSubcategoryDisabled(product.subcategory) && t(" (скрыто)")}
                             </span>
                           </>
                         )}
@@ -1133,8 +1123,7 @@ export default function ProductsPage() {
                           </span>
                         )}
                         <span className="px-2 py-0.5 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border">
-                          Остаток: <b className="text-[#1B2A4A] dark:text-white">{totalStockList}</b> шт.
-                        </span>
+                          {t("Остаток:")}{' '}<b className="text-[#1B2A4A] dark:text-white">{totalStockList}</b> {' '}{t("шт.")}</span>
                       </div>
 
                       {/* ✅ Размеры (с цветом, если есть) */}
@@ -1176,8 +1165,7 @@ export default function ProductsPage() {
                       className="px-4 py-2 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] rounded-xl text-xs font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1.5"
                     >
                       <Edit size={14} />
-                      Редактировать
-                    </button>
+                      {t("Редактировать")}</button>
                     <button
                       onClick={() => toggleActive(product.id, isActive)}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
@@ -1189,13 +1177,11 @@ export default function ProductsPage() {
                       {isActive ? (
                         <>
                           <EyeOff size={14} />
-                          Скрыть
-                        </>
+                          {t("Скрыть")}</>
                       ) : (
                         <>
                           <Eye size={14} />
-                          Показать
-                        </>
+                          {t("Показать")}</>
                       )}
                     </button>
                     <button
@@ -1203,8 +1189,7 @@ export default function ProductsPage() {
                       className="px-4 py-2 bg-red-50 dark:bg-red-500/10 text-[#9B3B3B] dark:text-red-400 rounded-xl text-xs font-bold hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex items-center gap-1.5 border border-red-200 dark:border-red-500/30"
                     >
                       <Trash2 size={14} />
-                      Удалить
-                    </button>
+                      {t("Удалить")}</button>
                   </div>
                 </div>
               )
@@ -1237,12 +1222,10 @@ export default function ProductsPage() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white leading-tight">
-                    {editingProduct ? 'Редактировать товар' : 'Новый товар'}
+                    {editingProduct?t("Редактировать товар"):t("Новый товар")}
                   </h2>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate mt-0.5">
-                    {editingProduct
-                      ? editingProduct.name_ru
-                      : 'Заполните карточку — товар появится в приложении'}
+                    {editingProduct?editingProduct.name_ru:t("Заполните карточку — товар появится в приложении")}
                   </p>
                 </div>
               </div>
@@ -1250,7 +1233,7 @@ export default function ProductsPage() {
                 {editingProduct && (
                   <button
                     onClick={() => openDuplicateModal(editingProduct)}
-                    title="Создать копию товара"
+                    title={t("Создать копию товара")}
                     className="p-2 rounded-lg bg-[#C9A961]/10 dark:bg-gold/20 text-[#C9A961] dark:text-gold hover:bg-[#C9A961]/20 dark:hover:bg-gold/30 transition-colors"
                   >
                     <Copy size={16} />
@@ -1271,8 +1254,8 @@ export default function ProductsPage() {
               {/* 1. Основное */}
               <ModalSection
                 icon={<Info size={18} />}
-                title="Основное"
-                subtitle="Название и описание на двух языках"
+                title={t("Основное")}
+                subtitle={t("Название и описание на двух языках")}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1281,12 +1264,12 @@ export default function ProductsPage() {
                       type="text"
                       value={nameRu}
                       onChange={(e) => { setNameRu(e.target.value); clearError('nameRu') }}
-                      placeholder="Например: Loro Piana Summer Walk"
+                      placeholder={t("Например: Loro Piana Summer Walk")}
                       className={`w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 text-sm ${
                         errors.nameRu ? 'border-[#9B3B3B] dark:border-red-400 focus:border-[#9B3B3B] dark:focus:border-red-400' : 'border-[#E8E2D5] dark:border-dark-border focus:border-[#1B2A4A] dark:focus:border-gold'
                       }`}
                     />
-                    {errors.nameRu && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.nameRu}</p>}
+                    {errors.nameRu && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{uiError(errors.nameRu)}</p>}
                   </div>
                   <div>
                     <FieldLabel text="Название" flag="UZ" hint="если пусто, будет как RU" />
@@ -1306,7 +1289,7 @@ export default function ProductsPage() {
                     <textarea
                       value={descriptionRu}
                       onChange={(e) => setDescriptionRu(e.target.value)}
-                      placeholder="Описание товара..."
+                      placeholder={t("Описание товара...")}
                       rows={3}
                       className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 text-sm resize-none"
                     />
@@ -1327,8 +1310,8 @@ export default function ProductsPage() {
               {/* 2. Категория и бренд */}
               <ModalSection
                 icon={<Tag size={18} />}
-                title="Категория и бренд"
-                subtitle="От подкатегории зависит набор размеров"
+                title={t("Категория и бренд")}
+                subtitle={t("От подкатегории зависит набор размеров")}
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
@@ -1345,7 +1328,7 @@ export default function ProductsPage() {
                     >
                       {getFormCategories().map(cat => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.name_ru}{!cat.is_active ? ' (скрыто)' : ''}
+                          {cat.name_ru}{!cat.is_active?t(" (скрыто)"):''}
                         </option>
                       ))}
                     </select>
@@ -1359,20 +1342,20 @@ export default function ProductsPage() {
                         errors.subcategory ? 'border-[#9B3B3B] dark:border-red-400 focus:border-[#9B3B3B] dark:focus:border-red-400' : 'border-[#E8E2D5] dark:border-dark-border focus:border-[#1B2A4A] dark:focus:border-gold'
                       }`}
                     >
-                      <option value="">Выберите подкатегорию</option>
+                      <option value="">{t("Выберите подкатегорию")}</option>
                       {getFormSubcategories().length > 0 ? (
                         getFormSubcategories().map(sub => (
                           <option key={sub.id} value={sub.id}>
-                            {sub.name_ru}{!sub.is_active ? ' (скрыто)' : ''}
+                            {sub.name_ru}{!sub.is_active?t(" (скрыто)"):''}
                           </option>
                         ))
                       ) : (
                         getHardcodedSubcategories().map(sub => (
-                          <option key={sub.value} value={sub.value}>{sub.label}</option>
+                          <option key={sub.value} value={sub.value}>{tx(sub.label)}</option>
                         ))
                       )}
                     </select>
-                    {errors.subcategory && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.subcategory}</p>}
+                    {errors.subcategory && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{uiError(errors.subcategory)}</p>}
                   </div>
                   <div>
                     <FieldLabel text="Бренд" />
@@ -1381,7 +1364,7 @@ export default function ProductsPage() {
                       onChange={(e) => setBrand(e.target.value)}
                       className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm"
                     >
-                      <option value="">Не выбран</option>
+                      <option value="">{t("Не выбран")}</option>
                       {brands.map(b => (
                         <option key={b.id} value={b.name}>{b.name}</option>
                       ))}
@@ -1393,8 +1376,8 @@ export default function ProductsPage() {
               {/* 3. Цены */}
               <ModalSection
                 icon={<DollarSign size={18} />}
-                title="Цены"
-                subtitle="Основная цена и цена со скидкой, в USD"
+                title={t("Цены")}
+                subtitle={t("Основная цена и цена со скидкой, в USD")}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1413,7 +1396,7 @@ export default function ProductsPage() {
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8275] dark:text-gray-400 font-bold">$</span>
                     </div>
-                    {errors.priceUsd && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.priceUsd}</p>}
+                    {errors.priceUsd && <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{uiError(errors.priceUsd)}</p>}
                   </div>
                   <div>
                     <FieldLabel text="Цена со скидкой" hint="пусто = без скидки" />
@@ -1422,7 +1405,7 @@ export default function ProductsPage() {
                         type="number"
                         value={salePriceUsd}
                         onChange={(e) => { setSalePriceUsd(e.target.value); clearError('salePriceUsd') }}
-                        placeholder="Пусто = без скидки"
+                        placeholder={t("Пусто = без скидки")}
                         min="0"
                         step="0.01"
                         className={`w-full px-4 py-3 pr-10 border rounded-xl focus:outline-none bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold text-base ${
@@ -1432,11 +1415,10 @@ export default function ProductsPage() {
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8275] dark:text-gray-400 font-bold">$</span>
                     </div>
                     {errors.salePriceUsd ? (
-                      <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{errors.salePriceUsd}</p>
+                      <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1">{uiError(errors.salePriceUsd)}</p>
                     ) : discountPercent !== null ? (
                       <p className="text-xs text-[#9B3B3B] dark:text-red-400 mt-1 font-bold">
-                         Скидка {discountPercent}% от основной цены
-                      </p>
+                         {t("Скидка")}{' '}{discountPercent}{t("% от основной цены")}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1445,8 +1427,8 @@ export default function ProductsPage() {
               {/* 4. Фото */}
               <ModalSection
                 icon={<ImageIcon size={18} />}
-                title="Фото товара"
-                subtitle="Общие фото (если у товара нет цветов)"
+                title={t("Фото товара")}
+                subtitle={t("Общие фото (если у товара нет цветов)")}
                 right={
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                     images.length >= MAX_IMAGES
@@ -1466,10 +1448,10 @@ export default function ProductsPage() {
                       : <Upload size={20} className="text-[#1B2A4A] dark:text-white" />}
                   </div>
                   <span className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                    {uploading ? 'Загрузка...' : 'Загрузить фото'}
+                    {uploading?t("Загрузка..."):t("Загрузить фото")}
                   </span>
                   <span className="text-xs text-[#8A8275] dark:text-gray-300">
-                    PNG/JPG, можно несколько сразу · максимум {MAX_IMAGES}
+                    {t("PNG/JPG, можно несколько сразу · максимум")}{' '}{MAX_IMAGES}
                   </span>
                   <input
                     type="file"
@@ -1488,17 +1470,16 @@ export default function ProductsPage() {
                         key={idx}
                         className="relative aspect-square rounded-xl overflow-hidden border border-[#E8E2D5] dark:border-dark-border bg-white dark:bg-dark-accent"
                       >
-                        <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" />
+                        <img src={img} alt={t("Фото {0}",[idx + 1])} className="w-full h-full object-cover" />
                         {idx === 0 && (
                           <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-[10px] font-bold shadow">
-                            Обложка
-                          </span>
+                            {t("Обложка")}</span>
                         )}
                         <div className="absolute top-1.5 right-1.5 flex gap-1">
                           {idx !== 0 && (
                             <button
                               onClick={() => makeCover(idx)}
-                              title="Сделать обложкой"
+                              title={t("Сделать обложкой")}
                               className="p-1.5 rounded-full bg-white/95 dark:bg-dark-card text-[#1B2A4A] dark:text-white hover:bg-[#C9A961] hover:text-white dark:hover:bg-gold shadow transition-colors"
                             >
                               <Star size={13} />
@@ -1506,7 +1487,7 @@ export default function ProductsPage() {
                           )}
                           <button
                             onClick={() => removeImage(idx)}
-                            title="Удалить фото"
+                            title={t("Удалить фото")}
                             className="p-1.5 rounded-full bg-[#9B3B3B] dark:bg-red-600 text-white shadow hover:bg-[#7a2f2f] dark:hover:bg-red-700 transition-colors"
                           >
                             <X size={13} />
@@ -1521,8 +1502,8 @@ export default function ProductsPage() {
               {/* ✅ 5. ЦВЕТА (вариации) */}
               <ModalSection
                 icon={<Palette size={18} />}
-                title="Цвета"
-                subtitle="Каждый цвет: свои фото и свои остатки размеров"
+                title={t("Цвета")}
+                subtitle={t("Каждый цвет: свои фото и свои остатки размеров")}
                 right={
                   <button
                     type="button"
@@ -1530,8 +1511,7 @@ export default function ProductsPage() {
                     className="px-3 py-1.5 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] rounded-lg text-xs font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1"
                   >
                     <Plus size={14} />
-                    Добавить цвет
-                  </button>
+                    {t("Добавить цвет")}</button>
                 }
               >
                 {productColors.length === 0 ? (
@@ -1540,8 +1520,7 @@ export default function ProductsPage() {
                       <Palette size={16} className="text-[#8A8275] dark:text-gray-300" />
                     </div>
                     <p className="text-sm text-[#1B2A4A] dark:text-white">
-                      У товара пока нет цветов — остатки указываются ниже в общей сетке размеров.
-                    </p>
+                      {t("У товара пока нет цветов — остатки указываются ниже в общей сетке размеров.")}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1560,27 +1539,27 @@ export default function ProductsPage() {
                             value={color.hex_code || '#1B2A4A'}
                             onChange={(e) => updateColor(colorIdx, 'hex_code', e.target.value)}
                             className="w-10 h-10 rounded-lg border border-[#E8E2D5] dark:border-dark-border cursor-pointer bg-transparent flex-shrink-0"
-                            title="Цвет кружка в приложении"
+                            title={t("Цвет кружка в приложении")}
                           />
                           <input
                             type="text"
                             value={color.name_ru}
                             onChange={(e) => updateColor(colorIdx, 'name_ru', e.target.value)}
-                            placeholder="Название RU RU *"
+                            placeholder={t("Название RU RU *")}
                             className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
                           />
                           <input
                             type="text"
                             value={color.name_uz || ''}
                             onChange={(e) => updateColor(colorIdx, 'name_uz', e.target.value)}
-                            placeholder="Название UZ UZ"
+                            placeholder={t("Название UZ UZ")}
                             className="flex-1 min-w-0 px-3 py-2 border border-[#E8E2D5] dark:border-dark-border rounded-lg bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white text-sm focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
                           />
                           <button
                             type="button"
                             onClick={() => removeColor(colorIdx)}
                             className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-[#9B3B3B] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors flex-shrink-0"
-                            title="Удалить цвет"
+                            title={t("Удалить цвет")}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1592,7 +1571,7 @@ export default function ProductsPage() {
                         }`}>
                           <Upload size={14} className="text-[#8A8275] dark:text-gray-300" />
                           <span className="text-xs text-[#8A8275] dark:text-gray-300">
-                            Загрузить фото цвета «{color.name_ru || 'без названия'}»
+                            {t("Загрузить фото цвета «")}{color.name_ru || t("без названия")}»
                           </span>
                           <input
                             type="file"
@@ -1610,14 +1589,13 @@ export default function ProductsPage() {
                                 <img src={img} alt="" className="w-full h-full object-cover" />
                                 {imgIdx === 0 && (
                                   <span className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-[8px] font-bold rounded">
-                                    Обл.
-                                  </span>
+                                    {t("Обл.")}</span>
                                 )}
                                 <button
                                   type="button"
                                   onClick={() => removeColorImage(colorIdx, imgIdx)}
                                   className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-[#9B3B3B] text-white"
-                                  title="Удалить фото"
+                                  title={t("Удалить фото")}
                                 >
                                   <X size={10} />
                                 </button>
@@ -1634,13 +1612,9 @@ export default function ProductsPage() {
               {/* 6. Размеры и остатки */}
               <ModalSection
                 icon={<Ruler size={18} />}
-                title="Размеры и остатки"
+                title={t("Размеры и остатки")}
                 subtitle={
-                  !subcategory
-                    ? 'Сначала выберите подкатегорию'
-                    : productColors.length > 0 && activeColorId
-                      ? `${getSubcategoryLabel(category, subcategory)} · цвет: ${productColors.find(c => c.id === activeColorId)?.name_ru || '—'}`
-                      : `${getSubcategoryLabel(category, subcategory)} · тип: ${sizeType === 'one_size' ? 'one size' : sizeType}`
+                  !subcategory?t("Сначала выберите подкатегорию"):productColors.length > 0 && activeColorId?t("{0} · цвет: {1}",[getSubcategoryLabel(category, subcategory),productColors.find(c => c.id === activeColorId)?.name_ru || '—']):t("{0} · тип: {1}",[getSubcategoryLabel(category, subcategory),sizeType === 'one_size' ? 'one size' : sizeType])
                 }
                 right={
                   sizeType !== 'one_size' && subcategory ? (
@@ -1649,8 +1623,7 @@ export default function ProductsPage() {
                         ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300'
                         : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300'
                     }`}>
-                      Всего: {totalStock} шт.
-                    </span>
+                      {t("Всего:")}{' '}{totalStock} {' '}{t("шт.")}</span>
                   ) : undefined
                 }
               >
@@ -1660,8 +1633,7 @@ export default function ProductsPage() {
                       <Lightbulb size={18} />
                     </div>
                     <p className="text-sm text-[#1B2A4A] dark:text-white">
-                      Выберите подкатегорию в секции «Категория и бренд» — здесь появятся нужные размеры.
-                    </p>
+                      {t("Выберите подкатегорию в секции «Категория и бренд» — здесь появятся нужные размеры.")}</p>
                   </div>
                 ) : (
                   <>
@@ -1683,7 +1655,7 @@ export default function ProductsPage() {
                               className="w-3.5 h-3.5 rounded-full border border-[#E8E2D5] dark:border-dark-border flex-shrink-0"
                               style={{ backgroundColor: c.hex_code || '#1B2A4A' }}
                             />
-                            {c.name_ru || 'Без названия'}
+                            {c.name_ru || t("Без названия")}
                           </button>
                         ))}
                       </div>
@@ -1696,7 +1668,7 @@ export default function ProductsPage() {
                           type="number"
                           value={currentSizesMap()['One Size'] || 0}
                           onChange={(e) => updateStock('One Size', parseInt(e.target.value) || 0)}
-                          placeholder="Количество"
+                          placeholder={t("Количество")}
                           min="0"
                           className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
                         />
@@ -1738,11 +1710,11 @@ export default function ProductsPage() {
                                     className="w-full p-1.5 text-sm border border-[#E8E2D5] dark:border-dark-border rounded-lg focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white font-bold"
                                   />
                                   <p className={`text-[10px] mt-1 font-medium ${stock > 0 ? 'text-green-700 dark:text-green-400' : 'text-[#9B3B3B] dark:text-red-400'}`}>
-                                    {stock > 0 ? `В наличии: ${stock}` : 'Нет в наличии'}
+                                    {stock > 0?t("В наличии: {0}",[stock]):t("Нет в наличии")}
                                   </p>
                                 </>
                               ) : (
-                                <p className="text-[10px] text-[#8A8275] dark:text-gray-400">Не выбран</p>
+                                <p className="text-[10px] text-[#8A8275] dark:text-gray-400">{t("Не выбран")}</p>
                               )}
                             </div>
                           )
@@ -1752,8 +1724,8 @@ export default function ProductsPage() {
                   </>
                 )}
               </ModalSection>
-              <ModalSection icon={<Star size={16}/>} title="Рекомендации" subtitle="Похожие товары и дополнения к образу">
-                {recommendationsReady?<RecommendationPicker products={products} currentId={editingProduct?.id} value={recommendations} onChange={setRecommendations}/>:<p className="text-sm text-[#8A8275] dark:text-gray-300">Загрузка рекомендаций...</p>}
+              <ModalSection icon={<Star size={16}/>} title={t("Рекомендации")} subtitle={t("Похожие товары и дополнения к образу")}>
+                {recommendationsReady?<RecommendationPicker products={products} currentId={editingProduct?.id} value={recommendations} onChange={setRecommendations}/>:<p className="text-sm text-[#8A8275] dark:text-gray-300">{t("Загрузка рекомендаций...")}</p>}
               </ModalSection>
             </div>
 
@@ -1764,8 +1736,7 @@ export default function ProductsPage() {
                 disabled={saving || !recommendationsReady}
                 className="flex-1 px-4 py-3 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl font-bold text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors disabled:opacity-50"
               >
-                Отмена
-              </button>
+                {t("Отмена")}</button>
               <button
                 onClick={handleSave}
                 disabled={saving || !recommendationsReady}
@@ -1774,12 +1745,11 @@ export default function ProductsPage() {
                 {saving ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    Сохранение...
-                  </>
+                    {t("Сохранение...")}</>
                 ) : (
                   <>
                     <Save size={18} />
-                    {editingProduct ? 'Сохранить изменения' : 'Добавить товар'}
+                    {editingProduct?t("Сохранить изменения"):t("Добавить товар")}
                   </>
                 )}
               </button>

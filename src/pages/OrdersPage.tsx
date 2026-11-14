@@ -1,3 +1,6 @@
+import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import ProtectedFile from '../components/ProtectedFile'
+import PageSkeleton from '../components/PageSkeleton'
 import OrderHistory from '../components/OrderHistory'
 import { useAdminRefresh } from '../lib/adminLive'
 import SpecialOrderPhoto from '../components/SpecialOrderPhoto'
@@ -102,13 +105,15 @@ const getStatusColor = (status: string): string => {
 
 // ✅ Компактная мини-строка информации внутри раскрытой карточки
 function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+ useAdminLanguage()
+
   return (
     <div className="flex items-center gap-2.5 p-2.5 bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border">
       <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{label}</p>
+        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{tx(label)}</p>
         <div className="text-xs font-medium text-[#1B2A4A] dark:text-white truncate">{children}</div>
       </div>
     </div>
@@ -116,6 +121,8 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 }
 
 export default function OrdersPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
@@ -169,7 +176,7 @@ export default function OrdersPage() {
       ordersCacheApi.set(sorted)
     } catch (error) {
       console.error('Ошибка загрузки заказов:', error)
-      toast.error('Ошибка загрузки заказов')
+      toast.error(uiError('Ошибка загрузки заказов'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -186,15 +193,15 @@ export default function OrdersPage() {
     try {
       const {error}=await supabase.rpc('store_admin_order_status',{p_id:order.id,p_status:newStatus,p_courier:courierLinkValue})
       if(error)throw error
-      toast.success('Статус сохранён. Уведомление поставлено в очередь.')
+      toast.success(tx(t("Статус сохранён. Уведомление поставлено в очередь.")))
       ordersCacheApi.invalidate(); await loadOrders(true)
-    } catch(error:any) { toast.error(error.message || 'Не удалось изменить статус') }
+    } catch(error:any) { toast.error(uiError(error.message || 'Не удалось изменить статус')) }
   }
 
   const handleStatusChange = async (_orderId: string, newStatus: string, clientChatId: string, deliveryMethod: string, order: any) => {
     if (newStatus === 'Отменён') { setCancelOrder(order); return }
     if (newStatus === 'Выдан' && order.delivery_method === 'pickup' && order.payment_method === 'upon_receipt') {
-      if (!confirm('Подтвердите, что заказ выдан клиенту и оплата получена')) return
+      if (!confirm(tx(t("Подтвердите, что заказ выдан клиенту и оплата получена")))) return
     }
 
     if ((newStatus === 'Выдан' || newStatus === 'Передан курьеру') && deliveryMethod === 'delivery') {
@@ -208,7 +215,7 @@ export default function OrdersPage() {
   const handleCourierSubmit = async () => {
     const link = courierLink.trim()
     if (link && !/^https?:\/\//i.test(link)) {
-      toast.error('Ссылка должна начинаться с http:// или https://')
+      toast.error(uiError('Ссылка должна начинаться с http:// или https://'))
       return
     }
     const order = courierModalOrder
@@ -219,40 +226,40 @@ export default function OrdersPage() {
   }
 
   const handleConfirmPayment = async (order: any) => {
-    const confirmed = confirm(` Подтвердить оплату заказа №${order.id}?\n\nКлиент: ${order.client_name}\nТелефон: ${order.client_phone || '—'}${specialRequestNumber(order) ? '\nСпецзаказ №' + specialRequestNumber(order) : ''}\n\nТовары:\n${orderComposition(order)}\n\nСумма: ${formatOrderPrice(order)} (${getOrderCurrency(order)})`)
+    const confirmed = confirm(tx(t(" Подтвердить оплату заказа №{0}?\n\nКлиент: {1}\nТелефон: {2}{3}\n\nТовары:\n{4}\n\nСумма: {5} ({6})",[order.id,order.client_name,order.client_phone || '—',specialRequestNumber(order) ? '\nСпецзаказ №' + specialRequestNumber(order) : '',orderComposition(order),formatOrderPrice(order),getOrderCurrency(order)])))
     if (!confirmed) return
     const success = await confirmPayment(order.id)
     if (success) {
-      toast.success('Оплата подтверждена! Заказ активирован.')
+      toast.success(tx(t("Оплата подтверждена! Заказ активирован.")))
       ordersCacheApi.invalidate()
       await loadOrders(true)
     } else {
-      toast.error('Ошибка подтверждения')
+      toast.error(uiError('Ошибка подтверждения'))
     }
   }
 
   const handleSendCustomMessage = async (orderId: string, clientChatId: string) => {
     if (!customMessageText.trim()) {
-      toast.error('Введите сообщение')
+      toast.error(uiError('Введите сообщение'))
       return
     }
     if (!clientChatId) {
-      toast.error('Chat ID клиента не найден')
+      toast.error(uiError('Chat ID клиента не найден'))
       return
     }
     try {
       const message = `📩 <b>Сообщение по заказу №${orderId}:</b>\n\n${customMessageText}`
       const sent = !!(await sendClientNotification(clientChatId, message))
       if (sent) {
-        toast.success('Сообщение отправлено клиенту ')
+        toast.success(tx(t("Сообщение отправлено клиенту ")))
         setShowCustomMessage(null)
         setCustomMessageText('')
       } else {
-        toast.error('Не удалось отправить сообщение')
+        toast.error(uiError('Не удалось отправить сообщение'))
       }
     } catch (error) {
       console.error('Ошибка:', error)
-      toast.error('Произошла ошибка при отправке')
+      toast.error(uiError('Произошла ошибка при отправке'))
     }
   }
 
@@ -292,16 +299,7 @@ export default function OrdersPage() {
     ? Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...DELIVERY_STATUSES, ...PICKUP_STATUSES, ...SPECIAL_DELIVERY.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s})), ...SPECIAL_PICKUP.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old, s])).values())
     : Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...getAvailableStatuses(filter), ...(filter === 'pickup' ? SPECIAL_PICKUP : SPECIAL_DELIVERY).map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old,s])).values())
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка заказов...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Заказы")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
@@ -317,11 +315,10 @@ export default function OrdersPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Заказы</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Заказы")}</h1>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Package size={18} className="text-[#1B2A4A] dark:text-white" />
               </span>
@@ -331,11 +328,10 @@ export default function OrdersPage() {
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title="Обновить список"
+              title={t("Обновить список")}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              Обновить
-            </button>
+              {t("Обновить")}</button>
           </div>
 
           {/* ✅ Поиск по номеру заказа / имени / телефону */}
@@ -347,7 +343,7 @@ export default function OrdersPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск: № заказа, имя или телефон клиента..."
+              placeholder={t("Поиск: № заказа, имя или телефон клиента...")}
               className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
             />
             {searchQuery && (
@@ -370,7 +366,7 @@ export default function OrdersPage() {
                   : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
               }`}
             >
-              Все <span className="opacity-70">({searchFiltered.length})</span>
+              {t("Все")}{' '}<span className="opacity-70">({searchFiltered.length})</span>
             </button>
             <button
               onClick={() => { setFilter('delivery'); setStatusFilter('all') }}
@@ -381,7 +377,7 @@ export default function OrdersPage() {
               }`}
             >
               <Truck size={14} />
-              Доставка <span className="opacity-70">({deliveryOrders.length})</span>
+              {t("Доставка")}{' '}<span className="opacity-70">({deliveryOrders.length})</span>
             </button>
             <button
               onClick={() => { setFilter('pickup'); setStatusFilter('all') }}
@@ -392,7 +388,7 @@ export default function OrdersPage() {
               }`}
             >
               <Store size={14} />
-              Самовывоз <span className="opacity-70">({pickupOrders.length})</span>
+              {t("Самовывоз")}{' '}<span className="opacity-70">({pickupOrders.length})</span>
             </button>
 
             <select
@@ -400,9 +396,9 @@ export default function OrdersPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="ml-auto px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
             >
-              <option value="all">Все статусы</option>
+              <option value="all">{t("Все статусы")}</option>
               {statusOptions.map(s => (
-                <option key={s.old} value={s.old}>{s.new}</option>
+                <option key={s.old} value={s.old}>{tx(s.new)}</option>
               ))}
             </select>
           </div>
@@ -418,7 +414,7 @@ export default function OrdersPage() {
                 <Clock size={16} className="text-[#C9A961]" />
               </div>
               <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                На обработке <span className="text-[#C9A961]">({pendingPaymentOrders.length})</span>
+                {t("На обработке")}{' '}<span className="text-[#C9A961]">({pendingPaymentOrders.length})</span>
               </p>
             </div>
             <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
@@ -428,37 +424,36 @@ export default function OrdersPage() {
                   <div key={order.id} className="p-3.5 flex items-center gap-3 flex-wrap">
                     <div className="flex-1 min-w-[180px]">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                        Заказ №{order.id}
-                        {specialRequestNumber(order) && <span className="ml-2 text-xs text-purple-700 dark:text-purple-300">Спецзаказ №{specialRequestNumber(order)}</span>}
+                        {t("Заказ №")}{order.id}
+                        {specialRequestNumber(order) && <span className="ml-2 text-xs text-purple-700 dark:text-purple-300">{t("Спецзаказ №")}{specialRequestNumber(order)}</span>}
                         <span className="ml-2 text-xs font-medium text-[#8A8275] dark:text-gray-300">
                           {order.client_name}
                         </span>
                       </p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 flex items-center gap-2">
-                        <span className="font-bold text-[#C9A961]">{formatOrderPrice(order)}</span>
+                        <span className="font-bold text-[#C9A961]">{tx(formatOrderPrice(order))}</span>
                         <span>·</span>
-                        <span>{order.delivery_method === 'pickup' ? 'Самовывоз' : 'Доставка'}</span>
+                        <span>{order.delivery_method === 'pickup'?t("Самовывоз"):t("Доставка")}</span>
                         {order.payment_screenshot_url ? (
                           <>
                             <span>·</span>
-                            <a
-                              href={order.payment_screenshot_url}
+                            <ProtectedFile
+                              value={order.payment_screenshot_url} bucket="payment-screenshots"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 hover:underline font-medium"
                             >
-                              <Camera size={11} /> скриншот
-                            </a>
+                              <Camera size={11} /> {' '}{t("скриншот")}</ProtectedFile>
                           </>
                         ) : (
                           <>
                             <span>·</span>
-                            <span className="text-[#C9A961]">скриншота нет</span>
+                            <span className="text-[#C9A961]">{t("скриншота нет")}</span>
                           </>
                         )}
                       </p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1">{order.client_phone}</p>
-                      <ul className="mt-2 space-y-1 text-sm text-[#1B2A4A] dark:text-white">{orderItems(order).map((item, index) => <li key={index} className="flex items-center gap-2">{(item.isSpecialOrder||item.specialRequestId)&&item.image&&<SpecialOrderPhoto item={item} size={40}/>}<span>{item.name || 'Товар'}{item.size ? ` · ${item.size}` : ''}{item.colorName ? ` · ${item.colorName}` : ''} × {item.quantity || 1}</span></li>)}</ul>
+                      <ul className="mt-2 space-y-1 text-sm text-[#1B2A4A] dark:text-white">{orderItems(order).map((item, index) => <li key={index} className="flex items-center gap-2">{(item.isSpecialOrder||item.specialRequestId)&&item.image&&<SpecialOrderPhoto item={item} size={40}/>}<span>{item.name || t("Товар")}{item.size ? ` · ${item.size}` : ''}{item.colorName ? ` · ${item.colorName}` : ''} × {item.quantity || 1}</span></li>)}</ul>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -466,15 +461,13 @@ export default function OrdersPage() {
                         className="px-3.5 py-2 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] text-xs font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1.5"
                       >
                         <CheckCircle size={14} />
-                        Подтвердить
-                      </button>
+                        {t("Подтвердить")}</button>
                       <button
                         onClick={() => handleStatusChange(order.id, 'Отменён', clientChatId, order.delivery_method, order)}
                         className="px-3.5 py-2 rounded-xl bg-[#9B3B3B] dark:bg-red-900 text-white text-xs font-bold hover:bg-red-700 dark:hover:bg-red-800 transition-colors flex items-center gap-1.5"
                       >
                         <XCircle size={14} />
-                        Отменить
-                      </button>
+                        {t("Отменить")}</button>
                     </div>
                   </div>
                 )
@@ -490,10 +483,9 @@ export default function OrdersPage() {
               <Package size={28} className="text-[#8A8275] dark:text-gray-300" />
             </div>
             <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">
-              Заказов не найдено
-            </p>
+              {t("Заказов не найдено")}</p>
             <p className="text-sm text-[#8A8275] dark:text-gray-300">
-              {q ? `По запросу «${searchQuery}» ничего нет` : 'Попробуйте изменить фильтры'}
+              {q?t("По запросу «{0}» ничего нет",[searchQuery]):t("Попробуйте изменить фильтры")}
             </p>
           </div>
         ) : (
@@ -520,7 +512,7 @@ export default function OrdersPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                          Заказ №{order.id}
+                          {t("Заказ №")}{order.id}
                         </p>
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                           orderCurrency === 'USD'
@@ -531,23 +523,22 @@ export default function OrdersPage() {
                         </span>
                         {specialRequestNumber(order) && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-800 dark:text-purple-300">
-                            Спецзаказ №{specialRequestNumber(order)}
+                            {t("Спецзаказ №")}{specialRequestNumber(order)}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                        {new Date(order.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(order.created_at).toLocaleString(getAdminLocale(), { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         {' · '}{order.client_name}
-                        {' · '}{items.length} тов.
-                      </p>
+                        {' · '}{items.length} {' '}{t("тов.")}</p>
                     </div>
 
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                        {formatOrderPrice(order)}
+                        {tx(formatOrderPrice(order))}
                       </p>
                       <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(order.status)}`}>
-                        {orderStatus(order)}
+                        {tx(orderStatus(order))}
                       </span>
                     </div>
 
@@ -562,27 +553,26 @@ export default function OrdersPage() {
                     <div className="px-4 pb-4 pt-3 bg-[#F5F1E8]/40 dark:bg-dark-accent/30 border-t border-[#E8E2D5] dark:border-dark-border space-y-3">
                       {/* Инфо-сетка */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <InfoMini icon={<User size={14} className="text-[#1B2A4A] dark:text-white" />} label="Клиент">
+                        <InfoMini icon={<User size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Клиент")}>
                           {order.client_name} · {order.client_phone}
                         </InfoMini>
-                        <InfoMini icon={<CreditCard size={14} className="text-[#1B2A4A] dark:text-white" />} label="Оплата">
-                          {order.payment_method === 'online_card' ? 'Переводом' : 'При получении'} · {order.payment_status==='refunded'?'Возврат выполнен':order.payment_status==='refund_pending'?'Ожидает возврата':order.payment_status==='payment_review'?'Проверка платежа':order.payment_status==='paid'&&order.paid_at?'Оплата подтверждена':order.status==='Отменён'?'Заказ отменён':'Оплата не подтверждена'}
+                        <InfoMini icon={<CreditCard size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Оплата")}>
+                          {order.payment_method === 'online_card'?t("Переводом"):t("При получении")} · {order.payment_status==='refunded'?t("Возврат выполнен"):order.payment_status==='refund_pending'?t("Ожидает возврата"):order.payment_status==='payment_review'?t("Проверка платежа"):order.payment_status==='paid'&&order.paid_at?t("Оплата подтверждена"):order.status==='Отменён'?t("Заказ отменён"):t("Оплата не подтверждена")}
                         </InfoMini>
                         {order.delivery_method === 'delivery' && (
-                          <InfoMini icon={<MapPin size={14} className="text-[#1B2A4A] dark:text-white" />} label="Адрес доставки">
+                          <InfoMini icon={<MapPin size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Адрес доставки")}>
                             {order.delivery_address || '—'}
                           </InfoMini>
                         )}
                         {order.courier_link && (
-                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label="Трек курьера">
+                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Трек курьера")}>
                             <a
                               href={order.courier_link}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[#C9A961] hover:underline"
                             >
-                              открыть ссылку
-                            </a>
+                              {t("открыть ссылку")}</a>
                           </InfoMini>
                         )}
                         {clientChatId && (
@@ -591,15 +581,14 @@ export default function OrdersPage() {
                           </InfoMini>
                         )}
                         {order.payment_screenshot_url && (
-                          <InfoMini icon={<Camera size={14} className="text-[#1B2A4A] dark:text-white" />} label="Скриншот оплаты">
-                            <a
-                              href={order.payment_screenshot_url}
+                          <InfoMini icon={<Camera size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Скриншот оплаты")}>
+                            <ProtectedFile
+                              value={order.payment_screenshot_url} bucket="payment-screenshots"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 hover:underline font-medium"
                             >
-                              <Eye size={12} /> открыть
-                            </a>
+                              <Eye size={12} /> {' '}{t("открыть")}</ProtectedFile>
                           </InfoMini>
                         )}
                       </div>
@@ -628,8 +617,7 @@ export default function OrdersPage() {
                                   {item.name}
                                 </p>
                                 <p className="text-[10px] text-[#8A8275] dark:text-gray-300">
-                                  {item.size} · {item.quantity} шт.
-                                  {item.colorName && (
+                                  {item.size} · {item.quantity} {' '}{t("шт.")}{item.colorName && (
                                     <>
                                       <span className="mx-1">·</span>
                                       <span className="text-[#C9A961] dark:text-gold font-medium">{item.colorName}</span>
@@ -655,15 +643,14 @@ export default function OrdersPage() {
                             className="px-3.5 py-2 bg-[#F5F1E8] dark:bg-dark-accent hover:bg-[#E8E2D5] dark:hover:bg-dark-border border border-[#E8E2D5] dark:border-dark-border rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors flex items-center gap-1.5"
                           >
                             <MessageCircle size={13} />
-                            {showCustomMessage === order.id ? 'Скрыть' : 'Написать клиенту'}
+                            {showCustomMessage === order.id?t("Скрыть"):t("Написать клиенту")}
                           </button>
                         )}
-                        {canManagerCancel(order) && <button onClick={()=>setCancelOrder(order)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#9B3B3B] dark:text-red-300">Отменить заказ</button>}
-                        {order.status==='Отменён' && <button onClick={()=>navigate(`/refunds?order=${order.id}`)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#1B2A4A] dark:text-white">Возврат средств</button>}
-                        {order.cancellation_reason && <p className="w-full text-sm text-[#8A8275] dark:text-gray-300">Причина отмены: {order.cancellation_reason}</p>}
+                        {canManagerCancel(order) && <button onClick={()=>setCancelOrder(order)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#9B3B3B] dark:text-red-300">{t("Отменить заказ")}</button>}
+                        {order.status==='Отменён' && <button onClick={()=>navigate(`/refunds?order=${order.id}`)} className="px-3 py-1.5 rounded-xl border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#1B2A4A] dark:text-white">{t("Возврат средств")}</button>}
+                        {order.cancellation_reason && <p className="w-full text-sm text-[#8A8275] dark:text-gray-300">{t("Причина отмены:")}{' '}{order.cancellation_reason}</p>}
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
-                          Статус:
-                        </span>
+                          {t("Статус:")}</span>
                         {(usesSpecialFulfillment(order) ? nextSpecialStatuses(order).filter(s=>s!=='Отменён').map(s=>({old:s,new:s==='Ожидает оплаты'?'На обработке':s})) : nextOrdinaryStatuses(order).map(s=>({old:s,new:orderStatus({...order,status:s})})))
                           .filter((s: StatusItem) => s.old !== order.status)
                           .map((s: StatusItem) => (
@@ -672,7 +659,7 @@ export default function OrdersPage() {
                               onClick={() => handleStatusChange(order.id, s.old, clientChatId, order.delivery_method, order)}
                               className="px-3 py-1.5 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors"
                             >
-                              {s.new}
+                              {tx(s.new)}
                             </button>
                           ))}
                       </div>
@@ -683,7 +670,7 @@ export default function OrdersPage() {
                           <textarea
                             value={customMessageText}
                             onChange={(e) => setCustomMessageText(e.target.value)}
-                            placeholder="Введите сообщение для клиента..."
+                            placeholder={t("Введите сообщение для клиента...")}
                             rows={2}
                             className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl text-sm bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold resize-none"
                           />
@@ -693,8 +680,7 @@ export default function OrdersPage() {
                               className="px-4 py-2 bg-[#C9A961] text-white rounded-xl text-xs font-bold hover:bg-[#b8954f] transition-colors flex items-center gap-1.5"
                             >
                               <Send size={13} />
-                              Отправить
-                            </button>
+                              {t("Отправить")}</button>
                             <button
                               onClick={() => {
                                 setShowCustomMessage(null)
@@ -702,8 +688,7 @@ export default function OrdersPage() {
                               }}
                               className="px-4 py-2 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white rounded-xl text-xs font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
                             >
-                              Отмена
-                            </button>
+                              {t("Отмена")}</button>
                           </div>
                         </div>
                       )}
@@ -733,8 +718,7 @@ export default function OrdersPage() {
                   <Truck size={18} className="text-blue-700 dark:text-blue-300" />
                 </div>
                 <h3 className="text-xl font-bold text-[#1B2A4A] dark:text-white">
-                  Передан курьеру
-                </h3>
+                  {t("Передан курьеру")}</h3>
               </div>
               <button
                 onClick={() => setCourierModalOrder(null)}
@@ -745,12 +729,10 @@ export default function OrdersPage() {
             </div>
 
             <p className="text-sm text-[#8A8275] dark:text-gray-300 mb-4 leading-relaxed">
-              Заказ №{courierModalOrder.id}. Вставьте ссылку на отслеживание — клиент получит её в уведомлении и увидит кнопку «Отследить курьера» в приложении.
-            </p>
+              {t("Заказ №")}{courierModalOrder.id}{t(". Вставьте ссылку на отслеживание — клиент получит её в уведомлении и увидит кнопку «Отследить курьера» в приложении.")}</p>
 
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-              Ссылка на трек (необязательно)
-            </label>
+              {t("Ссылка на трек (необязательно)")}</label>
             <input
               type="text"
               value={courierLink}
@@ -765,15 +747,13 @@ export default function OrdersPage() {
                 onClick={() => setCourierModalOrder(null)}
                 className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
               >
-                Отмена
-              </button>
+                {t("Отмена")}</button>
               <button
                 onClick={handleCourierSubmit}
                 className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center justify-center gap-2"
               >
                 <Send size={14} />
-                Сохранить
-              </button>
+                {t("Сохранить")}</button>
             </div>
           </div>
         </div>

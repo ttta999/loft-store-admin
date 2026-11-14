@@ -1,3 +1,4 @@
+import {dataCache} from './resourceCache'
 import { readAll } from './readAll'
 import { createDataFetch } from './dataFetch'
 import { invalidateAllCaches } from './cache'
@@ -17,7 +18,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 })
 
-export async function privateFile(value: string | null, bucket: string) {
+export async function privateFile(value: string | null, bucket: string, force=false) {
   if (!value) return null
   let path: string
   const marker = `private:${bucket}/`
@@ -30,9 +31,7 @@ export async function privateFile(value: string | null, bucket: string) {
       path = decodeURIComponent(url.pathname.slice(prefix.length))
     } catch { return null }
   }
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 900)
-  if (error) return null
-  return data.signedUrl
+  return dataCache.load(`signed:${getAdminCacheScope()}:${bucket}:${path}`,async()=>{const {data,error}=await supabase.storage.from(bucket).createSignedUrl(path,900);if(error)return null;return data.signedUrl},12*60000,force)
 }
 
 export const getOrders = async () => {
@@ -52,11 +51,7 @@ export const getOrders = async () => {
     if(photoError)console.error('Не удалось загрузить фотографии спецзаказов')
     else for(const request of requests||[])if(request.image_url)photos.set(String(request.id),request.image_url)
   }
-  return Promise.all((data || []).map(async order => ({
-    ...order, payment_screenshot_url: await privateFile(order.payment_screenshot_url, 'payment-screenshots'),
-    items: await Promise.all(itemsOf(order).map(async (item: any,index:number) => item.isSpecialOrder||item.specialRequestId
-      ? { ...item, _photoKey:`${order.id}-${requestId(order,item)}-${index}`, _specialImageRef:item.image || photos.get(String(requestId(order,item))) || null, image: await privateFile(item.image || photos.get(String(requestId(order,item))) || null, 'china-requests') } : item)),
-  })))
+  return (data||[]).map(order=>({...order,items:itemsOf(order).map((item:any,index:number)=>item.isSpecialOrder||item.specialRequestId?{...item,_photoKey:`${order.id}-${requestId(order,item)}-${index}`,_specialImageRef:item.image||photos.get(String(requestId(order,item)))||null,image:item.image||photos.get(String(requestId(order,item)))||null}:item)}))
 }
 
 export const getChinaRequests = async () => {
@@ -67,7 +62,7 @@ export const getChinaRequests = async () => {
     throw error
   }
   
-  return Promise.all((data || []).map(async request => ({ ...request, image_url: await privateFile(request.image_url, 'china-requests') })))
+  return data||[]
 }
 
 export type AdminNotice = { key: string; message: string }

@@ -1,3 +1,4 @@
+import {tx,useAdminLanguage} from '../../lib/i18n'
 interface JeansIconProps {
   size?: number | string
   className?: string
@@ -6,6 +7,8 @@ interface JeansIconProps {
 }
 
 export default function JeansIcon({ size = 18, className, color, title }: JeansIconProps) {
+ useAdminLanguage()
+
   return (
     <svg
       width={size}
@@ -14,7 +17,7 @@ export default function JeansIcon({ size = 18, className, color, title }: JeansI
       fill={color || 'currentColor'}
       className={className}
       role="img"
-      aria-label={title || 'Jeans'}
+      aria-label={tx(title) || 'Jeans'}
     >
       <path
         fillRule="evenodd"

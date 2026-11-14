@@ -1,3 +1,4 @@
+import {t,tx,useAdminLanguage} from '../lib/i18n'
 import { useState, useMemo } from 'react'
 import { ICON_REGISTRY, selectedIcon, type IconGroup, type IconEntry } from '../lib/iconRegistry'
 import { Search, Check, Footprints, Shirt, Gem, Shapes, type LucideIcon } from 'lucide-react'
@@ -19,6 +20,8 @@ interface IconPickerProps {
 }
 
 export default function IconPicker({ value, onChange, filterGroup = null }: IconPickerProps) {
+ useAdminLanguage()
+
   const [search, setSearch] = useState('')
   const [selectedGroup, setSelectedGroup] = useState<IconGroup | 'all'>(filterGroup || 'all')
 
@@ -52,7 +55,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск иконки..."
+          placeholder={t("Поиск иконки...")}
           className="w-full pl-10 pr-4 py-2.5 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-sm text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold"
         />
       </div>
@@ -68,7 +71,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
                 : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border'
             }`}
           >
-            Все ({ICON_REGISTRY.length})
+            {t("Все (")}{ICON_REGISTRY.length})
           </button>
           {GROUP_ORDER.map((g) => {
             const GroupIcon = GROUP_LABELS[g].icon
@@ -84,7 +87,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
                 }`}
               >
                 <GroupIcon size={15} />
-                {GROUP_LABELS[g].label} ({count})
+                {tx(GROUP_LABELS[g].label)} ({count})
               </button>
             )
           })}
@@ -94,8 +97,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
       {/* Сетка иконок */}
       {filteredIcons.length === 0 ? (
         <div className="text-center py-6 text-sm text-[#8A8275] dark:text-gray-400">
-          Иконки не найдены
-        </div>
+          {t("Иконки не найдены")}</div>
       ) : (
         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5 max-h-64 overflow-y-auto p-2 bg-[#F5F1E8]/50 dark:bg-dark-accent/30 rounded-xl border border-[#E8E2D5] dark:border-dark-border">
           {filteredIcons.map((icon) => {
@@ -129,7 +131,7 @@ export default function IconPicker({ value, onChange, filterGroup = null }: Icon
       {/* Подсказка с выбранным ключом */}
       {value && (
         <p className="text-xs text-[#8A8275] dark:text-gray-400">
-          Выбрано: <span className="text-[#C9A961] dark:text-gold font-bold">{selectedIcon(value)?.labelRu || 'Все товары'}</span>
+          {t("Выбрано:")}{' '}<span className="text-[#C9A961] dark:text-gold font-bold">{selectedIcon(value)?.labelRu || t("Все товары")}</span>
         </p>
       )}
     </div>

@@ -1,3 +1,4 @@
+import {t,tx,getAdminLocale,useAdminLanguage} from '../lib/i18n'
 import { useAdminRefresh } from '../lib/adminLive'
 import {formatOrderMoney} from '../lib/orderState'
 import {getRefunds} from '../lib/refunds'
@@ -34,6 +35,8 @@ const NOTIFICATIONS_TTL = 30_000
 const seenStorageKey = () => `${STORAGE_KEY}:${getAdminCacheScope()}`
 
 export default function NotificationBell() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const bellButtonRef = useRef<HTMLButtonElement>(null)
@@ -148,15 +151,15 @@ export default function NotificationBell() {
   // ✅ Относительное форматирование времени: «только что», «5 мин назад», «2 ч назад», «12.10»
   const formatTime = (dateStr: string): string => {
     const diff = Date.now() - new Date(dateStr).getTime()
-    if (diff < 0) return 'только что'
+    if (diff < 0) return t('только что')
     const mins = Math.floor(diff / 60_000)
-    if (mins < 1) return 'только что'
-    if (mins < 60) return `${mins} мин назад`
+    if (mins < 1) return t('только что')
+    if (mins < 60) return t('{0} мин назад',[mins])
     const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours} ч назад`
+    if (hours < 24) return t('{0} ч назад',[hours])
     const days = Math.floor(hours / 24)
-    if (days < 7) return `${days} дн назад`
-    return new Date(dateStr).toLocaleDateString('ru-RU', {
+    if (days < 7) return t('{0} дн назад',[days])
+    return new Date(dateStr).toLocaleDateString(getAdminLocale(), {
       day: '2-digit',
       month: '2-digit',
     })
@@ -172,7 +175,7 @@ export default function NotificationBell() {
         aria-expanded={open}
         onClick={() => { if (!open) { setPresent(true); void loadNotifications(true) } setOpen(!open) }}
         className="relative w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors text-[#1B2A4A] dark:text-white"
-        title="Уведомления о новых заказах и спецзаказах"
+        title={t("Уведомления о новых заказах и спецзаказах")}
       >
         <Bell size={18} />
         {notifications.length > 0 && (
@@ -198,12 +201,9 @@ export default function NotificationBell() {
               </div>
               <div className="min-w-0">
                 <p className="font-bold text-sm text-[#1B2A4A] dark:text-white truncate">
-                  Новые заказы и спецзаказы
-                </p>
+                  {t("Новые заказы и спецзаказы")}</p>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                  {notifications.length > 0
-                    ? `${notifications.length} непрочитанных`
-                    : 'Все прочитаны'}
+                  {notifications.length > 0?t("{0} непрочитанных",[notifications.length]):t("Все прочитаны")}
                 </p>
               </div>
             </div>
@@ -223,11 +223,9 @@ export default function NotificationBell() {
                   <Bell size={22} className="text-[#8A8275] dark:text-gray-300" />
                 </div>
                 <p className="text-sm font-medium text-[#1B2A4A] dark:text-white mb-1">
-                  Нет новых заказов и спецзаказов
-                </p>
+                  {t("Нет новых заказов и спецзаказов")}</p>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300">
-                  Уведомления появятся здесь
-                </p>
+                  {t("Уведомления появятся здесь")}</p>
               </div>
             ) : (
               notifications.map((o) => (
@@ -245,7 +243,7 @@ export default function NotificationBell() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">
-                        {o.kind==='refund'?'Возврат':o.kind === 'request' ? 'Спецзаказ' : 'Заказ'} №{o.id}
+                        {o.kind==='refund'?t("Возврат"):o.kind === 'request'?t("Спецзаказ"):t("Заказ")} №{o.id}
                       </p>
                       <span className="text-[10px] text-[#8A8275] dark:text-gray-400 whitespace-nowrap flex-shrink-0">
                         {formatTime(o.created_at)}
@@ -254,9 +252,9 @@ export default function NotificationBell() {
                     <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">
                       {o.kind === 'request' ? o.product_name : o.client_name}
                     </p>
-                    {o.kind === 'order' && specialOrderIds(o).length > 0 && <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">Спецзаказ №{specialOrderIds(o).join(", №")}</p>}
+                    {o.kind === 'order' && specialOrderIds(o).length > 0 && <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">{t("Спецзаказ №")}{specialOrderIds(o).join(", №")}</p>}
                     <p className="text-xs font-bold text-[#1B2A4A] dark:text-white mt-0.5">
-                      {formatPrice(o)}
+                      {tx(formatPrice(o))}
                     </p>
                   </div>
                 </button>
@@ -272,8 +270,7 @@ export default function NotificationBell() {
                 className="w-full py-2.5 rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white bg-white dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-border transition-colors flex items-center justify-center gap-1.5"
               >
                 <CheckCheck size={14} />
-                Отметить все прочитанными
-              </button>
+                {t("Отметить все прочитанными")}</button>
             </div>
           )}
         </div>

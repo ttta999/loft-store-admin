@@ -1,3 +1,5 @@
+import AdminLanguagePicker from '../components/AdminLanguagePicker'
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, logout, verifySecondFactor } from '../lib/auth'
@@ -13,6 +15,8 @@ interface LoginPageProps {
 const REMEMBER_EMAIL_KEY = 'loft_admin_remembered_email'
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -66,14 +70,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           // localStorage недоступен — не критично
         }
 
-        toast.success('Успешный вход!')
+        toast.success(tx(t("Успешный вход!")))
         onLogin()
         navigate('/')
       } else {
-        toast.error(result.error || 'Неверный email или пароль')
+        toast.error(uiError(result.error || 'Неверный email или пароль'))
       }
     } catch (error) {
-      toast.error(mfa && error instanceof Error ? error.message : 'Ошибка при входе')
+      toast.error(uiError(mfa && error instanceof Error ? error.message : 'Ошибка при входе'))
     } finally {
       setLoading(false)
     }
@@ -96,8 +100,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               LOFT Admin
             </h1>
             <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-              Панель управления магазином
-            </p>
+              {t("Панель управления магазином")}</p>
           </div>
         </div>
 
@@ -106,14 +109,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           {/* ✅ Приветствие: динамическое — с именем из email, когда он введён */}
           <div className="p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">
-              {emailName
-                ? `Добро пожаловать, ${emailName}! `
-                : 'Добро пожаловать! '}
+              {emailName?t("Добро пожаловать, {0}! ",[emailName]):t("Добро пожаловать! ")}
             </h2>
             <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-              {mfa ? 'Подтвердите вход одноразовым кодом' : emailName
-                ? 'Рады видеть вас снова — введите пароль для входа'
-                : 'Войдите для доступа к панели управления'}
+              {mfa?t("Подтвердите вход одноразовым кодом"):emailName?t("Рады видеть вас снова — введите пароль для входа"):t("Войдите для доступа к панели управления")}
             </p>
           </div>
 
@@ -121,20 +120,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             {mfa ? (
               <div className="p-5 space-y-4">
                 <p className="text-sm text-[#1B2A4A] dark:text-white">
-                  {mfa.qrCode
-                    ? 'Добавьте LOFT Admin в приложение-аутентификатор, затем введите шестизначный код.'
-                    : 'Введите шестизначный код из приложения-аутентификатора.'}
+                  {mfa.qrCode?t("Добавьте LOFT Admin в приложение-аутентификатор, затем введите шестизначный код."):t("Введите шестизначный код из приложения-аутентификатора.")}
                 </p>
                 {mfa.qrCode && (
                   <div className="space-y-3">
                     <img
                       src={mfa.qrCode.startsWith('data:') ? mfa.qrCode : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(mfa.qrCode)}`}
-                      alt="QR-код настройки двухфакторного входа"
+                      alt={t("QR-код настройки двухфакторного входа")}
                       className="w-48 h-48 mx-auto bg-white rounded-xl p-2"
                     />
                     {mfa.secret && (
                       <div className="text-xs text-[#8A8275] dark:text-gray-300">
-                        <p>Если QR-код неудобно сканировать, добавьте этот ключ вручную:</p>
+                        <p>{t("Если QR-код неудобно сканировать, добавьте этот ключ вручную:")}</p>
                         <code className="block mt-2 break-all select-all text-[#1B2A4A] dark:text-white">{mfa.secret}</code>
                       </div>
                     )}
@@ -143,7 +140,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <div className="flex items-center gap-3 p-3.5 border border-[#E8E2D5] dark:border-dark-border rounded-xl">
                   <Lock size={16} className="text-[#1B2A4A] dark:text-white" />
                   <input
-                    type="text" inputMode="numeric" autoComplete="one-time-code" aria-label="Код двухфакторного входа"
+                    type="text" inputMode="numeric" autoComplete="one-time-code" aria-label={t("Код двухфакторного входа")}
                     value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="000000" maxLength={6} pattern="[0-9]{6}" required autoFocus
                     className="w-full bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none tracking-widest"
@@ -152,8 +149,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <button type="button" disabled={loading} onClick={async () => {
                   await logout(); setMfa(null); setCode(''); setPassword('')
                 }} className="text-xs text-[#8A8275] dark:text-gray-300 hover:underline">
-                  Вернуться к входу
-                </button>
+                  {t("Вернуться к входу")}</button>
               </div>
             ) : (
             <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
@@ -184,8 +180,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-0.5">
-                    Пароль
-                  </label>
+                    {t("Пароль")}</label>
                   <div className="flex items-center gap-2">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -198,7 +193,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      title={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                      title={showPassword?t("Скрыть пароль"):t("Показать пароль")}
                       className="p-1.5 rounded-lg text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors flex-shrink-0"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -218,11 +213,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#1B2A4A] dark:text-white">
-                    Запомнить email
-                  </p>
+                    {t("Запомнить email")}</p>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                    В следующий раз email подставится автоматически
-                  </p>
+                    {t("В следующий раз email подставится автоматически")}</p>
                 </div>
                 {/* Тумблер-кружок */}
                 <span
@@ -253,10 +246,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 }`}
               >
                 <Lock size={16} />
-                {mfa ? (loading ? 'Проверка...' : 'Подтвердить вход') : (loading ? 'Вход...' : 'Войти')}
+                {mfa?(loading?t("Проверка..."):t("Подтвердить вход")):(loading?t("Вход..."):t("Войти"))}
               </button>
             </div>
-          </form>
+          </form><div className="mt-4"><AdminLanguagePicker/></div>
         </div>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import {t,tx,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import PageSkeleton from '../components/PageSkeleton'
 import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
@@ -52,6 +54,8 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
   subtitle: string
   accent?: boolean
 }) {
+ useAdminLanguage()
+
   return (
     <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
       <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border ${
@@ -60,11 +64,11 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{label}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{tx(label)}</p>
         <p className={`text-3xl font-bold truncate mt-0.5 ${
           accent ? 'text-[#C9A961]' : 'text-[#1B2A4A] dark:text-white'
         }`}>{value}</p>
-        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{subtitle}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{tx(subtitle)}</p>
       </div>
     </div>
   )
@@ -77,13 +81,15 @@ function MiniStat({ icon, label, value, percent }: {
   value: number
   percent: number
 }) {
+ useAdminLanguage()
+
   return (
     <div className="bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl p-3 flex items-center gap-3">
       <div className="w-9 h-9 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{label}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{tx(label)}</p>
         <p className="text-lg font-bold text-[#1B2A4A] dark:text-white leading-tight">
           {value}
           <span className="text-xs font-medium text-[#8A8275] dark:text-gray-300 ml-1">({percent}%)</span>
@@ -94,6 +100,8 @@ function MiniStat({ icon, label, value, percent }: {
 }
 
 function ProductThumbnail({ image, name }: { image?: string | null; name: string }) {
+ useAdminLanguage()
+
   const [failed, setFailed] = useState(false)
   return <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
     {image && !failed ? <img src={image} alt={name} loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={() => setFailed(true)} /> : <Package size={20} className="text-[#8A8275] dark:text-gray-400" />}
@@ -101,6 +109,8 @@ function ProductThumbnail({ image, name }: { image?: string | null; name: string
 }
 
 export default function AnalyticsPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const loadRequest = useRef(0)
   const [cached] = useState(() => analyticsCacheApi.get('month'))
@@ -112,7 +122,7 @@ export default function AnalyticsPage() {
   const [brandStats, setBrandStats] = useState<BrandStat[]>(cached?.brandStats ?? [])
   const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<string>(cached ? new Date(cached.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '')
+  const [lastUpdated, setLastUpdated] = useState<string>(cached ? new Date(cached.timestamp).toLocaleTimeString(getAdminLocale(), { hour: '2-digit', minute: '2-digit' }) : '')
 
   useEffect(() => {
     loadAnalytics(period, false)
@@ -124,7 +134,7 @@ export default function AnalyticsPage() {
     setTopProducts(entry.topProducts)
     setCategoryStats(entry.categoryStats)
     setBrandStats(entry.brandStats)
-    setLastUpdated(new Date(entry.timestamp).toLocaleTimeString('ru-RU', {
+    setLastUpdated(new Date(entry.timestamp).toLocaleTimeString(getAdminLocale(), {
       hour: '2-digit', minute: '2-digit',
     }))
   }
@@ -213,7 +223,7 @@ export default function AnalyticsPage() {
     valid.forEach((o: any) => {
       const dateObj = new Date(o.created_at)
       const dateKey = dateObj.toISOString().split('T')[0]
-      const dateLabel = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+      const dateLabel = dateObj.toLocaleDateString(getAdminLocale(), { day: '2-digit', month: '2-digit' })
       if (!statsByDay[dateKey]) {
         statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
       }
@@ -285,16 +295,7 @@ export default function AnalyticsPage() {
     loadAnalytics(period, true)
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка аналитики...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Аналитика")}/>
 
   const maxRevenue = Math.max(...dailyStats.map(d => d.revenue), 1)
   const maxCategoryRevenue = Math.max(...categoryStats.map(c => c.revenue), 1)
@@ -313,11 +314,10 @@ export default function AnalyticsPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Аналитика</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Аналитика")}</h1>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <BarChart3 size={18} className="text-[#1B2A4A] dark:text-white" />
               </span>
@@ -327,11 +327,10 @@ export default function AnalyticsPage() {
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title="Обновить данные"
+              title={t("Обновить данные")}
             >
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-              Обновить
-            </button>
+              {t("Обновить")}</button>
           </div>
 
           {/* Переключатель периода + время обновления */}
@@ -352,13 +351,13 @@ export default function AnalyticsPage() {
                       : 'bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#F5F1E8] dark:hover:bg-dark-accent'
                   }`}
                 >
-                  {label}
+                  {tx(label)}
                 </button>
               ))}
             </div>
             {lastUpdated && (
               <p className="text-xs text-[#8A8275] dark:text-gray-300">
-                Обновлено: {lastUpdated}
+                {t("Обновлено:")}{' '}{lastUpdated}
               </p>
             )}
           </div>
@@ -370,29 +369,29 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             icon={<DollarSign size={20} className="text-[#C9A961]" />}
-            label="Выручка"
+            label={t("Выручка")}
             value={displayMoney(orderStats?.totalRevenue || 0, 'USD')}
-            subtitle="Подтверждённая, за период"
+            subtitle={t("Подтверждённая, за период")}
             accent
           />
           <KpiCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
-            label="Заказы"
+            label={t("Заказы")}
             value={String(orderStats?.totalOrders || 0)}
-            subtitle={`${orderStats?.uniqueCustomers || 0} клиентов`}
+            subtitle={t("{0} клиентов",[orderStats?.uniqueCustomers || 0])}
           />
           <KpiCard
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
-            label="Средний чек"
+            label={t("Средний чек")}
             value={`$${Math.round(orderStats?.averageOrderValue || 0)}`}
-            subtitle="На успешный заказ"
+            subtitle={t("На успешный заказ")}
             accent
           />
           <KpiCard
             icon={<Users size={20} className="text-[#C9A961]" />}
-            label="В работе"
+            label={t("В работе")}
             value={String(orderStats?.activeOrders || 0)}
-            subtitle="Текущие заказы"
+            subtitle={t("Текущие заказы")}
             accent
           />
         </div>
@@ -406,10 +405,10 @@ export default function AnalyticsPage() {
                   <XCircle size={18} className="text-red-700 dark:text-red-300" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[#8A8275] dark:text-gray-300">Отменённых заказов</p>
+                  <p className="text-xs text-[#8A8275] dark:text-gray-300">{t("Отменённых заказов")}</p>
                   <p className="text-xl font-bold text-red-700 dark:text-red-300">{orderStats.cancelledOrders}</p>
                 </div>
-                <p className="text-xs text-[#8A8275] dark:text-gray-400 max-w-[140px]">Не учитываются в выручке</p>
+                <p className="text-xs text-[#8A8275] dark:text-gray-400 max-w-[140px]">{t("Не учитываются в выручке")}</p>
               </div>
             )}
             {orderStats.pendingPaymentOrders > 0 && (
@@ -418,10 +417,10 @@ export default function AnalyticsPage() {
                   <Clock size={18} className="text-orange-700 dark:text-orange-300" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[#8A8275] dark:text-gray-300">На обработке</p>
+                  <p className="text-xs text-[#8A8275] dark:text-gray-300">{t("На обработке")}</p>
                   <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{orderStats.pendingPaymentOrders}</p>
                 </div>
-                <p className="text-xs text-[#8A8275] dark:text-gray-400 max-w-[140px]">Деньги ещё не получены</p>
+                <p className="text-xs text-[#8A8275] dark:text-gray-400 max-w-[140px]">{t("Деньги ещё не получены")}</p>
               </div>
             )}
           </div>
@@ -434,15 +433,15 @@ export default function AnalyticsPage() {
               <Truck size={18} className="text-[#1B2A4A] dark:text-white" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">Разбивка заказов</h2>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Получение и способы оплаты за период</p>
+              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">{t("Разбивка заказов")}</h2>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Получение и способы оплаты за период")}</p>
             </div>
           </div>
           <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MiniStat icon={<Truck size={16} className="text-[#1B2A4A] dark:text-white" />} label="Доставка" value={orderStats?.deliveryOrders || 0} percent={pct(orderStats?.deliveryOrders || 0)} />
-            <MiniStat icon={<Store size={16} className="text-[#1B2A4A] dark:text-white" />} label="Самовывоз" value={orderStats?.pickupOrders || 0} percent={pct(orderStats?.pickupOrders || 0)} />
-            <MiniStat icon={<CreditCard size={16} className="text-[#1B2A4A] dark:text-white" />} label="Переводом" value={orderStats?.onlinePaymentOrders || 0} percent={pct(orderStats?.onlinePaymentOrders || 0)} />
-            <MiniStat icon={<Banknote size={16} className="text-[#1B2A4A] dark:text-white" />} label="При получении" value={orderStats?.receiptPaymentOrders || 0} percent={pct(orderStats?.receiptPaymentOrders || 0)} />
+            <MiniStat icon={<Truck size={16} className="text-[#1B2A4A] dark:text-white" />} label={t("Доставка")} value={orderStats?.deliveryOrders || 0} percent={pct(orderStats?.deliveryOrders || 0)} />
+            <MiniStat icon={<Store size={16} className="text-[#1B2A4A] dark:text-white" />} label={t("Самовывоз")} value={orderStats?.pickupOrders || 0} percent={pct(orderStats?.pickupOrders || 0)} />
+            <MiniStat icon={<CreditCard size={16} className="text-[#1B2A4A] dark:text-white" />} label={t("Переводом")} value={orderStats?.onlinePaymentOrders || 0} percent={pct(orderStats?.onlinePaymentOrders || 0)} />
+            <MiniStat icon={<Banknote size={16} className="text-[#1B2A4A] dark:text-white" />} label={t("При получении")} value={orderStats?.receiptPaymentOrders || 0} percent={pct(orderStats?.receiptPaymentOrders || 0)} />
           </div>
         </div>
 
@@ -455,18 +454,18 @@ export default function AnalyticsPage() {
                 <PieChart size={18} className="text-[#C9A961]" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">Продажи по категориям</h2>
-                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Выручка и штуки за период</p>
+                <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">{t("Продажи по категориям")}</h2>
+                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Выручка и штуки за период")}</p>
               </div>
             </div>
             <div className="p-4 space-y-3">
               {categoryStats.length === 0 ? (
-                <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">Нет данных за период</p>
+                <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">{t("Нет данных за период")}</p>
               ) : (
                 categoryStats.map(cat => (
                   <div key={cat.key} className="flex items-center gap-3">
                     <span className="w-32 text-xs font-bold text-[#1B2A4A] dark:text-white truncate flex-shrink-0">
-                      {cat.label}
+                      {tx(cat.label)}
                     </span>
                     <div className="flex-1">
                       <div
@@ -478,8 +477,7 @@ export default function AnalyticsPage() {
                       {displayMoney(cat.revenue, 'USD')}
                     </span>
                     <span className="text-[10px] text-[#8A8275] dark:text-gray-300 whitespace-nowrap w-14 text-right">
-                      {cat.sold} шт.
-                    </span>
+                      {cat.sold} {' '}{t("шт.")}</span>
                   </div>
                 ))
               )}
@@ -493,13 +491,13 @@ export default function AnalyticsPage() {
                 <Award size={18} className="text-[#C9A961]" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">Топ брендов</h2>
-                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">По выручке за период</p>
+                <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">{t("Топ брендов")}</h2>
+                <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("По выручке за период")}</p>
               </div>
             </div>
             <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
               {brandStats.length === 0 ? (
-                <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">Нет данных за период</p>
+                <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">{t("Нет данных за период")}</p>
               ) : (
                 brandStats.map((b, index) => (
                   <div key={b.name} className="flex items-center justify-between gap-3 p-3">
@@ -511,7 +509,7 @@ export default function AnalyticsPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">{b.name}</p>
-                        <p className="text-[10px] text-[#8A8275] dark:text-gray-300">{b.sold} шт. продано</p>
+                        <p className="text-[10px] text-[#8A8275] dark:text-gray-300">{b.sold} {' '}{t("шт. продано")}</p>
                       </div>
                     </div>
                     <p className="text-sm font-bold text-[#C9A961] whitespace-nowrap">
@@ -531,15 +529,14 @@ export default function AnalyticsPage() {
               <Calendar size={18} className="text-[#1B2A4A] dark:text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">Продажи по дням</h2>
+              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">{t("Продажи по дням")}</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                Последние {dailyStats.length} дней с продажами (только успешные заказы)
-              </p>
+                {t("Последние")}{' '}{dailyStats.length} {' '}{t("дней с продажами (только успешные заказы)")}</p>
             </div>
           </div>
           <div className="p-4 space-y-3">
             {dailyStats.length === 0 ? (
-              <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">Нет данных за выбранный период</p>
+              <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">{t("Нет данных за выбранный период")}</p>
             ) : (
               dailyStats.map(day => (
                 <div key={day.dateKey} className="flex items-center gap-4">
@@ -556,7 +553,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                   <span className="text-xs text-[#8A8275] dark:text-gray-300 whitespace-nowrap w-20 text-right">
-                    {day.orders} {day.orders === 1 ? 'заказ' : day.orders < 5 ? 'заказа' : 'заказов'}
+                    {day.orders} {day.orders === 1?t("заказ"):day.orders < 5?t("заказа"):t("заказов")}
                   </span>
                 </div>
               ))
@@ -571,13 +568,13 @@ export default function AnalyticsPage() {
               <Award size={18} className="text-[#C9A961]" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">Топ-5 товаров</h2>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Самые продаваемые за период (без отменённых)</p>
+              <h2 className="text-base font-bold text-[#1B2A4A] dark:text-white">{t("Топ-5 товаров")}</h2>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Самые продаваемые за период (без отменённых)")}</p>
             </div>
           </div>
           <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
             {topProducts.length === 0 ? (
-              <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">Нет данных о продажах</p>
+              <p className="text-center text-[#8A8275] dark:text-gray-300 py-6 text-sm">{t("Нет данных о продажах")}</p>
             ) : (
               topProducts.map((product, index) => (
                 <div key={product.product_id} className="flex items-center justify-between p-3.5 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors">
@@ -593,7 +590,7 @@ export default function AnalyticsPage() {
                     <ProductThumbnail key={product.product_image || product.product_id} image={product.product_image} name={product.product_name} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">{product.product_name}</p>
-                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Продано: {product.total_sold} шт.</p>
+                      <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Продано:")}{' '}{product.total_sold} {' '}{t("шт.")}</p>
                     </div>
                   </div>
                   <p className="text-sm font-bold text-[#C9A961] whitespace-nowrap ml-3">

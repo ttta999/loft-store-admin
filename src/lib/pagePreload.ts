@@ -43,7 +43,14 @@ export const RefundsPage = RefundsPageResource.Component
 const CampaignsResource = deferredPage(() => import('../pages/CampaignsPage'))
 export const CampaignsPage = CampaignsResource.Component
 
+const CatalogMenuResource=deferredPage(()=>import('../pages/CatalogMenuPage'))
+export const CatalogMenuPage=CatalogMenuResource.Component
+const SizeChartsResource=deferredPage(()=>import('../pages/SizeChartsPage'))
+export const SizeChartsPage=SizeChartsResource.Component
+
 const loaders: Record<string, () => Promise<unknown>> = {
+  '/catalog':CatalogMenuResource.load,
+  '/size-charts':SizeChartsResource.load,
   '/campaigns': CampaignsResource.load,
   '/refunds': RefundsPageResource.load,
   '/orders': loadOrdersPage,
@@ -55,7 +62,7 @@ const loaders: Record<string, () => Promise<unknown>> = {
   '/categories': loadCategoriesPage,
 }
 export function preloadPage(pathname: string): Promise<unknown> {
-  const key = '/' + pathname.split('/').filter(Boolean)[0]
+  const key = '/' + pathname.split(/[?#]/)[0].split('/').filter(Boolean)[0]
   return loaders[key]?.() || Promise.resolve()
 }
 export function warmPage(pathname: string) { void preloadPage(pathname).catch(() => {}) }

@@ -1,3 +1,5 @@
+import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { Check as TipCheck, X as TipClose, Trash2 as TipTrash, Image as TipImage } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -31,6 +33,8 @@ const isFullBrandRows = (list: any[]): boolean =>
   !list || list.length === 0 || (list[0] != null && typeof list[0].name === 'string')
 
 export default function BrandsPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [cached] = useState(() => { const rows = brandsCacheApi.get(); return rows && isFullBrandRows(rows) ? rows as Brand[] : null })
   const [brands, setBrands] = useState<Brand[]>(cached ?? [])
@@ -76,7 +80,7 @@ export default function BrandsPage() {
       brandsCacheApi.set(brandsList)
     } catch (error) {
       console.error('Ошибка загрузки брендов:', error)
-      toast.error('Ошибка загрузки брендов')
+      toast.error(uiError('Ошибка загрузки брендов'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -90,7 +94,7 @@ export default function BrandsPage() {
 
   const handleAddBrand = async () => {
     if (!newBrandName.trim()) {
-      toast.error('Введите название бренда')
+      toast.error(uiError('Введите название бренда'))
       return
     }
     try {
@@ -102,7 +106,7 @@ export default function BrandsPage() {
           is_active: true
         })
       if (error) throw error
-      toast.success('Бренд добавлен!')
+      toast.success(tx(t("Бренд добавлен!")))
       setNewBrandName('')
       setNewBrandLogo('')
       setShowAddModal(false)
@@ -111,9 +115,9 @@ export default function BrandsPage() {
     } catch (error: any) {
       console.error('Ошибка добавления:', error)
       if (error.code === '23505') {
-        toast.error('Такой бренд уже существует')
+        toast.error(uiError('Такой бренд уже существует'))
       } else {
-        toast.error('Ошибка добавления бренда')
+        toast.error(uiError('Ошибка добавления бренда'))
       }
     }
   }
@@ -125,35 +129,35 @@ export default function BrandsPage() {
         .update({ is_active: !brand.is_active })
         .eq('id', brand.id)
       if (error) throw error
-      toast.success(brand.is_active ? 'Бренд деактивирован' : 'Бренд активирован')
+      toast.success(tx(brand.is_active?t("Бренд деактивирован"):t("Бренд активирован")))
       brandsCacheApi.invalidate()
       await loadBrands(true)
     } catch (error) {
       console.error('Ошибка обновления:', error)
-      toast.error('Ошибка обновления')
+      toast.error(uiError('Ошибка обновления'))
     }
   }
 
   const handleDeleteBrand = async (brand: Brand) => {
-    if (!confirm(`Удалить бренд "${brand.name}"?`)) return
+    if (!confirm(tx(t("Удалить бренд \"{0}\"?",[brand.name])))) return
     try {
       const { error } = await supabase
         .from('brands')
         .delete()
         .eq('id', brand.id)
       if (error) throw error
-      toast.success('Бренд удалён')
+      toast.success(tx(t("Бренд удалён")))
       brandsCacheApi.invalidate()
       await loadBrands(true)
     } catch (error) {
       console.error('Ошибка удаления:', error)
-      toast.error('Ошибка удаления')
+      toast.error(uiError('Ошибка удаления'))
     }
   }
 
   const handleEditBrand = async () => {
     if (!editingBrand || !editingBrand.name.trim()) {
-      toast.error('Введите название бренда')
+      toast.error(uiError('Введите название бренда'))
       return
     }
     try {
@@ -165,30 +169,21 @@ export default function BrandsPage() {
         })
         .eq('id', editingBrand.id)
       if (error) throw error
-      toast.success('Бренд обновлён')
+      toast.success(tx(t("Бренд обновлён")))
       setEditingBrand(null)
       brandsCacheApi.invalidate()
       await loadBrands(true)
     } catch (error: any) {
       console.error('Ошибка обновления:', error)
       if (error.code === '23505') {
-        toast.error('Такой бренд уже существует')
+        toast.error(uiError('Такой бренд уже существует'))
       } else {
-        toast.error('Ошибка обновления')
+        toast.error(uiError('Ошибка обновления'))
       }
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка брендов...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Бренды")}/>
 
   const activeCount = brands.filter(b => b.is_active).length
 
@@ -205,11 +200,10 @@ export default function BrandsPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Бренды</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Бренды")}</h1>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Tag size={18} className="text-[#C9A961]" />
               </span>
@@ -220,31 +214,29 @@ export default function BrandsPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
             >
               <Plus size={16} />
-              Добавить
-            </button>
+              {t("Добавить")}</button>
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
-                Всего: <span className="text-[#C9A961]">{brands.length}</span>
+                {t("Всего:")}{' '}<span className="text-[#C9A961]">{brands.length}</span>
               </span>
               <span className="px-4 py-2 rounded-xl text-sm font-bold bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30">
-                Активных: {activeCount}
+                {t("Активных:")}{' '}{activeCount}
               </span>
               <span className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30">
-                Неактивных: {brands.length - activeCount}
+                {t("Неактивных:")}{' '}{brands.length - activeCount}
               </span>
             </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title="Обновить список"
+              title={t("Обновить список")}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              Обновить
-            </button>
+              {t("Обновить")}</button>
           </div>
         </div>
       </div>
@@ -256,10 +248,9 @@ export default function BrandsPage() {
               <Tag size={18} className="text-[#C9A961]" />
             </div>
             <div className="flex-1 min-w-[120px]">
-              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Все бренды</h2>
+              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">{t("Все бренды")}</h2>
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                Управление списком брендов магазина
-              </p>
+                {t("Управление списком брендов магазина")}</p>
             </div>
           </div>
 
@@ -269,8 +260,8 @@ export default function BrandsPage() {
                 <div className="w-14 h-14 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-3 flex items-center justify-center">
                   <Tag size={24} className="text-[#8A8275] dark:text-gray-300" />
                 </div>
-                <p className="text-sm font-medium text-[#1B2A4A] dark:text-white mb-1">Брендов пока нет</p>
-                <p className="text-xs text-[#8A8275] dark:text-gray-300">Добавьте первый бренд, чтобы начать</p>
+                <p className="text-sm font-medium text-[#1B2A4A] dark:text-white mb-1">{t("Брендов пока нет")}</p>
+                <p className="text-xs text-[#8A8275] dark:text-gray-300">{t("Добавьте первый бренд, чтобы начать")}</p>
               </div>
             ) : (
               brands.map((brand) => {
@@ -295,7 +286,7 @@ export default function BrandsPage() {
                         {safeName}
                       </p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                        Создан: {new Date(brand.created_at).toLocaleDateString('ru-RU')}
+                        {t("Создан:")}{' '}{new Date(brand.created_at).toLocaleDateString(getAdminLocale())}
                       </p>
                     </div>
 
@@ -304,13 +295,13 @@ export default function BrandsPage() {
                         ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-500/30'
                         : 'bg-gray-100 dark:bg-gray-500/20 text-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30'
                     }`}>
-                      {brand.is_active ? '✓ Активен' : '✕ Неактивен'}
+                      {brand.is_active?t("✓ Активен"):t("✕ Неактивен")}
                     </span>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
                         onClick={() => handleToggleBrand(brand)}
-                        title={brand.is_active ? 'Деактивировать' : 'Активировать'}
+                        title={brand.is_active?t("Деактивировать"):t("Активировать")}
                         className={`p-2.5 rounded-xl border transition-colors ${
                           brand.is_active
                             ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-500/20'
@@ -321,14 +312,14 @@ export default function BrandsPage() {
                       </button>
                       <button
                         onClick={() => setEditingBrand(brand)}
-                        title="Редактировать"
+                        title={t("Редактировать")}
                         className="p-2.5 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors"
                       >
                         <Edit2 size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteBrand(brand)}
-                        title="Удалить"
+                        title={t("Удалить")}
                         className="p-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-[#9B3B3B] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
                       >
                         <Trash2 size={16} />
@@ -347,8 +338,8 @@ export default function BrandsPage() {
               <Info size={18} className="text-[#1B2A4A] dark:text-white" />
             </div>
             <div className="flex-1 min-w-[120px]">
-              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">Как это работает</h2>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">Подсказки по управлению брендами</p>
+              <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">{t("Как это работает")}</h2>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Подсказки по управлению брендами")}</p>
             </div>
           </div>
           <div className="divide-y divide-[#E8E2D5] dark:divide-dark-border">
@@ -362,7 +353,7 @@ export default function BrandsPage() {
                 <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                   <item.icon size={16} />
                 </div>
-                <p className="flex-1 text-sm text-[#1B2A4A] dark:text-white pt-1.5">{item.text}</p>
+                <p className="flex-1 text-sm text-[#1B2A4A] dark:text-white pt-1.5">{tx(item.text)}</p>
               </div>
             ))}
           </div>
@@ -378,27 +369,26 @@ export default function BrandsPage() {
                 <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                   <Plus size={18} className="text-[#C9A961]" />
                 </div>
-                <h2 className="text-xl font-bold text-[#1B2A4A] dark:text-white">Добавить бренд</h2>
+                <h2 className="text-xl font-bold text-[#1B2A4A] dark:text-white">{t("Добавить бренд")}</h2>
               </div>
               <button onClick={() => { setShowAddModal(false); setNewBrandName(''); setNewBrandLogo('') }} className="p-2 rounded-lg hover:bg-[#F5F1E8] dark:hover:bg-dark-accent text-[#8A8275] dark:text-gray-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
 
-            <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5">Название бренда *</label>
+            <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5">{t("Название бренда *")}</label>
             <input
               type="text"
               value={newBrandName}
               onChange={(e) => setNewBrandName(e.target.value)}
-              placeholder="Например: Nike"
+              placeholder={t("Например: Nike")}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl mb-4 bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleAddBrand()}
             />
 
             <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5 flex items-center gap-1.5">
-              <ImageIcon size={12} /> Ссылка на логотип (необязательно)
-            </label>
+              <ImageIcon size={12} /> {' '}{t("Ссылка на логотип (необязательно)")}</label>
             <input
               type="text"
               value={newBrandLogo}
@@ -409,8 +399,8 @@ export default function BrandsPage() {
             />
 
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={handleAddBrand} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">Добавить</button>
-              <button onClick={() => { setShowAddModal(false); setNewBrandName(''); setNewBrandLogo('') }} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">Отмена</button>
+              <button onClick={handleAddBrand} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">{t("Добавить")}</button>
+              <button onClick={() => { setShowAddModal(false); setNewBrandName(''); setNewBrandLogo('') }} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">{t("Отмена")}</button>
             </div>
           </div>
         </div>
@@ -425,27 +415,26 @@ export default function BrandsPage() {
                 <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                   <Edit2 size={18} className="text-[#C9A961]" />
                 </div>
-                <h2 className="text-xl font-bold text-[#1B2A4A] dark:text-white">Редактировать бренд</h2>
+                <h2 className="text-xl font-bold text-[#1B2A4A] dark:text-white">{t("Редактировать бренд")}</h2>
               </div>
               <button onClick={() => setEditingBrand(null)} className="p-2 rounded-lg hover:bg-[#F5F1E8] dark:hover:bg-dark-accent text-[#8A8275] dark:text-gray-300 transition-colors">
                 <X size={18} />
               </button>
             </div>
 
-            <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5">Название бренда *</label>
+            <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5">{t("Название бренда *")}</label>
             <input
               type="text"
               value={editingBrand.name}
               onChange={(e) => setEditingBrand({ ...editingBrand, name: e.target.value })}
-              placeholder="Название бренда"
+              placeholder={t("Название бренда")}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl mb-4 bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white placeholder:text-[#8A8275] dark:placeholder:text-gray-500 focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleEditBrand()}
             />
 
             <label className="text-xs text-[#8A8275] dark:text-gray-300 block mb-1.5 flex items-center gap-1.5">
-              <ImageIcon size={12} /> Ссылка на логотип
-            </label>
+              <ImageIcon size={12} /> {' '}{t("Ссылка на логотип")}</label>
             <input
               type="text"
               value={editingBrand.logo_url || ''}
@@ -456,8 +445,8 @@ export default function BrandsPage() {
             />
 
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={handleEditBrand} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">Сохранить</button>
-              <button onClick={() => setEditingBrand(null)} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">Отмена</button>
+              <button onClick={handleEditBrand} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">{t("Сохранить")}</button>
+              <button onClick={() => setEditingBrand(null)} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">{t("Отмена")}</button>
             </div>
           </div>
         </div>

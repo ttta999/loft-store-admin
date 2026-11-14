@@ -1,3 +1,6 @@
+import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import ProtectedFile from '../components/ProtectedFile'
+import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { displayMoney, moneyNumber } from '../lib/money'
 import { dataCache } from '../lib/resourceCache'
@@ -44,13 +47,15 @@ const getStatusColor = (status: string) => {
 
 // ✅ Компактная мини-строка информации внутри раскрытой карточки (как в OrdersPage)
 function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+ useAdminLanguage()
+
   return (
     <div className="flex items-start gap-2.5 p-2.5 bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border">
       <div className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{label}</p>
+        <p className="text-[10px] text-[#8A8275] dark:text-gray-300 uppercase tracking-wider font-bold">{tx(label)}</p>
         <div className="text-xs font-medium text-[#1B2A4A] dark:text-white mt-0.5 break-all">{children}</div>
       </div>
     </div>
@@ -58,6 +63,8 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 }
 
 export default function ChinaPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [params]=useSearchParams()
   const [exchangeRate, setExchangeRate] = useState<number | null>(() => dataCache.get<number>('admin:exchange-rate'))
@@ -105,7 +112,7 @@ export default function ChinaPage() {
       chinaCacheApi.set(data)
     } catch (error) {
       console.error('Ошибка загрузки спецзаказов:', error)
-      toast.error('Ошибка загрузки спецзаказов')
+      toast.error(uiError('Ошибка загрузки спецзаказов'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -127,14 +134,14 @@ export default function ChinaPage() {
   const handlePriceSubmit = async () => {
     if (submitting || !selectedRequest) return
     const price = Number(managerPrice)
-    if (!Number.isFinite(price) || price <= 0 || price > 1000000 || Math.abs(price * 100 - Math.round(price * 100)) > 0.000001) { toast.error('Укажите цену в USD с точностью до цента'); return }
+    if (!Number.isFinite(price) || price <= 0 || price > 1000000 || Math.abs(price * 100 - Math.round(price * 100)) > 0.000001) { toast.error(uiError('Укажите цену в USD с точностью до цента')); return }
     setSubmitting(true)
     try {
       await updateChinaRequestStatus(selectedRequest.id, 'Оценён', { manager_price: price, manager_comment: managerComment })
-      toast.success('Оценка сохранена. Уведомление добавлено в очередь.')
+      toast.success(tx(t("Оценка сохранена. Уведомление добавлено в очередь.")))
       setShowPriceModal(false); setManagerPrice(''); setManagerComment('')
       chinaCacheApi.invalidate(); await loadRequests(true)
-    } catch (error: any) { toast.error(error.message || 'Не удалось сохранить оценку') }
+    } catch (error: any) { toast.error(uiError(error.message || 'Не удалось сохранить оценку')) }
     finally { setSubmitting(false) }
   }
   const handleRejectSubmit = async () => {
@@ -142,10 +149,10 @@ export default function ChinaPage() {
     setSubmitting(true)
     try {
       await updateChinaRequestStatus(selectedRequest.id, 'Отклонён', { rejection_reason: rejectReason.trim() })
-      toast.success('Заявка отклонена. Уведомление добавлено в очередь.')
+      toast.success(tx(t("Заявка отклонена. Уведомление добавлено в очередь.")))
       setShowRejectModal(false); setRejectReason('')
       chinaCacheApi.invalidate(); await loadRequests(true)
-    } catch (error: any) { toast.error(error.message || 'Не удалось отклонить заявку') }
+    } catch (error: any) { toast.error(uiError(error.message || 'Не удалось отклонить заявку')) }
     finally { setSubmitting(false) }
   }
 
@@ -163,16 +170,7 @@ export default function ChinaPage() {
 
   const filteredRequests = searchFiltered.filter(r => filter === 'all' || r.status === filter)
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка спецзаказов...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Спецзаказы")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
@@ -188,11 +186,10 @@ export default function ChinaPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Спецзаказы</h1>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Спецзаказы")}</h1>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Globe size={18} className="text-[#C9A961]" />
               </span>
@@ -202,11 +199,10 @@ export default function ChinaPage() {
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title="Обновить список"
+              title={t("Обновить список")}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              Обновить
-            </button>
+              {t("Обновить")}</button>
           </div>
 
           {/* ✅ Поиск по номеру / названию / ссылке / комментарию */}
@@ -218,7 +214,7 @@ export default function ChinaPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск: № заявки, название, ссылка..."
+              placeholder={t("Поиск: № заявки, название, ссылка...")}
               className="flex-1 bg-transparent text-sm font-medium text-[#1B2A4A] dark:text-white focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
             />
             {searchQuery && (
@@ -235,26 +231,25 @@ export default function ChinaPage() {
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <span className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider flex-shrink-0">
-                Статус:
-              </span>
+                {t("Статус:")}</span>
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold truncate"
               >
-                <option value="all">Все ({searchFiltered.length})</option>
+                <option value="all">{t("Все (")}{searchFiltered.length})</option>
                 {STATUSES.map(s => {
                   const count = searchFiltered.filter(r => r.status === s.old).length
                   return (
                     <option key={s.old} value={s.old}>
-                      {s.new} ({count})
+                      {tx(s.new)} ({tx(count)})
                     </option>
                   )
                 })}
               </select>
             </div>
             <span className="px-3 py-2 rounded-xl bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-sm font-bold text-[#1B2A4A] dark:text-white flex-shrink-0">
-              Показано: <span className="text-[#C9A961]">{filteredRequests.length}</span>
+              {t("Показано:")}{' '}<span className="text-[#C9A961]">{filteredRequests.length}</span>
             </span>
           </div>
         </div>
@@ -267,14 +262,10 @@ export default function ChinaPage() {
               <Globe size={28} className="text-[#8A8275] dark:text-gray-300" />
             </div>
             <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">
-              {q ? 'Спецзаказов не найдено' : filter === 'all' ? 'Спецзаказов пока нет' : 'Нет заявок с таким статусом'}
+              {q?t("Спецзаказов не найдено"):filter === 'all'?t("Спецзаказов пока нет"):t("Нет заявок с таким статусом")}
             </p>
             <p className="text-sm text-[#8A8275] dark:text-gray-300">
-              {q
-                ? `По запросу «${searchQuery}» ничего нет`
-                : filter === 'all'
-                  ? 'Когда клиенты начнут отправлять заявки — они появятся здесь'
-                  : 'Попробуйте выбрать другой фильтр'}
+              {q?t("По запросу «{0}» ничего нет",[searchQuery]):filter === 'all'?t("Когда клиенты начнут отправлять заявки — они появятся здесь"):t("Попробуйте выбрать другой фильтр")}
             </p>
           </div>
         ) : (
@@ -304,11 +295,11 @@ export default function ChinaPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
-                          Спецзаказ №{request.id}
+                          {t("Спецзаказ №")}{request.id}
                         </p>
                       </div>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                        {new Date(request.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(request.created_at).toLocaleString(getAdminLocale(), { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         {requestName ? ` · ${requestName}` : ''}
                       </p>
                     </div>
@@ -319,10 +310,10 @@ export default function ChinaPage() {
                           {priceInSums !== null ? displayMoney(priceInSums,'UZS') : `$${request.manager_price}`}
                         </p>
                       ) : (
-                        <p className="text-xs text-[#8A8275] dark:text-gray-400">не оценён</p>
+                        <p className="text-xs text-[#8A8275] dark:text-gray-400">{t("не оценён")}</p>
                       )}
                       <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${getStatusColor(request.status)}`}>
-                        {STATUSES.find(s => s.old === request.status)?.new || request.status}
+                        {tx(STATUSES.find(s => s.old === request.status)?.new || request.status)}
                       </span>
                     </div>
 
@@ -338,12 +329,12 @@ export default function ChinaPage() {
                       {/* Инфо-сетка */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {requestName && (
-                          <InfoMini icon={<Tag size={14} className="text-[#1B2A4A] dark:text-white" />} label="Название товара">
+                          <InfoMini icon={<Tag size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Название товара")}>
                             {requestName}
                           </InfoMini>
                         )}
                         {requestLink && (
-                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label="Ссылка на товар">
+                          <InfoMini icon={<Link2 size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Ссылка на товар")}>
                             <a
                               href={requestLink}
                               target="_blank"
@@ -355,12 +346,12 @@ export default function ChinaPage() {
                           </InfoMini>
                         )}
                         {request.size_color && (
-                          <InfoMini icon={<Ruler size={14} className="text-[#1B2A4A] dark:text-white" />} label="Размер / Цвет">
+                          <InfoMini icon={<Ruler size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Размер / Цвет")}>
                             {request.size_color}
                           </InfoMini>
                         )}
                         {request.comment && (
-                          <InfoMini icon={<MessageCircle size={14} className="text-[#1B2A4A] dark:text-white" />} label="Комментарий">
+                          <InfoMini icon={<MessageCircle size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Комментарий")}>
                             <span className="break-words whitespace-pre-wrap">{request.comment}</span>
                           </InfoMini>
                         )}
@@ -370,19 +361,15 @@ export default function ChinaPage() {
                           </InfoMini>
                         )}
                         {request.image_url && (
-                          <InfoMini icon={<ImageIcon size={14} className="text-[#1B2A4A] dark:text-white" />} label="Фото товара">
-                            <a
-                              href={request.image_url}
+                          <InfoMini icon={<ImageIcon size={14} className="text-[#1B2A4A] dark:text-white" />} label={t("Фото товара")}>
+                            <ProtectedFile
+                              value={request.image_url} bucket="china-requests" imageClassName="w-20 h-20 object-cover rounded-lg border border-[#E8E2D5] dark:border-dark-border hover:opacity-80 transition-opacity" aria-label={t("Фото товара")}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-block"
                             >
-                              <img
-                                src={request.image_url}
-                                alt="Product"
-                                className="w-20 h-20 object-cover rounded-lg border border-[#E8E2D5] dark:border-dark-border hover:opacity-80 transition-opacity"
-                              />
-                            </a>
+
+                            </ProtectedFile>
                           </InfoMini>
                         )}
                       </div>
@@ -397,11 +384,9 @@ export default function ChinaPage() {
                               </div>
                               <div className="min-w-0">
                                 <p className="text-[10px] text-[#C9A961] uppercase tracking-wider font-bold">
-                                  Оценка менеджера
-                                </p>
+                                  {t("Оценка менеджера")}</p>
                                 <p className="text-sm font-bold text-[#C9A961]">
-                                  ${request.manager_price} ≈ {priceInSums !== null ? moneyNumber(priceInSums,'UZS') : '—'} сум
-                                </p>
+                                  ${request.manager_price} ≈ {priceInSums !== null ? moneyNumber(priceInSums,'UZS') : '—'} {' '}{t("сум")}</p>
                               </div>
                             </div>
                           </div>
@@ -413,13 +398,12 @@ export default function ChinaPage() {
                         </div>
                       )}
 
-                      {request.rejection_reason && <InfoMini icon={<Info size={14} />} label="Причина отказа">{request.rejection_reason}</InfoMini>}
-                      {(request.converted_to_order_id || request.reserved_order_id) && <button onClick={() => navigate(`/orders?order=${request.converted_to_order_id || request.reserved_order_id}`)} className="py-2 px-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold">Перейти к заказу №{request.converted_to_order_id || request.reserved_order_id}</button>}
+                      {request.rejection_reason && <InfoMini icon={<Info size={14} />} label={t("Причина отказа")}>{request.rejection_reason}</InfoMini>}
+                      {(request.converted_to_order_id || request.reserved_order_id) && <button onClick={() => navigate(`/orders?order=${request.converted_to_order_id || request.reserved_order_id}`)} className="py-2 px-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold">{t("Перейти к заказу №")}{request.converted_to_order_id || request.reserved_order_id}</button>}
                       {/* Кнопки смены статуса */}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">
-                          Статус:
-                        </span>
+                          {t("Статус:")}</span>
                         {STATUSES
                           .filter(({ old }) => request.status === 'На оценке' && ['Оценён', 'Отклонён'].includes(old))
                           .map(({ old, new: newLabel }) => (
@@ -429,7 +413,7 @@ export default function ChinaPage() {
                               disabled={submitting}
                               className="px-3 py-1.5 bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:border-[#C9A961] dark:hover:border-gold rounded-xl text-xs font-bold text-[#1B2A4A] dark:text-white transition-colors disabled:opacity-50"
                             >
-                              {newLabel}
+                              {tx(newLabel)}
                             </button>
                           ))}
                       </div>
@@ -464,7 +448,7 @@ export default function ChinaPage() {
                   <DollarSign size={18} className="text-purple-700 dark:text-purple-300" />
                 </div>
                 <h3 className="text-xl font-bold text-[#1B2A4A] dark:text-white">
-                  Оценить №{selectedRequest?.id}
+                  {t("Оценить №")}{selectedRequest?.id}
                 </h3>
               </div>
               <button
@@ -486,15 +470,13 @@ export default function ChinaPage() {
             <div className="flex items-start gap-2.5 p-3 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl mb-5">
               <Info size={14} className="text-purple-600 dark:text-purple-300 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-purple-800 dark:text-purple-300 leading-relaxed">
-                После сохранения клиенту будет отправлено уведомление с ценой и комментарием
-              </p>
+                {t("После сохранения клиенту будет отправлено уведомление с ценой и комментарием")}</p>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-                  Цена в USD *
-                </label>
+                  {t("Цена в USD *")}</label>
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-3 bg-[#E8E2D5] dark:bg-dark-accent rounded-xl text-[#1B2A4A] dark:text-white font-bold">$</span>
                   <input
@@ -510,12 +492,11 @@ export default function ChinaPage() {
 
               <div>
                 <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-                  Комментарий (необязательно)
-                </label>
+                  {t("Комментарий (необязательно)")}</label>
                 <textarea
                   value={managerComment}
                   onChange={(e) => setManagerComment(e.target.value)}
-                  placeholder="Например: Доставка займёт 2-3 недели"
+                  placeholder={t("Например: Доставка займёт 2-3 недели")}
                   rows={3}
                   className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm resize-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
                 />
@@ -534,8 +515,7 @@ export default function ChinaPage() {
                 disabled={submitting}
                 className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors disabled:opacity-50"
               >
-                Отмена
-              </button>
+                {t("Отмена")}</button>
               <button
                 onClick={handlePriceSubmit}
                 disabled={submitting || !managerPrice}
@@ -544,13 +524,11 @@ export default function ChinaPage() {
                 {submitting ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
-                    Отправка...
-                  </>
+                    {t("Отправка...")}</>
                 ) : (
                   <>
                     <Send size={14} />
-                    Отправить
-                  </>
+                    {t("Отправить")}</>
                 )}
               </button>
             </div>
@@ -579,7 +557,7 @@ export default function ChinaPage() {
                   <XCircle size={18} className="text-[#9B3B3B] dark:text-red-400" />
                 </div>
                 <h3 className="text-xl font-bold text-[#9B3B3B] dark:text-red-400">
-                  Отклонить №{selectedRequest?.id}
+                  {t("Отклонить №")}{selectedRequest?.id}
                 </h3>
               </div>
               <button
@@ -600,18 +578,16 @@ export default function ChinaPage() {
             <div className="flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl mb-5">
               <Info size={14} className="text-red-600 dark:text-red-300 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
-                Укажите причину отклонения — это сообщение будет отправлено клиенту
-              </p>
+                {t("Укажите причину отклонения — это сообщение будет отправлено клиенту")}</p>
             </div>
 
             <div>
               <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-                Причина отклонения *
-              </label>
+                {t("Причина отклонения *")}</label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Например: Товар снят с производства / Не можем найти поставщика / Слишком долгая доставка"
+                placeholder={t("Например: Товар снят с производства / Не можем найти поставщика / Слишком долгая доставка")}
                 rows={4}
                 className="w-full px-4 py-3 border border-red-200 dark:border-red-500/30 rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#9B3B3B] dark:focus:border-red-400 text-sm resize-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500"
                 autoFocus
@@ -619,12 +595,11 @@ export default function ChinaPage() {
               <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1.5">
                 {rejectReason.trim().length < 5 ? (
                   <span className="text-[#9B3B3B] dark:text-red-400">
-                    Минимум 5 символов ({rejectReason.trim().length}/5)
+                    {t("Минимум 5 символов (")}{rejectReason.trim().length}/5)
                   </span>
                 ) : (
                   <span className="text-green-600 dark:text-green-400">
-                    ✓ {rejectReason.trim().length} символов
-                  </span>
+                    ✓ {rejectReason.trim().length} {' '}{t("символов")}</span>
                 )}
               </p>
             </div>
@@ -640,8 +615,7 @@ export default function ChinaPage() {
                 disabled={submitting}
                 className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors disabled:opacity-50"
               >
-                Отмена
-              </button>
+                {t("Отмена")}</button>
               <button
                 onClick={handleRejectSubmit}
                 disabled={submitting || rejectReason.trim().length < 5}
@@ -650,13 +624,11 @@ export default function ChinaPage() {
                 {submitting ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
-                    Отправка...
-                  </>
+                    {t("Отправка...")}</>
                 ) : (
                   <>
                     <XCircle size={14} />
-                    Отклонить
-                  </>
+                    {t("Отклонить")}</>
                 )}
               </button>
             </div>

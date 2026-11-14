@@ -1,3 +1,5 @@
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
+import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -38,6 +40,8 @@ const SIZE_TYPES = [
 ]
 
 export default function CategoriesPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [cached] = useState(() => categoriesCacheApi.get() as CategoryTree[] | null)
   const [tree, setTree] = useState<CategoryTree[]>(cached ?? [])
@@ -60,7 +64,7 @@ export default function CategoriesPage() {
       setTree(data)
     } catch (error) {
       console.error('Ошибка загрузки категорий:', error)
-      toast.error('Ошибка загрузки категорий')
+      toast.error(uiError('Ошибка загрузки категорий'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -87,21 +91,21 @@ export default function CategoriesPage() {
           name_uz: { old: old?.name_uz, new: values.name_uz },
           icon: { old: old?.icon, new: values.icon },
         })
-        toast.success('Категория обновлена ')
+        toast.success(tx(t("Категория обновлена ")))
       } else {
         const { error } = await supabase
           .from('categories')
           .insert({ id: values.id, name_ru: values.name_ru, name_uz: values.name_uz, icon: values.icon, sort_order: tree.length + 1 })
         if (error) throw error
         await logCategoryChange('create_category', 'category', values.id, { snapshot: values })
-        toast.success('Категория добавлена ')
+        toast.success(tx(t("Категория добавлена ")))
       }
       setCategoryModal(null)
       invalidateCategoriesCache()
       await load(true)
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.code === '23505' ? 'Не удалось добавить категорию. Обновите список и повторите попытку.' : 'Ошибка сохранения')
+      toast.error(uiError(error?.code === '23505' ? 'Не удалось добавить категорию. Обновите список и повторите попытку.' : 'Ошибка сохранения'))
     }
   }
 
@@ -126,7 +130,7 @@ export default function CategoriesPage() {
           .eq('id', editId)
         if (error) throw error
         await logCategoryChange('update_subcategory', 'subcategory', editId, { snapshot: values })
-        toast.success('Подкатегория обновлена ')
+        toast.success(tx(t("Подкатегория обновлена ")))
       } else {
         const { error } = await supabase
           .from('subcategories')
@@ -142,14 +146,14 @@ export default function CategoriesPage() {
           })
         if (error) throw error
         await logCategoryChange('create_subcategory', 'subcategory', values.id, { snapshot: values })
-        toast.success('Подкатегория добавлена ')
+        toast.success(tx(t("Подкатегория добавлена ")))
       }
       setSubModal(null)
       invalidateCategoriesCache()
       await load(true)
     } catch (error: any) {
       console.error(error)
-      toast.error(error?.code === '23505' ? 'Не удалось добавить подкатегорию. Обновите список и повторите попытку.' : 'Ошибка сохранения')
+      toast.error(uiError(error?.code === '23505' ? 'Не удалось добавить подкатегорию. Обновите список и повторите попытку.' : 'Ошибка сохранения'))
     }
   }
 
@@ -158,7 +162,7 @@ export default function CategoriesPage() {
     const turningOff = category.is_active
     if (turningOff) {
       const ok = confirm(
-        `Отключить категорию «${category.name_ru}»?\n\nОна скроется из приложения вместе со всеми товарами (${category.subcategories.length} подкатегорий). В админке категория останется с пометкой «Отключена».`
+        tx(t("Отключить категорию «{0}»?\n\nОна скроется из приложения вместе со всеми товарами ({1} подкатегорий). В админке категория останется с пометкой «Отключена».",[category.name_ru,category.subcategories.length]))
       )
       if (!ok) return
     }
@@ -166,31 +170,31 @@ export default function CategoriesPage() {
       const { error } = await supabase.from('categories').update({ is_active: !category.is_active, updated_at: new Date().toISOString() }).eq('id', category.id)
       if (error) throw error
       await logCategoryChange(turningOff ? 'disable_category' : 'enable_category', 'category', category.id)
-      toast.success(turningOff ? 'Категория отключена ' : 'Категория включена ')
+      toast.success(tx(turningOff?t("Категория отключена "):t("Категория включена ")))
       invalidateCategoriesCache()
       await load(true)
     } catch (error) {
       console.error(error)
-      toast.error('Ошибка обновления')
+      toast.error(uiError('Ошибка обновления'))
     }
   }
 
   const toggleSubcategory = async (sub: SubcategoryRow) => {
     const turningOff = sub.is_active
     if (turningOff) {
-      const ok = confirm(`Отключить подкатегорию «${sub.name_ru}»? Товары в ней скроются из приложения.`)
+      const ok = confirm(tx(t("Отключить подкатегорию «{0}»? Товары в ней скроются из приложения.",[sub.name_ru])))
       if (!ok) return
     }
     try {
       const { error } = await supabase.from('subcategories').update({ is_active: !sub.is_active, updated_at: new Date().toISOString() }).eq('id', sub.id)
       if (error) throw error
       await logCategoryChange(turningOff ? 'disable_subcategory' : 'enable_subcategory', 'subcategory', sub.id)
-      toast.success(turningOff ? 'Подкатегория отключена ' : 'Подкатегория включена ')
+      toast.success(tx(turningOff?t("Подкатегория отключена "):t("Подкатегория включена ")))
       invalidateCategoriesCache()
       await load(true)
     } catch (error) {
       console.error(error)
-      toast.error('Ошибка обновления')
+      toast.error(uiError('Ошибка обновления'))
     }
   }
 
@@ -223,16 +227,7 @@ export default function CategoriesPage() {
   const activeCategories = tree.filter(c => c.is_active).length
   const activeSubs = tree.reduce((sum, c) => sum + c.subcategories.filter(s => s.is_active).length, 0)
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка категорий...</p>
-        </div>
-      </div>
-    )
-  }
+  if(loading)return <PageSkeleton title={t("Категории")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
@@ -247,11 +242,10 @@ export default function CategoriesPage() {
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <ArrowLeft size={18} />
               </span>
-              На главную
-            </button>
+              {t("На главную")}</button>
 
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">Категории</h1><button className="text-xs font-bold text-[#8A8275] dark:text-gray-300 underline ml-3" onClick={()=>navigate('/size-charts')}>Таблицы размеров</button>
+              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Категории")}</h1><button className="text-xs font-bold text-[#8A8275] dark:text-gray-300 underline ml-3" onClick={()=>navigate('/size-charts')}>{t("Таблицы размеров")}</button>
               <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
                 <Layers size={18} className="text-[#C9A961]" />
               </span>
@@ -262,7 +256,7 @@ export default function CategoriesPage() {
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-                title="Обновить"
+                title={t("Обновить")}
               >
                 <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
               </button>
@@ -271,18 +265,16 @@ export default function CategoriesPage() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
               >
                 <Plus size={16} />
-                Категория
-              </button>
+                {t("Категория")}</button>
             </div>
           </div>
 
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
-              Категорий: <span className="text-[#C9A961]">{tree.length}</span> · активных {activeCategories}
+              {t("Категорий:")}{' '}<span className="text-[#C9A961]">{tree.length}</span> {' '}{t("· активных")}{' '}{activeCategories}
             </span>
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
-              Подкатегорий: <span className="text-[#C9A961]">{activeSubs}</span> активных
-            </span>
+              {t("Подкатегорий:")}{' '}<span className="text-[#C9A961]">{activeSubs}</span> {' '}{t("активных")}</span>
           </div>
         </div>
       </div>
@@ -293,8 +285,8 @@ export default function CategoriesPage() {
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">
               <Layers size={28} className="text-[#8A8275] dark:text-gray-300" />
             </div>
-            <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">Категорий пока нет</p>
-            <p className="text-sm text-[#8A8275] dark:text-gray-300">Добавьте первую категорию</p>
+            <p className="text-base font-medium text-[#1B2A4A] dark:text-white mb-1">{t("Категорий пока нет")}</p>
+            <p className="text-sm text-[#8A8275] dark:text-gray-300">{t("Добавьте первую категорию")}</p>
           </div>
         ) : (
           tree.map((category, catIndex) => (
@@ -320,27 +312,26 @@ export default function CategoriesPage() {
                         ? 'bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300'
                         : 'bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold'
                     }`}>
-                      {category.is_active ? '✓ Активна' : ' Отключена'}
+                      {category.is_active?t("✓ Активна"):t(" Отключена")}
                     </span>
                   </div>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                    {category.name_uz} · {category.subcategories.length} подкатегорий
-                  </p>
+                    {category.name_uz} · {category.subcategories.length} {' '}{t("подкатегорий")}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button onClick={() => moveCategory(catIndex, -1)} disabled={catIndex === 0} title="Выше"
+                  <button onClick={() => moveCategory(catIndex, -1)} disabled={catIndex === 0} title={t("Выше")}
                     className="p-2 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
                     <ChevronUp size={14} />
                   </button>
-                  <button onClick={() => moveCategory(catIndex, 1)} disabled={catIndex === tree.length - 1} title="Ниже"
+                  <button onClick={() => moveCategory(catIndex, 1)} disabled={catIndex === tree.length - 1} title={t("Ниже")}
                     className="p-2 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
                     <ChevronDown size={14} />
                   </button>
-                  <button onClick={() => setCategoryModal({ mode: 'edit', category })} title="Редактировать"
+                  <button onClick={() => setCategoryModal({ mode: 'edit', category })} title={t("Редактировать")}
                     className="p-2 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
                     <Edit2 size={14} />
                   </button>
-                  <button onClick={() => toggleCategory(category)} title={category.is_active ? 'Отключить' : 'Включить'}
+                  <button onClick={() => toggleCategory(category)} title={category.is_active?t("Отключить"):t("Включить")}
                     className={`p-2 rounded-lg border transition-colors ${
                       category.is_active
                         ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-500/20'
@@ -368,34 +359,33 @@ export default function CategoriesPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">{sub.name_ru}</p>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
-                            {SIZE_TYPES.find(t => t.value === sub.size_type)?.label || sub.size_type}
+                            {tx(SIZE_TYPES.find(t => t.value === sub.size_type)?.label) || sub.size_type}
                           </span>
                           {!sub.is_active && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold">
-                               Отключена
-                            </span>
+                               {t("Отключена")}</span>
                           )}
                         </div>
                         <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
                           {sub.name_uz}
                           {sub.sizes.length > 0 && ` · ${sub.sizes.slice(0, 6).join(', ')}${sub.sizes.length > 6 ? ` +${sub.sizes.length - 6}` : ''}`}
-                          {sub.sizes.length === 0 && ' · без размеров'}
+                          {sub.sizes.length === 0 && t(" · без размеров")}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button onClick={() => moveSubcategory(category, subIndex, -1)} disabled={subIndex === 0} title="Выше"
+                        <button onClick={() => moveSubcategory(category, subIndex, -1)} disabled={subIndex === 0} title={t("Выше")}
                           className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
                           <ChevronUp size={13} />
                         </button>
-                        <button onClick={() => moveSubcategory(category, subIndex, 1)} disabled={subIndex === category.subcategories.length - 1} title="Ниже"
+                        <button onClick={() => moveSubcategory(category, subIndex, 1)} disabled={subIndex === category.subcategories.length - 1} title={t("Ниже")}
                           className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border disabled:opacity-40 transition-colors">
                           <ChevronDown size={13} />
                         </button>
-                        <button onClick={() => setSubModal({ mode: 'edit', categoryId: category.id, sub: sub as any })} title="Редактировать"
+                        <button onClick={() => setSubModal({ mode: 'edit', categoryId: category.id, sub: sub as any })} title={t("Редактировать")}
                           className="p-1.5 rounded-lg bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
                           <Edit2 size={13} />
                         </button>
-                        <button onClick={() => toggleSubcategory(sub)} title={sub.is_active ? 'Отключить' : 'Включить'}
+                        <button onClick={() => toggleSubcategory(sub)} title={sub.is_active?t("Отключить"):t("Включить")}
                           className={`p-1.5 rounded-lg border transition-colors ${
                             sub.is_active
                               ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300'
@@ -413,8 +403,7 @@ export default function CategoriesPage() {
                   className="w-full flex items-center justify-center gap-2 p-3 text-sm font-bold text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent hover:text-[#1B2A4A] dark:hover:text-white transition-colors"
                 >
                   <Plus size={14} />
-                  Добавить подкатегорию
-                </button>
+                  {t("Добавить подкатегорию")}</button>
               </div>
             </div>
           ))
@@ -425,8 +414,7 @@ export default function CategoriesPage() {
             <Info size={16} className="text-[#1B2A4A] dark:text-white" />
           </div>
           <p className="text-xs text-[#8A8275] dark:text-gray-300 leading-relaxed">
-            Категории не удаляются — только отключаются. Отключённая категория скрывается из приложения вместе со своими товарами, но остаётся здесь для истории. Все изменения логируются.
-          </p>
+            {t("Категории не удаляются — только отключаются. Отключённая категория скрывается из приложения вместе со своими товарами, но остаётся здесь для истории. Все изменения логируются.")}</p>
         </div>
       </div>
 
@@ -459,6 +447,8 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
   onClose: () => void
   onSave: (values: { id: string; name_ru: string; name_uz: string; icon: string }, editId: string | null) => void
 }) {
+ useAdminLanguage()
+
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
   const [icon, setIcon] = useState<string>(initial?.icon || 'package')
@@ -469,7 +459,7 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
 
   const submit = () => {
     if (!nameRu.trim()) {
-      toast.error('Укажите название (RU)')
+      toast.error(uiError('Укажите название (RU)'))
       return
     }
     const finalId = initial?.id || newCategoryIdentifier(nameRu, existingIds)
@@ -491,7 +481,7 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
               <Tag size={18} className="text-[#C9A961]" />
             </div>
             <h3 className="text-xl font-bold text-[#1B2A4A] dark:text-white">
-              {initial ? 'Редактировать категорию' : 'Новая категория'}
+              {initial?t("Редактировать категорию"):t("Новая категория")}
             </h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#F5F1E8] dark:hover:bg-dark-accent text-[#8A8275] dark:text-gray-300 transition-colors">
@@ -501,23 +491,23 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название RU *</label>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Название RU *")}</label>
             <input
               type="text"
               value={nameRu}
               onChange={(e) => handleNameRuChange(e.target.value)}
-              placeholder="Например: Обувь"
+              placeholder={t("Например: Обувь")}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название UZ</label>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Название UZ")}</label>
             <input
               type="text"
               value={nameUz}
               onChange={(e) => setNameUz(e.target.value)}
-              placeholder="Если пусто — будет как RU"
+              placeholder={t("Если пусто — будет как RU")}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
             />
           </div>
@@ -525,18 +515,16 @@ function CategoryModal({ initial, existingIds, onClose, onSave }: {
           {/* ✅ Иконка через пикер */}
           <div>
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-              Иконка категории
-            </label>
+              {t("Иконка категории")}</label>
             <IconPicker value={icon} onChange={setIcon} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
-            Отмена
-          </button>
+            {t("Отмена")}</button>
           <button onClick={submit} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">
-            {initial ? 'Сохранить' : 'Добавить'}
+            {initial?t("Сохранить"):t("Добавить")}
           </button>
         </div>
       </div>
@@ -556,6 +544,8 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
     editId: string | null
   ) => void
 }) {
+ useAdminLanguage()
+
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
   const [sizeType, setSizeType] = useState(initial?.size_type || 'numeric')
@@ -571,7 +561,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
     const v = newSize.trim()
     if (!v) return
     if (sizes.includes(v)) {
-      toast.error('Такой размер уже добавлен')
+      toast.error(uiError('Такой размер уже добавлен'))
       return
     }
     setSizes([...sizes, v])
@@ -580,7 +570,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
 
   const submit = () => {
     if (!nameRu.trim()) {
-      toast.error('Укажите название (RU)')
+      toast.error(uiError('Укажите название (RU)'))
       return
     }
     const finalId = initial?.id || newCategoryIdentifier(nameRu, existingIds)
@@ -610,7 +600,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
               <Ruler size={18} className="text-[#C9A961]" />
             </div>
             <h3 className="text-xl font-bold text-[#1B2A4A] dark:text-white">
-              {initial ? 'Редактировать подкатегорию' : 'Новая подкатегория'}
+              {initial?t("Редактировать подкатегорию"):t("Новая подкатегория")}
             </h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#F5F1E8] dark:hover:bg-dark-accent text-[#8A8275] dark:text-gray-300 transition-colors">
@@ -621,22 +611,22 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название RU *</label>
+              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Название RU *")}</label>
               <input
                 type="text"
                 value={nameRu}
                 onChange={(e) => handleNameRuChange(e.target.value)}
-                placeholder="Например: Кроссовки"
+                placeholder={t("Например: Кроссовки")}
                 className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Название UZ</label>
+              <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Название UZ")}</label>
               <input
                 type="text"
                 value={nameUz}
                 onChange={(e) => setNameUz(e.target.value)}
-                placeholder="Если пусто — будет как RU"
+                placeholder={t("Если пусто — будет как RU")}
                 className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
               />
             </div>
@@ -645,8 +635,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
           {/* ✅ Иконка подкатегории (пусто = наследует иконку категории) */}
           <div>
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-              Иконка подкатегории
-              <span className="text-[10px] font-normal text-[#8A8275] dark:text-gray-400 normal-case tracking-normal">— если пусто, берётся иконка категории</span>
+              {t("Иконка подкатегории")}<span className="text-[10px] font-normal text-[#8A8275] dark:text-gray-400 normal-case tracking-normal">{t("— если пусто, берётся иконка категории")}</span>
             </label>
             <IconPicker value={icon} onChange={(k) => setIcon(k || null)} />
             {icon && (
@@ -654,20 +643,19 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                 onClick={() => setIcon(null)}
                 className="mt-2 text-xs text-[#9B3B3B] dark:text-red-400 hover:underline"
               >
-                Сбросить (наследовать иконку категории)
-              </button>
+                {t("Сбросить (наследовать иконку категории)")}</button>
             )}
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">Тип размерной сетки</label>
+            <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Тип размерной сетки")}</label>
             <select
               value={sizeType}
               onChange={(e) => setSizeType(e.target.value)}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
             >
               {SIZE_TYPES.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value}>{tx(t.label)}</option>
               ))}
             </select>
           </div>
@@ -675,7 +663,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
           {sizeType !== 'one_size' && (
             <div>
               <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
-                Размеры ({sizes.length})
+                {t("Размеры (")}{sizes.length})
               </label>
               <div className="flex gap-2 mb-2">
                 <input
@@ -683,7 +671,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                   value={newSize}
                   onChange={(e) => setNewSize(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSize() } }}
-                  placeholder="Например: 42 или XL"
+                  placeholder={t("Например: 42 или XL")}
                   className="flex-1 px-4 py-2.5 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm"
                 />
                 <button
@@ -691,8 +679,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                   className="px-4 py-2.5 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors flex items-center gap-1.5"
                 >
                   <Plus size={14} />
-                  Добавить
-                </button>
+                  {t("Добавить")}</button>
               </div>
               {sizes.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -706,7 +693,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-[#8A8275] dark:text-gray-400">Размеры не заданы — товар будет без остатков по размерам</p>
+                <p className="text-xs text-[#8A8275] dark:text-gray-400">{t("Размеры не заданы — товар будет без остатков по размерам")}</p>
               )}
             </div>
           )}
@@ -714,10 +701,9 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
 
         <div className="grid grid-cols-2 gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white font-bold hover:bg-[#E8E2D5] dark:hover:bg-dark-border transition-colors">
-            Отмена
-          </button>
+            {t("Отмена")}</button>
           <button onClick={submit} className="px-4 py-3 rounded-xl bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] font-bold hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors">
-            {initial ? 'Сохранить' : 'Добавить'}
+            {initial?t("Сохранить"):t("Добавить")}
           </button>
         </div>
       </div>

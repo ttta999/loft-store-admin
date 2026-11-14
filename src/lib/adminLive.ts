@@ -24,7 +24,7 @@ export function invalidateTopics(topics: Iterable<DataTopic>) {
 }
 
 /** One owner per authenticated shell. RLS/MFA protects content-free revision events. */
-export function useAdminLive(enabled: boolean) {
+export function useAdminLive(enabled: boolean, identity: string|null = getAdminCacheScope()) {
  useEffect(()=>{
   if(!enabled)return
   let active=true, running=false, rerun=false
@@ -49,7 +49,7 @@ export function useAdminLive(enabled: boolean) {
   void check()
   const timer=setInterval(()=>void check(),30_000)
   return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);void supabase.removeChannel(channel)}
- },[enabled])
+ },[enabled,identity])
 }
 /** Coalesce bursts; reload lists only, leaving component-local form/filter state intact. */
 export function useAdminRefresh(topics: DataTopic[], reload:()=>Promise<unknown>) {

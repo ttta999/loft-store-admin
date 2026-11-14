@@ -1,7 +1,6 @@
-type Page = { key: string; pathname: string }
-type Origin = { path: string; scroll: number }
+type Page = { key: string; pathname: string; search?: string }
+type Origin = { path: string; parent: string; scroll: number }
 const origins = new Map<string, Origin>()
-const sections = new Set(['/campaigns', '/orders', '/china', '/products', '/categories', '/analytics', '/settings', '/brands', '/refunds'])
 const name = 'loft-admin-surface'
 const frames = new Set<HTMLElement>()
 const header = () => document.querySelector<HTMLElement>('.sticky.top-0')
@@ -65,11 +64,12 @@ function readyContent(valid: () => boolean) {
 /** The selected dashboard tile becomes the section's visible surface and returns
  * to the same tile. Bounds/easing match the storefront's shared product photo. */
 export function prepareDashboardTransition(from: Page, to: Page) {
-  const forward = from.pathname === '/' && sections.has(to.pathname)
-  const origin = forward ? { path: to.pathname, scroll: scrollY } : origins.get(from.key)
-  const returning = to.pathname === '/' && sections.has(from.pathname) && !!origin
+  const sourcePath=from.pathname+(from.search||''),targetPath=to.pathname+(to.search||'')
+  const forward = sourcePath!==targetPath&&!!card(targetPath)
+  const origin = forward ? { path: targetPath, parent:sourcePath, scroll: scrollY } : origins.get(from.key)
+  const returning = !!origin&&origin.parent===targetPath
   if (!origin || (!forward && !returning)) return null
-  const source = forward ? card(to.pathname) : content()
+  const source = forward ? card(targetPath) : content()
   if (!visible(source)) return null
   const surface = forward ? source : snapshot(source)
   if (!surface) return null

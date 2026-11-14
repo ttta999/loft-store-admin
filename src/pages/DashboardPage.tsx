@@ -1,3 +1,5 @@
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
+import {AdminMenuRows} from '../components/AdminMenu'
 import ManagerTasks from '../components/ManagerTasks'
 import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
@@ -23,11 +25,9 @@ import {
   ShoppingBag,
   BarChart3,
   Settings,
-  Tag,
   ChevronRight,
   Store,
   RefreshCw,
-  Layers,
 } from 'lucide-react'
 import { logout } from '../lib/auth'
 import { toast } from 'sonner'
@@ -42,6 +42,8 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
   subtitle: string
   accent?: boolean
 }) {
+ useAdminLanguage()
+
   return (
     <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
       <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border ${
@@ -50,11 +52,11 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{label}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 truncate">{tx(label)}</p>
         <p className={`text-3xl font-bold truncate mt-0.5 ${
           accent ? 'text-[#C9A961]' : 'text-[#1B2A4A] dark:text-white'
         }`}>{value}</p>
-        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{subtitle}</p>
+        <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{tx(subtitle)}</p>
       </div>
     </div>
   )
@@ -69,6 +71,8 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
   destination: string
   onClick: () => void
 }) {
+ useAdminLanguage()
+
   return (
     <button
       data-admin-card={destination}
@@ -84,7 +88,7 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
         </div>
         <ChevronRight size={18} className="text-[#8A8275] dark:text-gray-300 group-hover:text-[#C9A961] dark:group-hover:text-gold group-hover:translate-x-0.5 transition-all" />
       </div>
-      <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">{title}</h2>
+      <h2 className="text-lg font-bold text-[#1B2A4A] dark:text-white">{tx(title)}</h2>
       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-1">{description}</p>
       {count !== undefined && (
         <span className="inline-block mt-3 px-2.5 py-1 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-xs font-bold text-[#1B2A4A] dark:text-white">
@@ -96,6 +100,8 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
 }
 
 export default function DashboardPage() {
+ useAdminLanguage()
+
   const navigate = useNavigate()
   const [refunds,setRefunds]=useState<any[]>(()=>refundsCacheApi.get()||[])
   const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
@@ -110,6 +116,12 @@ export default function DashboardPage() {
   }, [])
 
   useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => loadData(false, true))
+
+  useEffect(()=>{
+   const paths=['/orders','/china','/catalog','/refunds'];let index=0,timer:ReturnType<typeof setTimeout>|undefined
+   const warm=()=>{if(index<paths.length){warmPage(paths[index++]);timer=setTimeout(warm,250)}}
+   timer=setTimeout(warm,700);return()=>clearTimeout(timer)
+  },[])
 
   const loadData = async (forceRefresh = false, background = false) => {
     // 1. Читаем все три кеша
@@ -169,7 +181,7 @@ export default function DashboardPage() {
       console.error('Ошибка загрузки:', error)
       // Тост только если совсем ничего не смогли показать
       if (!cachedOrders && !cachedChina && !cachedCounts) {
-        toast.error('Ошибка загрузки данных панели')
+        toast.error(uiError('Ошибка загрузки данных панели'))
       }
     } finally {
       setLoading(false)
@@ -214,7 +226,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">Загрузка панели...</p>
+          <p className="text-[#1B2A4A] dark:text-white font-medium">{t("Загрузка панели...")}</p>
         </div>
       </div>
     )
@@ -232,7 +244,7 @@ export default function DashboardPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white truncate">LOFT Admin Panel</h1>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">Панель управления магазином</p>
+              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{t("Панель управления магазином")}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -241,18 +253,16 @@ export default function DashboardPage() {
               onClick={handleRefresh}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title="Обновить данные"
+              title={t("Обновить данные")}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              Обновить
-            </button>
+              {t("Обновить")}</button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-500/30 bg-[#FBF9F4] dark:bg-red-500/10 text-sm font-bold text-[#9B3B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
             >
               <LogOut size={16} />
-              Выйти
-            </button>
+              {t("Выйти")}</button>
           </div>
         </div>
       </div>
@@ -262,22 +272,22 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
-            label="Активные заказы"
+            label={t("Активные заказы")}
             value={String(activeOrders)}
-            subtitle={`Всего заказов: ${orders.length}`}
+            subtitle={t("Всего заказов: {0}",[orders.length])}
           />
           <KpiCard
             icon={<Globe size={20} className="text-[#C9A961]" />}
-            label="Спецзаказы на рассмотрении"
+            label={t("Спецзаказы на рассмотрении")}
             value={String(pendingRequests)}
-            subtitle={`Всего заявок: ${chinaRequests.length}`}
+            subtitle={t("Всего заявок: {0}",[chinaRequests.length])}
             accent
           />
           <KpiCard
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
-            label="Выручка"
+            label={t("Выручка")}
             value={displayMoney(totalRevenue, 'USD')}
-            subtitle="Подтверждённая оплата"
+            subtitle={t("Подтверждённая оплата")}
             accent
           />
         </div>
@@ -285,63 +295,31 @@ export default function DashboardPage() {
         <ManagerTasks/>
 
         {/* ✅ Сетка разделов: карточки-ссылки */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <NavCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
-            title="Заказы"
-            description="Управление заказами клиентов"
+            title={t("Заказы")}
+            description={t("Управление заказами клиентов")}
             count={`Всего: ${orders.length}`}
             destination="/orders"
             onClick={() => navigate('/orders')}
           />
           <NavCard
             icon={<Globe size={20} className="text-[#C9A961]" />}
-            title="Спецзаказы"
-            description="Заявки на спецзаказы из Китая"
+            title={t("Спецзаказы")}
+            description={t("Заявки на спецзаказы из Китая")}
             count={`Всего: ${chinaRequests.length}`}
             destination="/china"
             onClick={() => navigate('/china')}
           />
-          <NavCard
-            icon={<ShoppingBag size={20} className="text-[#1B2A4A] dark:text-white" />}
-            title="Товары"
-            description="Управление каталогом и остатками"
-            count={`Всего: ${productsCount}`}
-            destination="/products"
-            onClick={() => navigate('/products')}
-          />
-          <NavCard
-            icon={<Layers size={20} className="text-[#C9A961]" />}
-            title="Категории"
-            description="Категории, подкатегории и размеры"
-            destination="/categories"
-            onClick={() => navigate('/categories')}
-          />
-          <NavCard
-            icon={<BarChart3 size={20} className="text-[#C9A961]" />}
-            title="Аналитика"
-            description="Статистика и отчёты продаж"
-            destination="/analytics"
-            onClick={() => navigate('/analytics')}
-          />
-          <NavCard
-            icon={<Settings size={20} className="text-[#1B2A4A] dark:text-white" />}
-            title="Настройки"
-            description="Курс валют, скидки, доставка"
-            destination="/settings"
-            onClick={() => navigate('/settings')}
-          />
-          <NavCard icon={<Undo2 size={20} className="text-[#C9A961]" />} title="Возвраты" description="Проверка платежей и ручной возврат средств" count={`Активных: ${refunds.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length}`} destination="/refunds" onClick={()=>navigate('/refunds')} />
-          <NavCard
-            icon={<Tag size={20} className="text-[#C9A961]" />}
-            title="Бренды"
-            description="Управление списком брендов"
-            count={`Всего: ${brandsCount}`}
-            destination="/brands"
-            onClick={() => navigate('/brands')}
-          />
-          <NavCard icon={<Bell size={20} className="text-[#C9A961]" />} title="Рассылки" description="Новости и предложения для подписавшихся клиентов" destination="/campaigns" onClick={()=>navigate('/campaigns')} />
         </div>
+        <AdminMenuRows entries={[
+         {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,count:productsCount+' · '+brandsCount},
+         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:String(refunds.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length)},
+         {path:'/analytics',title:'Аналитика',icon:<BarChart3 size={20}/>},
+         {path:'/campaigns',title:'Рассылки',icon:<Bell size={20}/>},
+         {path:'/settings',title:'Настройки',icon:<Settings size={20}/>},
+        ]}/>
       </div>
     </div>
   )

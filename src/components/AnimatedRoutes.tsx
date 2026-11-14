@@ -1,19 +1,35 @@
+import PageSkeleton from './PageSkeleton'
+import {t,tx,useAdminLanguage} from '../lib/i18n'
 import { clearDashboardTransition, captureAdminHeader, prepareDashboardTransition } from '../lib/dashboardTransition'
 import { preloadPage } from '../lib/pagePreload'
 import { Suspense, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Outlet, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import ScrollRestoration from './ScrollRestoration'
 function RouteFrame() {
-  return <><ScrollRestoration /><Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center" role="status" aria-label="Загрузка"><div className="w-8 h-8 rounded-full border-2 border-current border-t-transparent animate-spin" /></div>}><Outlet /></Suspense></>
+ useAdminLanguage()
+
+  return <><ScrollRestoration /><Suspense fallback={<PageSkeleton/>}><Outlet /></Suspense></>
 }
 export default function AnimatedRoutes({ children }: { children: ReactNode }) {
-  const location = useLocation()
+ useAdminLanguage()
+
+  const location = useLocation(),navigate=useNavigate(),navigationType=useNavigationType()
+  const historyIndex=useRef(Number(history.state?.idx)||0)
   const [displayed, setDisplayed] = useState(location)
   const generation = useRef(0)
   useLayoutEffect(() => {
     if (displayed === location) return
     const current = ++generation.current
+    const previousUrl=displayed.pathname+displayed.search,nextUrl=location.pathname+location.search
+    const index=Number(history.state?.idx)||0
+    if(previousUrl!==nextUrl&&document.querySelector('[data-loft-dirty="true"]')&&!confirm(tx(t("Есть несохранённые изменения. Покинуть раздел без сохранения?")))){
+      if(navigationType==='POP'&&historyIndex.current!==index)window.history.go(historyIndex.current-index)
+      else if(navigationType==='PUSH')navigate(-1)
+      else navigate(previousUrl,{replace:true})
+      return
+    }
+    historyIndex.current=index
     let transition: ViewTransition | undefined
     const interrupt = () => transition?.skipTransition()
     const stopListening = () => {

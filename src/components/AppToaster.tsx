@@ -1,3 +1,4 @@
+import {t,useAdminLanguage} from '../lib/i18n'
 import { useSyncExternalStore } from 'react'
 import { Toaster } from 'sonner'
 
@@ -8,6 +9,8 @@ function subscribe(callback: () => void) {
 }
 const readTheme = (): 'dark' | 'light' => document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 export default function AppToaster() {
+ useAdminLanguage()
+
   const theme = useSyncExternalStore<'light' | 'dark'>(subscribe, readTheme, () => 'light')
-  return <Toaster position="top-center" richColors theme={theme} className="loft-toaster" />
+  return <Toaster containerAriaLabel={t("Уведомления")} toastOptions={{closeButtonAriaLabel:t("Закрыть")}} position="top-center" richColors theme={theme} className="loft-toaster" />
 }

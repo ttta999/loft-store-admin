@@ -1,3 +1,4 @@
+import {useAdminLanguage} from '../lib/i18n'
 import React from 'react'
 import {
   CATEGORY_ICONS,
@@ -96,6 +97,8 @@ export default function CategoryIcon({
   color,
   strokeWidth,
 }: CategoryIconProps) {
+ useAdminLanguage()
+
   const Component = resolveCategoryIcon(name) as React.ComponentType<IconProps>
   return <Component size={size} className={className} color={color} strokeWidth={strokeWidth} />
 }
