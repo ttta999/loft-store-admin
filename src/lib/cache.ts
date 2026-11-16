@@ -1,3 +1,4 @@
+import {getDeviceTimeZone} from './dateTime.ts'
 import { dataCache } from './resourceCache'
 // ✅ Единый файл кеша для всей админки.
 // Module-level переменные переживают размонтирование компонентов.
@@ -77,14 +78,14 @@ function collection<T>(key: string, ttl = DEFAULT_TTL, dependents: string[] = []
 }
 export const analyticsCacheApi = {
   get(period: AnalyticsPeriod, ttl = 60_000): AnalyticsCacheEntry | null {
-    const entry = dataCache.get<AnalyticsCacheEntry>(`admin:analytics:${period}`)
+    const entry = dataCache.get<AnalyticsCacheEntry>(`admin:analytics:${period}:${getDeviceTimeZone()}`)
     return entry && Date.now() - entry.timestamp < ttl ? entry : null
   },
   set(period: AnalyticsPeriod, data: Omit<AnalyticsCacheEntry, 'timestamp'>) {
-    dataCache.set(`admin:analytics:${period}`, { ...data, timestamp: Date.now() }, 60_000)
+    dataCache.set(`admin:analytics:${period}:${getDeviceTimeZone()}`, { ...data, timestamp: Date.now() }, 60_000)
   },
   invalidate(period?: AnalyticsPeriod) {
-    dataCache.invalidate(period ? `admin:analytics:${period}` : 'admin:analytics:')
+    dataCache.invalidate(period ? `admin:analytics:${period}:${getDeviceTimeZone()}` : 'admin:analytics:')
     dataCache.invalidate('http:')
   },
 }

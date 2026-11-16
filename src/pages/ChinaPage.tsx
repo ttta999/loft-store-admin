@@ -1,4 +1,6 @@
-import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import {adminDateTime} from '../lib/adminDateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import ProtectedFile from '../components/ProtectedFile'
 import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
@@ -48,6 +50,7 @@ const getStatusColor = (status: string) => {
 // ✅ Компактная мини-строка информации внутри раскрытой карточки (как в OrdersPage)
 function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
  useAdminLanguage()
+ useLocalTimeZone()
 
   return (
     <div className="flex items-start gap-2.5 p-2.5 bg-[#FBF9F4] dark:bg-dark-card rounded-xl border border-[#E8E2D5] dark:border-dark-border">
@@ -64,6 +67,7 @@ function InfoMini({ icon, label, children }: { icon: React.ReactNode; label: str
 
 export default function ChinaPage() {
  useAdminLanguage()
+ useLocalTimeZone()
 
   const navigate = useNavigate()
   const [params]=useSearchParams()
@@ -299,7 +303,7 @@ export default function ChinaPage() {
                         </p>
                       </div>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">
-                        {new Date(request.created_at).toLocaleString(getAdminLocale(), { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {adminDateTime(request.created_at, { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         {requestName ? ` · ${requestName}` : ''}
                       </p>
                     </div>

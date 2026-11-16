@@ -1,4 +1,7 @@
-import {t,tx,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import {adminTime,adminDateTime} from '../lib/adminDateTime'
+import {localDateKey,timestampDate} from '../lib/dateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
+import {t,tx,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
@@ -55,6 +58,7 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
   accent?: boolean
 }) {
  useAdminLanguage()
+ useLocalTimeZone()
 
   return (
     <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -110,6 +114,7 @@ function ProductThumbnail({ image, name }: { image?: string | null; name: string
 
 export default function AnalyticsPage() {
  useAdminLanguage()
+ const timeZone=useLocalTimeZone()
 
   const navigate = useNavigate()
   const loadRequest = useRef(0)
@@ -122,11 +127,11 @@ export default function AnalyticsPage() {
   const [brandStats, setBrandStats] = useState<BrandStat[]>(cached?.brandStats ?? [])
   const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<string>(cached ? new Date(cached.timestamp).toLocaleTimeString(getAdminLocale(), { hour: '2-digit', minute: '2-digit' }) : '')
+  const [lastUpdated, setLastUpdated] = useState<number>(cached?.timestamp||0)
 
   useEffect(() => {
     loadAnalytics(period, false)
-  }, [period])
+  }, [period,timeZone])
 
   const applyData = (entry: { orderStats: OrderStatsEntry; dailyStats: DailyStatsEntry[]; topProducts: ProductStatsEntry[]; categoryStats: CategoryStat[]; brandStats: BrandStat[]; timestamp: number }) => {
     setOrderStats(entry.orderStats)
@@ -134,9 +139,7 @@ export default function AnalyticsPage() {
     setTopProducts(entry.topProducts)
     setCategoryStats(entry.categoryStats)
     setBrandStats(entry.brandStats)
-    setLastUpdated(new Date(entry.timestamp).toLocaleTimeString(getAdminLocale(), {
-      hour: '2-digit', minute: '2-digit',
-    }))
+    setLastUpdated(entry.timestamp)
   }
 
   useAdminRefresh(['orders','refunds','products','brands','categories','subcategories'], () => loadAnalytics(period, false, true))
@@ -221,9 +224,9 @@ export default function AnalyticsPage() {
     // -------- Продажи по дням (ISO-ключ — без коллизий между годами) --------
     const statsByDay: Record<string, DailyStatsEntry> = {}
     valid.forEach((o: any) => {
-      const dateObj = new Date(o.created_at)
-      const dateKey = dateObj.toISOString().split('T')[0]
-      const dateLabel = dateObj.toLocaleDateString(getAdminLocale(), { day: '2-digit', month: '2-digit' })
+      const dateObj = timestampDate(o.created_at)
+      const dateKey = localDateKey(dateObj)
+      const dateLabel = adminDateTime(dateObj, { day: '2-digit', month: '2-digit' })
       if (!statsByDay[dateKey]) {
         statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
       }
@@ -357,7 +360,7 @@ export default function AnalyticsPage() {
             </div>
             {lastUpdated && (
               <p className="text-xs text-[#8A8275] dark:text-gray-300">
-                {t("Обновлено:")}{' '}{lastUpdated}
+                {t("Обновлено:")}{' '}{adminTime(lastUpdated)}
               </p>
             )}
           </div>
@@ -540,7 +543,7 @@ export default function AnalyticsPage() {
             ) : (
               dailyStats.map(day => (
                 <div key={day.dateKey} className="flex items-center gap-4">
-                  <div className="w-16 text-sm font-bold text-[#1B2A4A] dark:text-white flex-shrink-0">{day.dateLabel}</div>
+                  <div className="w-16 text-sm font-bold text-[#1B2A4A] dark:text-white flex-shrink-0">{adminDateTime(new Date(day.dateKey+'T12:00:00'),{day:'2-digit',month:'2-digit'})}</div>
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <div

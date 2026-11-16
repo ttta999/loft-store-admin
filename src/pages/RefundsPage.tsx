@@ -1,4 +1,6 @@
-import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import {adminDateTime} from '../lib/adminDateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -18,6 +20,7 @@ const actions:Record<string,string>={created:'Создан возврат',late_
 
 function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promise<void>}) {
  useAdminLanguage()
+ useLocalTimeZone()
 
  const o=r.orders || {};const navigate=useNavigate()
  const [amount,setAmount]=useState('');const [currency,setCurrency]=useState('UZS');const [comment,setComment]=useState('')
@@ -47,8 +50,8 @@ function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promis
    <InfoMini icon={<User size={14}/>} label={t("Клиент")}><p>{o.client_name || t("Имя не указано")} · {o.client_phone || t("Телефон не указан")}</p><p className="text-[#8A8275] dark:text-gray-300 mt-1">Telegram: {o.user_chat_id||o.user_id}</p></InfoMini>
    <InfoMini icon={<Undo2 size={14}/>} label={t("Отмена")}><p>{tx(cancellationSource(r.cancelled_by))}</p><p className="text-[#8A8275] dark:text-gray-300 mt-1">{r.reason||o.cancellation_reason || t("Причина не сохранена")}</p></InfoMini>
    <InfoMini icon={<MapPin size={14}/>} label={t("Получение")}><p>{o.delivery_method==='pickup'?t("Самовывоз"):t("Доставка")}</p><p className="text-[#8A8275] dark:text-gray-300 mt-1">{o.delivery_address || t("ТЦ «Меркато», 2 этаж, магазин №34")}</p></InfoMini>
-   <InfoMini icon={<CreditCard size={14}/>} label={t("Фактически подтверждённая оплата")}><p>{o.payment_amount!=null?tx(formatMoney(o.payment_amount,o.payment_currency)):o.paid_at?tx(formatOrderMoney(o)):t("Сумма не подтверждена")}</p><p className="text-[#8A8275] dark:text-gray-300 mt-1">{o.payment_method==='upon_receipt'?t("При получении"):t("Переводом")} · {o.paid_at?new Date(o.paid_at).toLocaleString(getAdminLocale()):t("Поступление не подтверждено")}</p>{receipt&&<a href={receipt} target="_blank" rel="noreferrer" className="inline-block mt-1 text-[#C9A961] font-bold hover:underline">{t("Оригинал подтверждения оплаты")}</a>}</InfoMini>
-   <InfoMini icon={<ShieldCheck size={14}/>} label={t("Ответственный менеджер")}><p>{r.assigned_to?(mine?t("Вы обрабатываете этот возврат"):t("Возврат обрабатывает другой менеджер")):t("Ответственный менеджер не назначен")}</p>{r.completed_at&&<p className="mt-1 text-[#8A8275] dark:text-gray-300">{t("Перевод подтверждён")}{' '}{new Date(r.completed_at).toLocaleString(getAdminLocale())} · {r.processed_by===userId?t("Вы"):t("Менеджер")}</p>}</InfoMini>
+   <InfoMini icon={<CreditCard size={14}/>} label={t("Фактически подтверждённая оплата")}><p>{o.payment_amount!=null?tx(formatMoney(o.payment_amount,o.payment_currency)):o.paid_at?tx(formatOrderMoney(o)):t("Сумма не подтверждена")}</p><p className="text-[#8A8275] dark:text-gray-300 mt-1">{o.payment_method==='upon_receipt'?t("При получении"):t("Переводом")} · {o.paid_at?adminDateTime(o.paid_at):t("Поступление не подтверждено")}</p>{receipt&&<a href={receipt} target="_blank" rel="noreferrer" className="inline-block mt-1 text-[#C9A961] font-bold hover:underline">{t("Оригинал подтверждения оплаты")}</a>}</InfoMini>
+   <InfoMini icon={<ShieldCheck size={14}/>} label={t("Ответственный менеджер")}><p>{r.assigned_to?(mine?t("Вы обрабатываете этот возврат"):t("Возврат обрабатывает другой менеджер")):t("Ответственный менеджер не назначен")}</p>{r.completed_at&&<p className="mt-1 text-[#8A8275] dark:text-gray-300">{t("Перевод подтверждён")}{' '}{adminDateTime(r.completed_at)} · {r.processed_by===userId?t("Вы"):t("Менеджер")}</p>}</InfoMini>
   </div>
   <div className={`${card} p-4 flex flex-wrap items-center justify-between gap-3`}><div className="flex items-center gap-3"><span className="w-9 h-9 rounded-full bg-[#C9A961]/10 border border-[#C9A961]/30 flex items-center justify-center text-[#C9A961]"><Undo2 size={16}/></span><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#8A8275] dark:text-gray-300">{t("Сумма возврата")}</p><p className="text-base font-bold text-[#C9A961]">{tx(refundAmount(r))}</p></div></div>{proof&&<a href={proof} target="_blank" rel="noreferrer" className={button}><FileText size={14}/>{t("Квитанция обратного перевода")}</a>}</div>
   {!closed&&!r.assigned_to&&<button className={button} disabled={busy} onClick={()=>void run('claim')}><ShieldCheck size={14}/>{t("Взять в работу")}</button>}
@@ -69,7 +72,7 @@ function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promis
   </div>}
   {confirmOpen&&<div className="loft-modal fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" role="dialog" aria-modal="true" aria-labelledby="refund-confirm-title"><div className={`${card} p-6 max-w-md space-y-4`}><h2 id="refund-confirm-title" className="font-bold text-xl">{t("Подтвердить возврат?")}</h2><p>{t("Подтвердите фактический обратный перевод")}{' '}{tx(formatMoney(r.amount,r.currency))} {' '}{t("по заказу №")}{o.id}{t(". Квитанция сохранена. Приложение не выполняет банковский перевод.")}</p><div className="flex gap-3"><button className={button} disabled={busy} onClick={()=>setConfirmOpen(false)}>{t("Назад")}</button><button className={button} disabled={busy} onClick={async()=>{await run('complete');setConfirmOpen(false)}}>{t("Перевод выполнен")}</button></div></div></div>}
   {r.manager_comment&&<p>{t("Внутренний комментарий:")}{' '}{r.manager_comment}</p>}
-  <details className={`${card} p-4`}><summary className="cursor-pointer font-bold text-xs">{t("История обработки (")}{history.length})</summary>{history.map(h=><div className="py-2 border-b border-[#E8E2D5] dark:border-dark-border" key={h.id}><p>{new Date(h.created_at).toLocaleString(getAdminLocale())} · {tx(actions[h.action]) || h.action} · {h.actor_id===userId?t("Вы"):h.actor_id?t("Менеджер"):t("Система")}</p><p>{tx(h.current_state?.status)}{h.current_state?.manager_comment?` · ${h.current_state.manager_comment}`:''}</p></div>)}</details>
+  <details className={`${card} p-4`}><summary className="cursor-pointer font-bold text-xs">{t("История обработки (")}{history.length})</summary>{history.map(h=><div className="py-2 border-b border-[#E8E2D5] dark:border-dark-border" key={h.id}><p>{adminDateTime(h.created_at)} · {tx(actions[h.action]) || h.action} · {h.actor_id===userId?t("Вы"):h.actor_id?t("Менеджер"):t("Система")}</p><p>{tx(h.current_state?.status)}{h.current_state?.manager_comment?` · ${h.current_state.manager_comment}`:''}</p></div>)}</details>
   <textarea rows={3} aria-label={t("Сообщение клиенту")} placeholder={t("Сообщение клиенту")} className={input} value={message} maxLength={3000} onChange={e=>setMessage(e.target.value)}/>
   <button className={button} disabled={busy||!message.trim()} onClick={async()=>{setBusy(true);try{const escaped=message.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]!));const ok=await sendClientNotification(o.user_chat_id||o.user_id,`Возврат по заказу №${o.id}\n\n${escaped}`);if(!ok)throw Error('Не удалось отправить сообщение');setMessage('');toast.success(tx(t("Сообщение отправлено")))}catch(e:any){toast.error(uiError(e.message))}finally{setBusy(false)}}}><MessageCircle size={14}/>{t("Написать клиенту")}</button>
  </div>
@@ -77,6 +80,7 @@ function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promis
 
 function InfoMini({icon,label,children}:{icon:ReactNode;label:string;children:ReactNode}) {
  useAdminLanguage()
+ useLocalTimeZone()
 
  return <div className={`${card} !rounded-xl p-3 flex items-start gap-2.5`}><span className="w-8 h-8 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center shrink-0">{icon}</span><div className="min-w-0 flex-1"><p className="text-[10px] uppercase tracking-wider font-bold text-[#8A8275] dark:text-gray-300">{tx(label)}</p><div className="text-xs font-medium mt-1 break-words">{children}</div></div></div>
 }
@@ -88,13 +92,14 @@ const viewKey=()=>`view:refunds:${getAdminCacheScope()}`
 
 function RefundRow({r,open,userId,toggle,onSaved}:{r:any;open:boolean;userId:string;toggle:()=>void;onSaved:()=>Promise<void>}){
  useAdminLanguage()
+ useLocalTimeZone()
 
  const [visited,setVisited]=useState(open)
  useEffect(()=>{if(open)setVisited(true)},[open])
  return <section data-refund-row={r.id}>
   <button className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors" aria-expanded={open} aria-controls={`refund-detail-${r.id}`} onClick={toggle}>
    <span className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center shrink-0"><Undo2 size={16} className="text-[#C9A961]"/></span>
-   <span className="flex-1 min-w-0"><span className="block text-sm font-bold">{t("Возврат №")}{r.id} {' '}{t("· Заказ №")}{r.order_id}</span><span className="block text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{r.orders?.client_name} · {new Date(r.created_at).toLocaleString(getAdminLocale(),{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span className="block text-[10px] text-[#8A8275] dark:text-gray-300 mt-1 truncate">{tx(cancellationSource(r.cancelled_by))}</span></span>
+   <span className="flex-1 min-w-0"><span className="block text-sm font-bold">{t("Возврат №")}{r.id} {' '}{t("· Заказ №")}{r.order_id}</span><span className="block text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{r.orders?.client_name} · {adminDateTime(r.created_at,{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span className="block text-[10px] text-[#8A8275] dark:text-gray-300 mt-1 truncate">{tx(cancellationSource(r.cancelled_by))}</span></span>
    <span className="shrink-0 text-right max-w-[48%]"><span className="block text-sm font-bold text-[#C9A961]">{tx(refundAmount(r))}</span><span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusColor(r.status)}`}>{tx(r.status)}</span></span>
    <ChevronDown size={16} style={{transition:'rotate 250ms var(--loft-motion-ease)'}} className={`shrink-0 text-[#8A8275] dark:text-gray-300 transition-transform duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open?'rotate-180':''}`}/>
   </button>
@@ -106,6 +111,7 @@ function RefundRow({r,open,userId,toggle,onSaved}:{r:any;open:boolean;userId:str
 
 export default function RefundsPage(){
  useAdminLanguage()
+ useLocalTimeZone()
 
  const navigate=useNavigate();const [params]=useSearchParams();const initial=dataCache.get<ViewState>(viewKey());const linked=!!params.get('order')
  const [rows,setRows]=useState<any[]>(()=>refundsCacheApi.get()||[]);const [loading,setLoading]=useState(!refundsCacheApi.get());const [refreshing,setRefreshing]=useState(false);const [error,setError]=useState('')

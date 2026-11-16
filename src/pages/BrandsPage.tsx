@@ -1,4 +1,6 @@
-import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import {adminDate} from '../lib/adminDateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
+import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { Check as TipCheck, X as TipClose, Trash2 as TipTrash, Image as TipImage } from 'lucide-react'
@@ -34,6 +36,7 @@ const isFullBrandRows = (list: any[]): boolean =>
 
 export default function BrandsPage() {
  useAdminLanguage()
+ useLocalTimeZone()
 
   const navigate = useNavigate()
   const [cached] = useState(() => { const rows = brandsCacheApi.get(); return rows && isFullBrandRows(rows) ? rows as Brand[] : null })
@@ -286,7 +289,7 @@ export default function BrandsPage() {
                         {safeName}
                       </p>
                       <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
-                        {t("Создан:")}{' '}{new Date(brand.created_at).toLocaleDateString(getAdminLocale())}
+                        {t("Создан:")}{' '}{adminDate(brand.created_at)}
                       </p>
                     </div>
 

@@ -1,3 +1,5 @@
+import {adminDateTime} from '../lib/adminDateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import AdminLanguagePicker from '../components/AdminLanguagePicker'
 import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
@@ -34,12 +36,13 @@ interface SettingsCacheData {
   timestamp: number
 }
 
-const getSettingsCache = (section:string) => dataCache.get<SettingsCacheData>('admin:settings:'+section)
-const setSettingsCache = (section:string,data: Omit<SettingsCacheData, 'timestamp'>) => dataCache.set('admin:settings:'+section, { ...data, timestamp: Date.now() }, 60_000)
+const getSettingsCache = (section:string) => dataCache.get<SettingsCacheData>('admin:settings:utc:'+section)
+const setSettingsCache = (section:string,data: Omit<SettingsCacheData, 'timestamp'>) => dataCache.set('admin:settings:utc:'+section, { ...data, timestamp: Date.now() }, 60_000)
 const invalidateSettingsCache = () => { dataCache.invalidate('admin:settings'); dataCache.invalidate('admin:payment-cards'); dataCache.invalidate('http:') }
 
 function InfoToggle({ open, onClick, title }: { open: boolean; onClick: () => void; title: string }) {
  useAdminLanguage()
+ useLocalTimeZone()
 
   return (
     <button
@@ -58,6 +61,7 @@ function InfoToggle({ open, onClick, title }: { open: boolean; onClick: () => vo
 
 export default function SettingsForms({section,embedded=false}:{section:'theme'|'sale'|'delivery'|'prices';embedded?:boolean}) {
  useAdminLanguage()
+ useLocalTimeZone()
 
   const [dirty,setDirty]=useState(false)
   const titles={theme:'Язык и оформление',sale:'Скидки',delivery:'Оплата и доставка',prices:'Валюта и цены'}
@@ -110,7 +114,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
       if(error)throw error
       const settings=Object.fromEntries((rows||[]).map(row=>[row.key,row]))
       if(keys.some(key=>!settings[key]))throw new Error('Не удалось загрузить настройки')
-      if(settings.exchange_rate){const row=settings.exchange_rate;rate=Number(row.value?.rate);if(!Number.isFinite(rate)||rate<=0)throw new Error('Курс магазина недоступен');updBy=row.value?.updated_by||'system';version=row.value?.version||0;updAt=row.updated_at?new Date(row.updated_at).toLocaleString(getAdminLocale()):''}
+      if(settings.exchange_rate){const row=settings.exchange_rate;rate=Number(row.value?.rate);if(!Number.isFinite(rate)||rate<=0)throw new Error('Курс магазина недоступен');updBy=row.value?.updated_by||'system';version=row.value?.version||0;updAt=row.updated_at?row.updated_at:''}
       sale=settings.sale_mode_enabled?.value?.enabled===true
       const deliveryValue=settings.delivery_price?.value,thresholdValue=settings.free_delivery_threshold?.value
       if(deliveryValue)delivery=Number(deliveryValue.price_usd??Number(deliveryValue.price||0)/rate)
@@ -148,7 +152,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
 
       setCurrentVersion(newVersion)
       setUpdatedBy('admin')
-      const newLastUpdated = new Date().toLocaleString(getAdminLocale())
+      const newLastUpdated = new Date().toISOString()
       setLastUpdated(newLastUpdated)
       setSettingsCache(section,{ exchangeRate, saleMode, deliveryPrice, freeDeliveryThreshold, lastUpdated: newLastUpdated, updatedBy: 'admin', currentVersion: newVersion })
       setDirty(false)
@@ -440,7 +444,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
               </div>
               {lastUpdated ? (
                 <div className="space-y-2 text-xs text-[#8A8275] dark:text-gray-300">
-                  <p className="flex justify-between gap-4"><span> {' '}{t("Дата:")}</span><span className="font-bold text-[#1B2A4A] dark:text-white text-right">{lastUpdated}</span></p>
+                  <p className="flex justify-between gap-4"><span> {' '}{t("Дата:")}</span><span className="font-bold text-[#1B2A4A] dark:text-white text-right">{adminDateTime(lastUpdated)}</span></p>
                   <p className="flex justify-between gap-4"><span> {' '}{t("Кем:")}</span><span className="font-bold text-[#1B2A4A] dark:text-white">{updatedBy === 'admin'?t("Менеджером"):t("Автоматически")}</span></p>
                   <p className="flex justify-between gap-4"><span> {' '}{t("Версия:")}</span><span className="font-bold text-[#1B2A4A] dark:text-white">{currentVersion}</span></p>
                 </div>

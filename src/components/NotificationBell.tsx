@@ -1,4 +1,7 @@
-import {t,tx,getAdminLocale,useAdminLanguage} from '../lib/i18n'
+import {timestampDate} from '../lib/dateTime'
+import {adminDateTime} from '../lib/adminDateTime'
+import {useLocalTimeZone} from '../lib/useLocalTimeZone'
+import {t,tx,useAdminLanguage} from '../lib/i18n'
 import { useAdminRefresh } from '../lib/adminLive'
 import {formatOrderMoney} from '../lib/orderState'
 import {getRefunds} from '../lib/refunds'
@@ -36,6 +39,7 @@ const seenStorageKey = () => `${STORAGE_KEY}:${getAdminCacheScope()}`
 
 export default function NotificationBell() {
  useAdminLanguage()
+ useLocalTimeZone()
 
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -150,7 +154,7 @@ export default function NotificationBell() {
 
   // ✅ Относительное форматирование времени: «только что», «5 мин назад», «2 ч назад», «12.10»
   const formatTime = (dateStr: string): string => {
-    const diff = Date.now() - new Date(dateStr).getTime()
+    const diff = Date.now() - timestampDate(dateStr).getTime()
     if (diff < 0) return t('только что')
     const mins = Math.floor(diff / 60_000)
     if (mins < 1) return t('только что')
@@ -159,7 +163,7 @@ export default function NotificationBell() {
     if (hours < 24) return t('{0} ч назад',[hours])
     const days = Math.floor(hours / 24)
     if (days < 7) return t('{0} дн назад',[days])
-    return new Date(dateStr).toLocaleDateString(getAdminLocale(), {
+    return adminDateTime(dateStr, {
       day: '2-digit',
       month: '2-digit',
     })

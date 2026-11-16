@@ -855,5 +855,11 @@ export const uz:Record<keyof typeof ru,string> = {
 "Рассылка остановлена, согласие отозвано или цель недоступна": "Xabar tarqatmasi to‘xtatilgan, rozilik qaytarib olingan yoki maqsad mavjud emas",
 "Не удалось подготовить сообщение: проверьте фотографию и настройки бота": "Xabarni tayyorlab bo‘lmadi: foto va bot sozlamalarini tekshiring",
 "Тест не отправлен: временная ошибка или ограничение Telegram. Повторите позже.": "Test yuborilmadi: vaqtinchalik xato yoki Telegram cheklovi. Keyinroq qayta urinib ko‘ring.",
-"Результат отправки не удалось подтвердить": "Yuborish natijasini tasdiqlab bo‘lmadi"
+"Результат отправки не удалось подтвердить": "Yuborish natijasini tasdiqlab bo‘lmadi",
+"По времени Узбекистана": "O‘zbekiston vaqti bo‘yicha",
+"По вашему местному времени": "Sizning mahalliy vaqtingiz bo‘yicha",
+"Дата и время": "Sana va vaqt",
+"Выберите корректное местное время": "To‘g‘ri mahalliy vaqtni tanlang",
+"Выберите будущее время": "Kelajakdagi vaqtni tanlang",
+"Рабочие часы используются по времени Узбекистана": "Ish vaqti O‘zbekiston vaqti bo‘yicha qo‘llanadi"
 }
