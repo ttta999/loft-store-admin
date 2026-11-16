@@ -1,3 +1,4 @@
+import {hasDirtyAdminForms} from './lib/adminNavigation'
 import {setLanguageScope,useAdminLanguage} from './lib/i18n'
 import PageSkeleton from './components/PageSkeleton'
 import { useAdminLive } from './lib/adminLive'
@@ -21,7 +22,7 @@ function ProtectedLayout() {
   const check=async()=>{if(!active)return;if(running){again=true;return}running=true;const id=++generation;try{const user=await getCurrentUser();if(active&&id===generation){setLanguageScope(user?.id||null);setUserId(user?.id||null);setAllowed(!!user)}}finally{running=false;last=Date.now();if(active&&again){again=false;void check()}}}
   const {data:{subscription}}=supabase.auth.onAuthStateChange((event)=>{if(event==='INITIAL_SESSION')return;if(event==='SIGNED_OUT'){generation++;setLanguageScope(null);setUserId(null);setAllowed(false)}else queueMicrotask(()=>void check())})
   const resume=()=>{if(!document.hidden&&!running&&Date.now()-last>10000)void check()}
-  const unload=(e:BeforeUnloadEvent)=>{if(document.querySelector('[data-loft-dirty="true"]')){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',unload)
+  const unload=(e:BeforeUnloadEvent)=>{if(hasDirtyAdminForms()){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',unload)
   void check();window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);const timer=setInterval(resume,60000)
   return()=>{active=false;generation++;window.removeEventListener('beforeunload',unload);clearInterval(timer);subscription.unsubscribe();window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume)}
  },[])

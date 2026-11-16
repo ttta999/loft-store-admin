@@ -4,7 +4,7 @@ function deferredPage(loader: () => Promise<{ default: ComponentType }>) {
   let Page: ComponentType | undefined
   let pending: Promise<unknown> | undefined
   let failure: unknown
-  const load = () => pending ||= loader().then(module => { Page = module.default }, error => { failure = error; throw error })
+  const load = () => { if(Page)return Promise.resolve();if(failure){failure=undefined;pending=undefined}return pending ||= loader().then(module => { Page = module.default }, error => { failure = error; throw error }) }
   return {
     load,
     Component() {

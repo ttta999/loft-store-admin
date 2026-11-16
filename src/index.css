@@ -116,3 +116,7 @@ body {
   .sticky.top-0 .flex.items-center.justify-between { flex-wrap: wrap; }
 }
 :root[data-admin-motion], :root[data-admin-motion] body, :root[data-admin-motion] #root { overflow-x: clip; }
+
+/* Native controls share the application typeface, including Uzbek glyphs. */
+button, input, textarea, select { font-family: inherit; }
+:focus-visible { outline: 2px solid #c9a961; outline-offset: 3px; }

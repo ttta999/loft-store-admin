@@ -60,9 +60,9 @@ export type AnalyticsPeriod = 'week' | 'month' | 'year' | 'all'
 const DEFAULT_TTL = 5 * 60 * 1000
 function collection<T>(key: string, ttl = DEFAULT_TTL, dependents: string[] = []) {
   return {
-    get(maxAge = ttl): T | null {
-      const entry = dataCache.get<{ data: T; savedAt: number }>(key)
-      if (!entry || Date.now() - entry.savedAt >= maxAge) return null
+    get(maxAge = ttl, staleFor = 0): T | null {
+      const entry = dataCache.get<{ data: T; savedAt: number }>(key,staleFor)
+      if (!entry || Date.now() - entry.savedAt >= maxAge+staleFor) return null
       return entry.data
     },
     set(data: T) {

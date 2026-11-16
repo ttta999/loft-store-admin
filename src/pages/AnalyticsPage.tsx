@@ -1,3 +1,4 @@
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminTime,adminDateTime} from '../lib/adminDateTime'
 import {localDateKey,timestampDate} from '../lib/dateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
@@ -8,7 +9,6 @@ import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase, privateFile } from '../lib/supabase'
 import {
   analyticsCacheApi,
@@ -20,7 +20,7 @@ import {
   type BrandStat,
 } from '../lib/cache'
 import {
-  ArrowLeft,
+
   TrendingUp,
   Package,
   DollarSign,
@@ -116,7 +116,6 @@ export default function AnalyticsPage() {
  useAdminLanguage()
  const timeZone=useLocalTimeZone()
 
-  const navigate = useNavigate()
   const loadRequest = useRef(0)
   const [cached] = useState(() => analyticsCacheApi.get('month'))
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
@@ -309,32 +308,7 @@ export default function AnalyticsPage() {
       {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Аналитика")}</h1>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <BarChart3 size={18} className="text-[#1B2A4A] dark:text-white" />
-              </span>
-            </div>
-
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title={t("Обновить данные")}
-            >
-              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-              {t("Обновить")}</button>
-          </div>
+          <AdminHeaderRow title={t("Аналитика")} icon={<BarChart3/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
 
           {/* Переключатель периода + время обновления */}
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">

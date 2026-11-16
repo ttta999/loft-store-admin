@@ -1,3 +1,5 @@
+import {useAdminViewState} from '../lib/useAdminViewState'
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import RecommendationPicker, { type Recommendations } from '../components/RecommendationPicker'
@@ -5,12 +7,11 @@ import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { Lightbulb } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { productsCacheApi, brandsCacheApi, variantsCacheApi, categoryRowsCacheApi, subcategoriesCacheApi, colorsCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
+  Plus, Edit, Trash2, Search, Package, Upload, X, Eye, EyeOff,
   Copy, Star, Loader2, CheckCircle2, Circle, Info, Tag, DollarSign, Ruler,
   Image as ImageIcon, Save, RefreshCw, ChevronRight, Palette,
 } from 'lucide-react'
@@ -186,8 +187,7 @@ function FieldLabel({ text, flag, required, hint }: { text: string; flag?: strin
 export default function ProductsPage() {
  useAdminLanguage()
 
-  const navigate = useNavigate()
-  const [cachedProducts] = useState(() => { const rows = productsCacheApi.get(); return rows && isFullProductRows(rows) ? rows as Product[] : null })
+  const [cachedProducts] = useState(() => { const rows = productsCacheApi.get(undefined,60_000); return rows && isFullProductRows(rows) ? rows as Product[] : null })
   const [products, setProducts] = useState<Product[]>(cachedProducts ?? [])
   const [variants, setVariants] = useState<ProductVariant[]>(() => variantsCacheApi.get() as ProductVariant[] ?? [])
   const [editBaseline, setEditBaseline] = useState<{ version: number; variants: { id: string; stock: number }[] } | null>(null)
@@ -198,9 +198,9 @@ export default function ProductsPage() {
   const [colors, setColors] = useState<ProductColorRow[]>(() => colorsCacheApi.get() as ProductColorRow[] ?? [])
   const [loading, setLoading] = useState(!cachedProducts)
   const [refreshing, setRefreshing] = useState(false)
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'active' | 'hidden' | 'sale'>('all')
+  const [search, setSearch] = useAdminViewState('products:search','')
+  const [categoryFilter, setCategoryFilter] = useAdminViewState('products:category','all')
+  const [visibilityFilter, setVisibilityFilter] = useAdminViewState<'all' | 'active' | 'hidden' | 'sale'>('products:visibility','all')
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [recommendations,setRecommendations]=useState<Recommendations>({similar:[],outfit:[]})
@@ -303,7 +303,7 @@ export default function ProductsPage() {
 
     if (!productsValid && !variantsValid && !brandsValid) {
       if (forceRefresh) setRefreshing(true)
-      else if (!background) setLoading(true)
+      else if (!background && !productsCacheApi.get(undefined,60_000)) setLoading(true)
     }
 
     try {
@@ -870,40 +870,7 @@ export default function ProductsPage() {
       {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Товары")}</h1>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <Package size={18} className="text-[#1B2A4A] dark:text-white" />
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-                title={t("Обновить")}
-              >
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              </button>
-              <button
-                onClick={openAddModal}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
-              >
-                <Plus size={16} />
-                {t("Добавить товар")}</button>
-            </div>
-          </div>
+          <AdminHeaderRow title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><button onClick={openAddModal} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Добавить товар")}</span></button></>}/>
 
           {/* ✅ Поиск */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">

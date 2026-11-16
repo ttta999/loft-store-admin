@@ -41,7 +41,8 @@ export default function ScrollRestoration() {
       // СОХРАНЯЕМ позицию старой страницы до того, как сбросим её
       const positions = getSavedPositions()
       positions[prev.key] = scrollPosRef.current
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(positions))
+      const keys=Object.keys(positions);for(const key of keys.slice(0,Math.max(0,keys.length-60)))delete positions[key]
+      try{sessionStorage.setItem(STORAGE_KEY, JSON.stringify(positions))}catch{/* Storage limits must not block navigation. */}
 
       // ВОССТАНАВЛИВАЕМ или СБРАСЫВАЕМ для новой страницы
       if (navigationType === 'POP') {

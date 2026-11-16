@@ -1,3 +1,5 @@
+import {useAdminViewState} from '../lib/useAdminViewState'
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -12,7 +14,7 @@ import { getChinaRequests, updateChinaRequestStatus, supabase } from '../lib/sup
 import { chinaCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
+
   Globe,
   RefreshCw,
   Tag,
@@ -72,12 +74,12 @@ export default function ChinaPage() {
   const navigate = useNavigate()
   const [params]=useSearchParams()
   const [exchangeRate, setExchangeRate] = useState<number | null>(() => dataCache.get<number>('admin:exchange-rate'))
-  const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
-  const [loading, setLoading] = useState(() => !chinaCacheApi.get())
+  const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get(undefined,60_000) || [])
+  const [loading, setLoading] = useState(() => !chinaCacheApi.get(undefined,60_000))
   const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState(params.get('status')||'all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(params.get('request'))
+  const [filter, setFilter] = useAdminViewState('china:status',params.get('status')||'all')
+  const [searchQuery, setSearchQuery] = useAdminViewState('china:search','')
+  const [expandedId, setExpandedId] = useAdminViewState<string | null>('china:expanded',params.get('request'))
 
   const [showPriceModal, setShowPriceModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -99,7 +101,7 @@ export default function ChinaPage() {
     if (forceRefresh) {
       setRefreshing(true)
       dataCache.invalidate('admin:exchange-rate')
-    } else if (!cached) if (!background) setLoading(true)
+    } else if (!cached) if (!background && !chinaCacheApi.get(undefined,60_000)) setLoading(true)
     try {
       const [data, rate] = await Promise.all([
         cached ? Promise.resolve(cached) : getChinaRequests(),
@@ -182,32 +184,7 @@ export default function ChinaPage() {
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Спецзаказы")}</h1>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <Globe size={18} className="text-[#C9A961]" />
-              </span>
-            </div>
-
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title={t("Обновить список")}
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              {t("Обновить")}</button>
-          </div>
+          <AdminHeaderRow title={t("Спецзаказы")} icon={<Globe/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
 
           {/* ✅ Поиск по номеру / названию / ссылке / комментарию */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border flex items-center gap-3 p-3">

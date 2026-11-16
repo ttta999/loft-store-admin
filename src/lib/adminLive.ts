@@ -6,9 +6,9 @@ export type DataTopic = 'orders'|'china_requests'|'refunds'|'products'|'product_
 const dependencies: Record<DataTopic,string[]> = {
  orders:['history:','orders','analytics:','notifications','refunds','tasks'],
  china_requests:['history:','china','notifications','tasks'], refunds:['history:','refunds','orders','analytics:','notifications','tasks'],
- products:['products','counts','analytics:'], product_variants:['variants','products','analytics:'],
- product_colors:['colors','products'],categories:['categories','category-rows','products','analytics:'],
- subcategories:['subcategories','categories','products','analytics:'],brands:['brands','counts','products','analytics:'],
+ products:['products','counts','analytics:','size-chart-options','campaign-options'], product_variants:['variants','products','analytics:'],
+ product_colors:['colors','products'],categories:['categories','category-rows','products','analytics:','size-chart-options','campaign-options'],
+ subcategories:['subcategories','categories','products','analytics:','size-chart-options'],brands:['brands','counts','products','analytics:','size-chart-options','campaign-options'],
  campaigns:['campaigns'],
  reminder_settings:['tasks','reminders'],
  size_charts:['size-charts'],product_recommendations:['products'],
@@ -44,7 +44,7 @@ export function useAdminLive(enabled: boolean, identity: string|null = getAdminC
    finally {running=false;if(active&&rerun){rerun=false;void check()}}
   }
   const channel=supabase.channel(`admin-revisions:${scope}`).on('postgres_changes',{event:'*',schema:'public',table:'store_data_revisions'},payload=>apply([payload.new])).subscribe(status=>{if(status==='SUBSCRIBED')void check()})
-  const resume=()=>void check(true)
+  const resume=()=>void check()
   window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume)
   void check()
   const timer=setInterval(()=>void check(),30_000)

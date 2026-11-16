@@ -1,10 +1,12 @@
+import {AdminHeaderRow} from '../components/AdminPageHeader'
+import {ContentSkeleton} from '../components/PageSkeleton'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, RefreshCw, Undo2, ChevronDown, Search, X, User, Package, CreditCard, MapPin, MessageCircle, FileText, ShieldCheck } from 'lucide-react'
+import {  RefreshCw, Undo2, ChevronDown, Search, X, User, Package, CreditCard, MapPin, MessageCircle, FileText, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase, sendClientNotification, getAdminCacheScope } from '../lib/supabase'
 import { refundsCacheApi } from '../lib/cache'
@@ -113,8 +115,8 @@ export default function RefundsPage(){
  useAdminLanguage()
  useLocalTimeZone()
 
- const navigate=useNavigate();const [params]=useSearchParams();const initial=dataCache.get<ViewState>(viewKey());const linked=!!params.get('order')
- const [rows,setRows]=useState<any[]>(()=>refundsCacheApi.get()||[]);const [loading,setLoading]=useState(!refundsCacheApi.get());const [refreshing,setRefreshing]=useState(false);const [error,setError]=useState('')
+ const [params]=useSearchParams();const initial=dataCache.get<ViewState>(viewKey());const linked=!!params.get('order')
+ const [rows,setRows]=useState<any[]>(()=>refundsCacheApi.get(undefined,60000)||[]);const [loading,setLoading]=useState(!refundsCacheApi.get(undefined,60000));const [refreshing,setRefreshing]=useState(false);const [error,setError]=useState('')
  const [filter,setFilter]=useState(linked?'Все':params.get('status')||initial?.filter||'Все');const [query,setQuery]=useState(linked?'':initial?.query||'');const [expanded,setExpanded]=useState<number|null>(linked?null:initial?.expanded||null);const userId=getAdminCacheScope()
  const generation=useRef(0);const linkedResolved=useRef(false)
  const load=async(force=false)=>{const current=++generation.current;if(force)setRefreshing(true);try{const data=await getRefunds(force);if(current!==generation.current)return;setRows(data);setError('');if(linked&&!linkedResolved.current){setExpanded(data.find(r=>String(r.order_id)===params.get('order'))?.id||null);linkedResolved.current=true}}catch(e:any){if(current===generation.current)setError(e.message||'Не удалось загрузить возвраты')}finally{if(current===generation.current){setLoading(false);setRefreshing(false)}}}
@@ -126,17 +128,13 @@ export default function RefundsPage(){
  const filtered=searchFiltered.filter(r=>filter==='Все'||(filter==='active'?['Проверка платежа','Ожидает возврата'].includes(r.status):r.status===filter));const active=rows.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length
  return <main className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg text-[#1B2A4A] dark:text-white">
   <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4"><div className="max-w-5xl mx-auto">
-   <div className="flex items-center justify-between gap-4">
-    <button className="flex items-center gap-3 text-sm font-bold hover:text-[#C9A961] transition-colors" onClick={()=>navigate('/')}><span className={`${card} !rounded-full w-10 h-10 flex items-center justify-center shrink-0`}><ArrowLeft size={18}/></span><span className="hidden sm:inline">{t("На главную")}</span><span className="sr-only sm:hidden">{t("На главную")}</span></button>
-    <div className="flex items-center gap-3"><h1 className="text-2xl font-bold">{t("Возвраты")}</h1><span className={`${card} !rounded-full w-10 h-10 flex items-center justify-center shrink-0`}><Undo2 size={18} className="text-[#C9A961]"/></span></div>
-    <button className={`${button} shrink-0`} disabled={loading||refreshing} onClick={()=>void load(true)} aria-label={t("Обновить возвраты")} title={t("Обновить список")}><RefreshCw size={14} className={refreshing?'animate-spin':''}/><span className="hidden sm:inline">{t("Обновить")}</span></button>
-   </div>
+   <AdminHeaderRow title={t("Возвраты")} icon={<Undo2/>} actions={<button className={button} disabled={loading||refreshing} onClick={()=>void load(true)} aria-label={t("Обновить возвраты")}><RefreshCw size={16}/></button>}/>
    <div className={`${card} mt-4 flex items-center gap-3 p-3`}><span className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center shrink-0"><Search size={16}/></span><input className="flex-1 min-w-0 bg-transparent text-sm font-medium focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500" aria-label={t("Поиск возвратов")} placeholder={t("Поиск: № возврата, заказа, имя или телефон...")} value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label={t("Очистить поиск")} className="p-1.5 rounded-lg text-[#8A8275] hover:bg-[#F5F1E8] dark:hover:bg-dark-accent" onClick={()=>setQuery('')}><X size={16}/></button>}</div>
    <div className="mt-3 flex items-center gap-2 flex-wrap"><label className="flex items-center gap-2 basis-full sm:basis-0 flex-1 min-w-0"><span className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">{t("Статус:")}</span><select className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold focus:outline-none focus:border-[#C9A961] truncate" value={filter} onChange={e=>setFilter(e.target.value)}>{['Все',...(filter==='active'?['active']:[]),...REFUND_STATUSES].map(s=><option key={s} value={s}>{s==='active'?t("Активные"):tx(s)} ({s==='Все'?searchFiltered.length:searchFiltered.filter(r=>s==='active'?['Проверка платежа','Ожидает возврата'].includes(r.status):r.status===s).length})</option>)}</select></label><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Показано:")}{' '}<span className="text-[#C9A961]">{filtered.length}</span></span><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Активных:")}{' '}<span className="text-[#C9A961]">{active}</span></span></div>
   </div></div>
   <div data-loft-content className="max-w-5xl mx-auto p-6">
    {error&&<div role="alert" className={`${card} p-5 mb-4 text-[#9B3B3B] dark:text-red-300`}>{uiError(error)}<button className={`${button} ml-3`} onClick={()=>void load(true)}>{t("Повторить")}</button></div>}
-   {loading?<div className={`${card} p-10 text-center`} role="status"><RefreshCw className="animate-spin mx-auto mb-3 text-[#C9A961]" size={28}/><p className="text-sm font-medium">{t("Загрузка возвратов...")}</p></div>:<>
+   {loading?<ContentSkeleton/>:<>
     {linked&&!rows.some(r=>String(r.order_id)===params.get('order'))&&!error&&<section className={`${card} p-5 mb-4`}><p className="text-sm text-[#8A8275] dark:text-gray-300 mb-3">{t("По заказу №")}{params.get('order')} {' '}{t("нет записи возврата. Если поступление денег обнаружено после отмены, откройте проверку.")}</p><button className={button} disabled={refreshing} onClick={()=>void openCheck()}>{t("Открыть проверку платежа")}</button></section>}
     {!error&&!filtered.length?<div className={`${card} p-12 text-center`}><span className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center"><Undo2 size={28} className="text-[#8A8275] dark:text-gray-300"/></span><p className="font-medium mb-1">{q?t("Возвраты не найдены"):filter==='Все'?t("Возвратов пока нет"):t("Нет возвратов с таким статусом")}</p><p className="text-sm text-[#8A8275] dark:text-gray-300">{q?t("По запросу «{0}» ничего нет",[query]):filter==='Все'?t("Возвраты появятся здесь после отмены оплаченного заказа"):t("Попробуйте выбрать другой фильтр")}</p></div>:<div className={`${card} overflow-hidden divide-y divide-[#E8E2D5] dark:divide-dark-border`}>{filtered.map(r=><RefundRow key={r.id} r={r} open={expanded===r.id} userId={userId} toggle={()=>setExpanded(expanded===r.id?null:r.id)} onSaved={()=>load(true)}/>)}</div>}
    </>}

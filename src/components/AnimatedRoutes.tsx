@@ -1,3 +1,5 @@
+import RouteErrorBoundary from './RouteErrorBoundary'
+import {rememberAdminOrigin,hasDirtyAdminForms} from '../lib/adminNavigation'
 import PageSkeleton from './PageSkeleton'
 import {t,tx,useAdminLanguage} from '../lib/i18n'
 import { clearDashboardTransition, captureAdminHeader, prepareDashboardTransition } from '../lib/dashboardTransition'
@@ -9,7 +11,8 @@ import ScrollRestoration from './ScrollRestoration'
 function RouteFrame() {
  useAdminLanguage()
 
-  return <><ScrollRestoration /><Suspense fallback={<PageSkeleton/>}><Outlet /></Suspense></>
+  const location=useLocation()
+  return <><ScrollRestoration /><RouteErrorBoundary path={location.pathname} search={location.search}><Suspense fallback={<PageSkeleton/>}><Outlet /></Suspense></RouteErrorBoundary></>
 }
 export default function AnimatedRoutes({ children }: { children: ReactNode }) {
  useAdminLanguage()
@@ -23,13 +26,15 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     const current = ++generation.current
     const previousUrl=displayed.pathname+displayed.search,nextUrl=location.pathname+location.search
     const index=Number(history.state?.idx)||0
-    if(previousUrl!==nextUrl&&document.querySelector('[data-loft-dirty="true"]')&&!confirm(tx(t("Есть несохранённые изменения. Покинуть раздел без сохранения?")))){
+    if(previousUrl!==nextUrl&&hasDirtyAdminForms()&&!confirm(tx(t("Есть несохранённые изменения. Покинуть раздел без сохранения?")))){
       if(navigationType==='POP'&&historyIndex.current!==index)window.history.go(historyIndex.current-index)
       else if(navigationType==='PUSH')navigate(-1)
       else navigate(previousUrl,{replace:true})
       return
     }
+    rememberAdminOrigin(displayed,location,navigationType,index)
     historyIndex.current=index
+    if(displayed.pathname===location.pathname&&(new URLSearchParams(displayed.search).has('dialog')||new URLSearchParams(location.search).has('dialog'))){setDisplayed(location);return}
     let transition: ViewTransition | undefined
     const interrupt = () => transition?.skipTransition()
     const stopListening = () => {
@@ -45,7 +50,8 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       setDisplayed(location)
       return
     }
-    void preloadPage(location.pathname).catch(() => {}).then(() => {
+    void preloadPage(location.pathname).catch(() => {})
+    void Promise.resolve().then(() => {
       if (generation.current !== current) return
       const shared = typeof document.startViewTransition === 'function' ? prepareDashboardTransition(displayed, location) : null
       if (shared) {

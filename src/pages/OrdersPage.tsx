@@ -1,3 +1,5 @@
+import {useAdminViewState} from '../lib/useAdminViewState'
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -15,7 +17,7 @@ import { getOrders, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
+
   RefreshCw,
   Truck,
   Store,
@@ -129,14 +131,14 @@ export default function OrdersPage() {
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
-  const [loading, setLoading] = useState(() => !ordersCacheApi.get())
+  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get(undefined,60_000) || [])
+  const [loading, setLoading] = useState(() => !ordersCacheApi.get(undefined,60_000))
   const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'delivery' | 'pickup'>('all')
+  const [filter, setFilter] = useAdminViewState<'all' | 'delivery' | 'pickup'>('orders:delivery','all')
   const [cancelOrder,setCancelOrder]=useState<any>(null)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('order'))
+  const [statusFilter, setStatusFilter] = useAdminViewState<string>('orders:status','all')
+  const [searchQuery, setSearchQuery] = useAdminViewState('orders:search','')
+  const [expandedId, setExpandedId] = useAdminViewState<string | null>('orders:expanded',searchParams.get('order'))
   const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
   const [customMessageText, setCustomMessageText] = useState('')
 
@@ -167,7 +169,7 @@ export default function OrdersPage() {
     if (forceRefresh) {
       setRefreshing(true)
     } else {
-      if (!background) setLoading(true)
+      if (!background && !ordersCacheApi.get(undefined,60_000)) setLoading(true)
     }
 
     try {
@@ -311,32 +313,7 @@ export default function OrdersPage() {
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Заказы")}</h1>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <Package size={18} className="text-[#1B2A4A] dark:text-white" />
-              </span>
-            </div>
-
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title={t("Обновить список")}
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              {t("Обновить")}</button>
-          </div>
+          <AdminHeaderRow title={t("Заказы")} icon={<Package/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
 
           {/* ✅ Поиск по номеру заказа / имени / телефону */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border flex items-center gap-3 p-3">

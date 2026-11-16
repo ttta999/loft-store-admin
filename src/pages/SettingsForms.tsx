@@ -1,23 +1,21 @@
+import AdminPageHeader from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import AdminLanguagePicker from '../components/AdminLanguagePicker'
 import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
-import PageSkeleton from '../components/PageSkeleton'
+import PageSkeleton,{ContentSkeleton} from '../components/PageSkeleton'
 import { ClipboardList } from 'lucide-react'
 import { CheckCircle2, CircleSlash } from 'lucide-react'
 import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/theme'
 import {
-  ArrowLeft,
   Save,
   RefreshCw,
   DollarSign,
   Info,
   Tag,
-  Settings as SettingsIcon,
   Truck,
   Sun,
   Moon,
@@ -36,7 +34,7 @@ interface SettingsCacheData {
   timestamp: number
 }
 
-const getSettingsCache = (section:string) => dataCache.get<SettingsCacheData>('admin:settings:utc:'+section)
+const getSettingsCache = (section:string, staleFor=0) => dataCache.get<SettingsCacheData>('admin:settings:utc:'+section,staleFor)
 const setSettingsCache = (section:string,data: Omit<SettingsCacheData, 'timestamp'>) => dataCache.set('admin:settings:utc:'+section, { ...data, timestamp: Date.now() }, 60_000)
 const invalidateSettingsCache = () => { dataCache.invalidate('admin:settings'); dataCache.invalidate('admin:payment-cards'); dataCache.invalidate('http:') }
 
@@ -63,12 +61,11 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
  useAdminLanguage()
  useLocalTimeZone()
 
-  const [dirty,setDirty]=useState(false)
+  const [dirty,setDirty]=useState(false),[loadFailed,setLoadFailed]=useState(false)
   const titles={theme:'Язык и оформление',sale:'Скидки',delivery:'Оплата и доставка',prices:'Валюта и цены'}
-  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
 
-  const [cached] = useState(()=>getSettingsCache(section))
+  const [cached] = useState(()=>getSettingsCache(section,60000))
   const [exchangeRate, setExchangeRate] = useState<number>(cached?.exchangeRate ?? 0)
   const [loading, setLoading] = useState(section!=='theme'&&!cached)
   const [saving, setSaving] = useState(false)
@@ -92,6 +89,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
   }, [])
 
   const loadSettings = async () => {
+    setLoadFailed(false)
     const cached = getSettingsCache(section)
     if (cached) {
       setExchangeRate(cached.exchangeRate)
@@ -105,7 +103,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
       return
     }
 
-    setLoading(true)
+    if(!getSettingsCache(section,60000))setLoading(true)
     try {
       let rate=0,updBy='system',version=0,updAt='',sale=false,delivery=0,threshold=0
       const keys=section==='prices'?['exchange_rate']:section==='sale'?['sale_mode_enabled']:section==='delivery'?['exchange_rate','delivery_price','free_delivery_threshold']:[]
@@ -129,6 +127,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
 
       setSettingsCache(section,{ exchangeRate: rate, saleMode: sale, deliveryPrice: Math.round(delivery * 100) / 100, freeDeliveryThreshold: Math.round(threshold * 100) / 100, lastUpdated: updAt, updatedBy: updBy, currentVersion: version })
     } catch (error) {
+      setLoadFailed(true)
       console.error('Ошибка загрузки настроек:', error)
       toast.error(uiError('Ошибка загрузки настроек'))
     }
@@ -235,34 +234,18 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
     loadSettings()
   }
 
-  if(loading)return <PageSkeleton title={tx(titles[section])}/>
+  if(loading)return embedded?<ContentSkeleton kind="settings"/>:<PageSkeleton title={tx(titles[section])}/>
 
   return (
-    <div data-loft-dirty={dirty?'true':undefined} onChange={()=>setDirty(true)} className={`${embedded?'':'min-h-screen'} bg-[#F5F1E8] dark:bg-dark-bg`}>
+    <div data-loft-dirty={dirty?'true':undefined} onChange={()=>{if(section!=='theme')setDirty(true)}} className={`${embedded?'':'min-h-screen'} bg-[#F5F1E8] dark:bg-dark-bg`}>
 
-      {!embedded&&(<div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-          <button onClick={() => navigate('/settings')} className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors">
-            <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-              <ArrowLeft size={18} />
-            </span>
-            {t("Настройки")}</button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{tx(titles[section])}</h1>
-            <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-              <SettingsIcon size={18} className="text-[#1B2A4A] dark:text-white" />
-            </span>
-          </div>
-          <button onClick={handleRefresh} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors" title={t("Обновить настройки")}>
-            <RefreshCw size={14} />
-            {t("Обновить")}</button>
-        </div>
-      </div>)}
+      {!embedded&&<AdminPageHeader title={tx(titles[section])} icon={section==='theme'?<Monitor/>:section==='sale'?<Tag/>:section==='delivery'?<Truck/>:<DollarSign/>} actions={<button onClick={handleRefresh} aria-label={t("Обновить настройки")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button>}/>}
 
-      <div data-loft-content className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div data-loft-content className={`${embedded?'':'max-w-6xl mx-auto p-4 sm:p-6'} grid grid-cols-1 gap-4`}>
+        {loadFailed&&<p role="alert" className="p-4 rounded-2xl border border-[#E8E2D5] dark:border-dark-border text-[#9B3B3B] dark:text-red-300">{t("Ошибка загрузки настроек")} <button className="underline font-bold" onClick={()=>void loadSettings()}>{t("Повторить")}</button></p>}
         {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
         {section==='theme'&&<AdminLanguagePicker/>}
-        {section==='theme'&&(<div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2 flex flex-col">
+        {section==='theme'&&(<div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden flex flex-col">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <Monitor size={20} className="text-[#1B2A4A] dark:text-white" />
@@ -292,15 +275,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
               <button onClick={() => setTheme('system')} className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${theme === 'system' ? 'bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]' : 'bg-[#F5F1E8] dark:bg-dark-accent text-[#8A8275] dark:text-gray-300 border border-[#E8E2D5] dark:border-dark-border hover:text-[#1B2A4A] dark:hover:text-gold'}`}>
                 <Monitor size={16} /> {' '}{t("Системная")}</button>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-[#F5F1E8]/60 dark:bg-dark-accent/40 border border-[#E8E2D5] dark:border-dark-border rounded-xl md:w-72 flex-shrink-0">
-              <div className="w-9 h-9 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
-                {theme === 'light' ? <Sun size={16} className="text-[#C9A961]" /> : theme === 'dark' ? <Moon size={16} className="text-[#C9A961]" /> : <Monitor size={16} className="text-[#C9A961]" />}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-[#8A8275] dark:text-gray-300">{t("Сейчас выбрана")}</p>
-                <p className="text-sm font-bold text-[#1B2A4A] dark:text-white truncate">{theme === 'light'?t("Светлая"):theme === 'dark'?t("Тёмная"):t("Системная")}</p>
-              </div>
-            </div>
+
           </div>
         </div>)}
 
@@ -329,7 +304,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
               </div>
             </div>
           )}
-          <div className="p-5 flex items-center justify-between gap-6 mt-auto">
+          <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-auto">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
                 <span>{saleMode ? <CheckCircle2 size={20} /> : <CircleSlash size={20} />}</span>
@@ -371,7 +346,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
             </div>
           )}
           <div className="p-5 space-y-4 mt-auto">
-            <div className="flex items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="min-w-0">
                 <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">{t("Цена доставки (USD)")}</label>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{deliveryPrice > 0?t("Сейчас: {0} USD",[deliveryPrice.toLocaleString(getAdminLocale(), { maximumFractionDigits: 2 })]):t("Сейчас: доставка бесплатная")}</p>
@@ -383,7 +358,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
             </div>
 
             {/* ✅ НОВОЕ: Порог бесплатной доставки */}
-            <div className="flex items-center justify-between gap-6 pt-4 border-t border-[#E8E2D5] dark:border-dark-border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-[#E8E2D5] dark:border-dark-border">
               <div className="min-w-0">
                 <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">{t("Порог бесплатной доставки (USD)")}</label>
                 <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">
@@ -404,7 +379,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
         </div>)}
 
         {/* ========== КУРС ВАЛЮТ ========== */}
-        {section==='prices'&&(<div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden lg:col-span-2">
+        {section==='prices'&&(<div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-11 h-11 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
               <DollarSign size={20} className="text-[#C9A961]" />
@@ -416,7 +391,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 p-5">
             <div>
-              <div className="flex items-center justify-between gap-6 p-4 bg-[#F5F1E8]/60 dark:bg-dark-accent/40 border border-[#E8E2D5] dark:border-dark-border rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#F5F1E8]/60 dark:bg-dark-accent/40 border border-[#E8E2D5] dark:border-dark-border rounded-xl">
                 <div className="min-w-0">
                   <label className="text-sm font-bold text-[#1B2A4A] dark:text-white block">{t("Курс USD к UZS")}</label>
                   <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5">{t("Фиксируется в каждом заказе")}</p>

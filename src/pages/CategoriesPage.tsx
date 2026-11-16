@@ -1,8 +1,8 @@
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   fetchCategoriesTree,
@@ -14,7 +14,6 @@ import {
 import { categoriesCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
   RefreshCw,
   Plus,
   Edit2,
@@ -42,8 +41,7 @@ const SIZE_TYPES = [
 export default function CategoriesPage() {
  useAdminLanguage()
 
-  const navigate = useNavigate()
-  const [cached] = useState(() => categoriesCacheApi.get() as CategoryTree[] | null)
+  const [cached] = useState(() => categoriesCacheApi.get(undefined,60_000) as CategoryTree[] | null)
   const [tree, setTree] = useState<CategoryTree[]>(cached ?? [])
   const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
@@ -58,7 +56,7 @@ export default function CategoriesPage() {
   useAdminRefresh(['categories', 'subcategories'],()=>load(false,true))
   const load = async (force: boolean, background = false) => {
     if (force) setRefreshing(true)
-    else if (!categoriesCacheApi.get()) if (!background) setLoading(true)
+    else if (!categoriesCacheApi.get()) if (!background && !categoriesCacheApi.get(undefined,60_000)) setLoading(true)
     try {
       const data = await fetchCategoriesTree(force)
       setTree(data)
@@ -234,40 +232,7 @@ export default function CategoriesPage() {
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Категории")}</h1><button className="text-xs font-bold text-[#8A8275] dark:text-gray-300 underline ml-3" onClick={()=>navigate('/size-charts')}>{t("Таблицы размеров")}</button>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <Layers size={18} className="text-[#C9A961]" />
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-                title={t("Обновить")}
-              >
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              </button>
-              <button
-                onClick={() => setCategoryModal({ mode: 'create' })}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
-              >
-                <Plus size={16} />
-                {t("Категория")}</button>
-            </div>
-          </div>
+          <AdminHeaderRow title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><button onClick={()=>setCategoryModal({mode:"create"})} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Категория")}</span></button></>}/>
 
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">

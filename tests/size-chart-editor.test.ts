@@ -1,0 +1,15 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {blankChart,chartError,chartPayload,chartTemplates} from '../src/lib/sizeChartEditor.ts'
+test('visual tables preserve bilingual columns and shared cells in the existing server format',()=>{
+ const draft={...blankChart(),id:'existing',title_ru:'Обувь',title_uz:'Poyabzal',category_id:'shoes',brand_id:'brand',columns_ru:['EU','Длина стопы, см'],columns_uz:['EU','Oyoq uzunligi, sm'],rows:[['42','']]}
+ assert.equal(chartError(draft,'brand'),'')
+ assert.deepEqual(chartPayload(draft,'brand').rows,[['42','']])
+ assert.equal(chartPayload(draft,'category').brand_id,'')
+ assert.notEqual(chartError({...draft,rows:[['','']]},'brand'),'')
+ assert.notEqual(chartError({...draft,columns_uz:['EU']},'brand'),'')
+ assert.notEqual(chartError({...draft,rows:[['42']]},'brand'),'')
+ assert.notEqual(chartError({...draft,product_id:''},'product'),'')
+ assert.ok(Object.values(chartTemplates).every(template=>template.ru.length===template.uz.length))
+ assert.ok(Object.values(chartTemplates).every(template=>template.ru.every(label=>!/[0-9]/.test(label))))
+})

@@ -3,9 +3,9 @@ type Origin = { path: string; parent: string; scroll: number }
 const origins = new Map<string, Origin>()
 const name = 'loft-admin-surface'
 const frames = new Set<HTMLElement>()
-const header = () => document.querySelector<HTMLElement>('.sticky.top-0')
-const content = () => document.querySelector<HTMLElement>('[data-loft-content]')
-const card = (path: string) => Array.from(document.querySelectorAll<HTMLElement>('[data-admin-card]')).find(element => element.dataset.adminCard === path)
+const header = () => Array.from(document.querySelectorAll<HTMLElement>('.sticky.top-0')).find(element=>element.getBoundingClientRect().height>0)||null
+const content = () => Array.from(document.querySelectorAll<HTMLElement>('[data-loft-content]')).find(element=>element.getBoundingClientRect().height>0)||null
+const card = (path: string) => Array.from(document.querySelectorAll<HTMLElement>('[data-admin-card]')).find(element => element.dataset.adminCard === path && element.getBoundingClientRect().height>0)
 function visible(element?: HTMLElement | null): element is HTMLElement {
   if (!element?.isConnected) return false
   const rect = element.getBoundingClientRect()

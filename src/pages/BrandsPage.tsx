@@ -1,3 +1,4 @@
+import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminDate} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -5,11 +6,9 @@ import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { Check as TipCheck, X as TipClose, Trash2 as TipTrash, Image as TipImage } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { brandsCacheApi } from '../lib/cache'
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   Edit2,
@@ -38,8 +37,7 @@ export default function BrandsPage() {
  useAdminLanguage()
  useLocalTimeZone()
 
-  const navigate = useNavigate()
-  const [cached] = useState(() => { const rows = brandsCacheApi.get(); return rows && isFullBrandRows(rows) ? rows as Brand[] : null })
+  const [cached] = useState(() => { const rows = brandsCacheApi.get(undefined,60_000); return rows && isFullBrandRows(rows) ? rows as Brand[] : null })
   const [brands, setBrands] = useState<Brand[]>(cached ?? [])
   const [loading, setLoading] = useState(!cached)
   const [refreshing, setRefreshing] = useState(false)
@@ -69,7 +67,7 @@ export default function BrandsPage() {
     }
 
     if (forceRefresh) setRefreshing(true)
-    else if (!background) setLoading(true)
+    else if (!background && !brandsCacheApi.get(undefined,60_000)) setLoading(true)
 
     try {
       const { data, error } = await supabase
@@ -195,30 +193,7 @@ export default function BrandsPage() {
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 text-sm font-bold text-[#1B2A4A] dark:text-white hover:text-[#C9A961] dark:hover:text-gold transition-colors"
-            >
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <ArrowLeft size={18} />
-              </span>
-              {t("На главную")}</button>
-
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white">{t("Бренды")}</h1>
-              <span className="w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-                <Tag size={18} className="text-[#C9A961]" />
-              </span>
-            </div>
-
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A] hover:bg-[#142038] dark:hover:bg-[#d6b57e] transition-colors"
-            >
-              <Plus size={16} />
-              {t("Добавить")}</button>
-          </div>
+          <AdminHeaderRow title={t("Бренды")} icon={<Tag size={18}/>} actions={<><button onClick={()=>setShowAddModal(true)} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Добавить")}</span></button></>}/>
 
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
