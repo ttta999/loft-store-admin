@@ -14,7 +14,7 @@ import {readAll} from '../lib/readAll'
 import {useAdminRefresh} from '../lib/adminLive'
 const card='bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border rounded-2xl'
 const button='px-3 py-2.5 rounded-xl font-bold text-sm inline-flex items-center gap-2 border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card disabled:opacity-50'
-const fields='id,title_ru,title_uz,category_id,subcategory_id,brand_id,product_id,columns_ru,columns_uz,rows,is_active,updated_at'
+const fields='id,title_ru,title_uz,category_id,subcategory_id,brand_id,product_id,columns_ru,columns_uz,rows,is_active,updated_at,size_mapping'
 export default function SizeChartsPage(){
  const language=useAdminLanguage(),dialogRoute=useAdminDialogRoute()
  const [charts,setCharts]=useState<any[]>(()=>dataCache.get('admin:size-charts',60000)||[]),[options,setOptions]=useState<any[][]>(()=>dataCache.get('admin:size-chart-options',60000)||[[],[],[],[]]),[editing,setEditing]=useState<ChartDraft|null>(null),[loading,setLoading]=useState(!dataCache.get('admin:size-charts',60000)),[ready,setReady]=useState(!!dataCache.get('admin:size-chart-options',60000)),[busy,setBusy]=useState(false),[committed,setCommitted]=useState(false),[error,setError]=useState('')

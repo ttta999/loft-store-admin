@@ -1,3 +1,4 @@
+import AdminAddButton from '../components/AdminAddButton'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
@@ -232,7 +233,7 @@ export default function CategoriesPage() {
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-5xl mx-auto">
-          <AdminHeaderRow title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><button onClick={()=>setCategoryModal({mode:"create"})} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Категория")}</span></button></>}/>
+          <AdminHeaderRow title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={()=>setCategoryModal({mode:"create"})}>{t("Добавить категорию")}</AdminAddButton></>}/>
 
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
@@ -363,12 +364,7 @@ export default function CategoriesPage() {
                   )
                 })}
 
-                <button
-                  onClick={() => setSubModal({ mode: 'create', categoryId: category.id })}
-                  className="w-full flex items-center justify-center gap-2 p-3 text-sm font-bold text-[#8A8275] dark:text-gray-300 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent hover:text-[#1B2A4A] dark:hover:text-white transition-colors"
-                >
-                  <Plus size={14} />
-                  {t("Добавить подкатегорию")}</button>
+                <AdminAddButton onClick={() => setSubModal({ mode: 'create', categoryId: category.id })}>{t("Добавить подкатегорию")}</AdminAddButton>
               </div>
             </div>
           ))

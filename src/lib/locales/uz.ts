@@ -894,5 +894,14 @@ export const uz:Record<keyof typeof ru,string> = {
 "График магазина в Узбекистане": "Do‘konning O‘zbekistondagi ish vaqti",
 "Не удалось загрузить страницу. Проверьте соединение и повторите попытку.": "Sahifa yuklanmadi. Ulanishni tekshirib, qayta urinib ko‘ring.",
 "Колонку влево": "Ustunni chapga",
-"Колонку вправо": "Ustunni o‘ngga"
+"Колонку вправо": "Ustunni o‘ngga",
+"Добавить категорию": "Toifa qo‘shish",
+"Подтверждённое соответствие размеров": "Tasdiqlangan o‘lcham mosligi",
+"Укажите системы и колонки. Значения одной строки должны быть подтверждены производителем. Целевая колонка должна совпадать с размерами вариантов товара.": "Tizim va ustunlarni belgilang. Bir qatordagi qiymatlar ishlab chiqaruvchi tomonidan tasdiqlangan bo‘lishi kerak. Yakuniy ustun mahsulot variantlari o‘lchamlariga mos bo‘lsin.",
+"Система сохранённого размера": "Saqlangan o‘lcham tizimi",
+"Система размера товара": "Mahsulot o‘lcham tizimi",
+"Колонка соответствия": "Moslik ustuni",
+"Проверьте системы и колонки соответствия размеров": "O‘lcham mosligi tizim va ustunlarini tekshiring",
+"Буквенная": "Harfli",
+"Цифровая": "Raqamli"
 }

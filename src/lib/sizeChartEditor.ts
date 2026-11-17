@@ -1,4 +1,4 @@
-export type ChartDraft={id:string|null;title_ru:string;title_uz:string;category_id:string;subcategory_id:string;brand_id:string;product_id:string;columns_ru:string[];columns_uz:string[];rows:string[][]}
+export type ChartDraft={id:string|null;title_ru:string;title_uz:string;category_id:string;subcategory_id:string;brand_id:string;product_id:string;columns_ru:string[];columns_uz:string[];rows:string[][];size_mapping?:{source_system:string;target_system:string;source_column:number;target_column:number}|null}
 export type ChartScope='category'|'brand'|'product'
 export const blankChart=():ChartDraft=>({id:null,title_ru:'',title_uz:'',category_id:'',subcategory_id:'',brand_id:'',product_id:'',columns_ru:['Размер'],columns_uz:['O‘lcham'],rows:[['']]})
 export const chartTemplates={
@@ -8,6 +8,7 @@ export const chartTemplates={
  custom:{ru:['Размер'],uz:['O‘lcham']},
 }
 export function chartError(d:ChartDraft,scope:ChartScope){
+ if(d.size_mapping&&(!['numeric','alphabetical','EU','UK','US','IT'].includes(d.size_mapping.source_system)||!['numeric','alphabetical','EU','UK','US','IT'].includes(d.size_mapping.target_system)||d.size_mapping.source_column===d.size_mapping.target_column||[d.size_mapping.source_column,d.size_mapping.target_column].some(i=>!Number.isInteger(i)||i<0||i>=d.columns_ru.length)))return 'Проверьте системы и колонки соответствия размеров'
  if(!d.title_ru.trim()||!d.title_uz.trim())return 'Укажите название на русском и узбекском'
  if(!d.category_id||(scope==='brand'&&!d.brand_id)||(scope==='product'&&!d.product_id))return 'Выберите область действия таблицы'
  if(!d.columns_ru.length||d.columns_ru.length>12||d.columns_ru.length!==d.columns_uz.length||[...d.columns_ru,...d.columns_uz].some(v=>!v.trim()||v.length>80))return 'Заполните заголовки колонок на двух языках'

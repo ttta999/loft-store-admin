@@ -1,3 +1,4 @@
+import AdminAddButton from '../components/AdminAddButton'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminDate} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
@@ -193,7 +194,7 @@ export default function BrandsPage() {
 
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-6xl mx-auto">
-          <AdminHeaderRow title={t("Бренды")} icon={<Tag size={18}/>} actions={<><button onClick={()=>setShowAddModal(true)} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Добавить")}</span></button></>}/>
+          <AdminHeaderRow title={t("Бренды")} icon={<Tag size={18}/>} actions={<><AdminAddButton onClick={()=>setShowAddModal(true)}>{t("Добавить бренд")}</AdminAddButton></>}/>
 
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">

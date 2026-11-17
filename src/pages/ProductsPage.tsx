@@ -1,3 +1,4 @@
+import AdminAddButton from '../components/AdminAddButton'
 import {useAdminViewState} from '../lib/useAdminViewState'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -870,7 +871,7 @@ export default function ProductsPage() {
       {/* ✅ Sticky-шапка */}
       <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
         <div className="max-w-7xl mx-auto">
-          <AdminHeaderRow title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><button onClick={openAddModal} className="p-3 rounded-xl bg-[#1B2A4A] text-white dark:bg-gold dark:text-[#1B2A4A]"><Plus size={16}/><span className="sr-only sm:not-sr-only">{t("Добавить товар")}</span></button></>}/>
+          <AdminHeaderRow title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={openAddModal}>{t("Добавить товар")}</AdminAddButton></>}/>
 
           {/* ✅ Поиск */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
