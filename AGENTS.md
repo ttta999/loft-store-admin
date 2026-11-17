@@ -1,13 +1,53 @@
-## graphify
+# Правила работы с LOFT Admin
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+Этот репозиторий — веб-интерфейс менеджера и узкий endpoint ручного сообщения. Общая схема, миграции и фоновые workers принадлежат `ttta999/loft-store`.
 
-When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+## Контекст перед задачей
 
-Rules:
-- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
-- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.
+- Прочитай нужные разделы [PRD](docs/PRD.md), [архитектуры](docs/ARCHITECTURE.md), для UI — [дизайн-системы](docs/DESIGN_SYSTEM.md).
+- Проверь связанные компоненты, helpers, тесты и серверный контракт в основном репозитории. Старое ТЗ не заменяет последнюю реализацию.
+- Не перечитывай весь проект без необходимости. При наличии графа используй `graphify query` для ориентации, но подтверждай вывод исходником. После code changes обновляй граф; documentation-only задача не требует менять его производные файлы.
+
+## Интерфейс и состояние
+
+- Переиспользуй `AdminPageHeader`, `AdminAddButton`, `AdminDialog`, `Collapse`, skeleton, `CategoryIcon` и имеющиеся формы. Не создавай дубли.
+- Поддерживай light/dark/system и RU/UZ. Новые UI-ключи — в оба словаря; не переводить SQL raw-статусы и пользовательский контент.
+- Сохраняй origin-aware Back, `useAdminDialogRoute`, query разделов, `useAdminViewState`, прокрутку и dirty-form guard.
+- Не ломай dashboard shared transition, неподвижную шапку, exit до unmount и reduced motion. Здесь нет Framer Motion/Zustand; не добавляй библиотеку ради копирования клиентской реализации.
+- Используй `ResourceCache`, `cache.ts`, `adminLive`, существующую topic invalidation. Кеш/ответ старого пользователя не должен попасть новой сессии.
+- Loading, допустимый cached state, подтверждённое empty и error/retry различаются. Успех показывать только по серверному результату.
+- Не трогай посторонние страницы, публичные контракты и Telegram-тексты без задачи.
+
+## Данные и безопасность
+
+- Frontend использует Supabase JWT/anon key, никогда service role. UI guard не заменяет RLS и `store_is_admin`/MFA внутри RPC.
+- Оплата, отмена, возврат, точные остатки и критичное сохранение товара идут существующим RPC. Не обходи его прямой записью из браузера.
+- Чек не подтверждает деньги. Возврат выполнен только после фактического обратного перевода/квитанции и защищённого действия. Сохраняй транзакции, назначение менеджера, аудит и idempotency keys.
+- Не смешивай заявку и специальное выполнение заказа; raw-статусы и их UI-подписи различаются. Проверяй разрешённые переходы по PRD и последней SQL-функции.
+- Изменения БД — новой миграцией в `loft-store`. Не редактировать применённые миграции, не отключать RLS, проверять роли и Storage policies. Не создавать вторую схему миграций здесь.
+- Приватные фото/чеки — signed URL по действующим helpers; не делать bucket public для предпросмотра.
+- Не пересчитывать исторические суммы/курс/UTC. Размерные соответствия — явные данные производителя, без универсальных догадок.
+
+## Telegram и рассылки
+
+- Не раскрывать токены, реальные контакты и платёжные реквизиты. Bot API URL с токеном не попадает в лог.
+- Использовать серверную очередь: `/api/sendNotification` сначала проверяет менеджера/клиента и ставит событие; workers — в магазине.
+- Тестовые сообщения/реальные клиентские операции без явного разрешения запрещены; использовать fixtures.
+- Сохранять deep links, отдельное marketing consent, frozen audience, ограничения Bot API и состояние uncertain. Не обещать exactly-once при неизвестном сетевом исходе.
+
+## Проверки и отчёт
+
+Для кода выполнить относящиеся тесты/регрессии и существующие команды:
+
+```sh
+npm test
+npm run build
+npm run lint
+npm run test:e2e
+```
+
+Build уже включает app/server TypeScript. Отдельных `npm run typecheck`, `test:all`, `test:csp` здесь нет. Общие e2e/SQL-проверки выполняются из `loft-store` с `LOFT_ADMIN_ROOT`; не направлять тесты на production. Ошибки проверок, включая прежние lint-ошибки, явно сообщить, не чинить посторонний код молча.
+
+Для документационной задачи проверить ссылки, Mermaid, соответствие коду и documentation-only diff. Не заявлять реальный iPhone проверенным по desktop/WebKit viewport.
+
+В результате сообщи: что изменено и какие файлы; выполненные проверки; что проверить не удалось; риски/ограничения. При изменении архитектуры/контракта обнови нужные документы и согласуй ссылки с основным репозиторием. Различай реализованное, частичное, план и неподтверждённую настройку окружения.
