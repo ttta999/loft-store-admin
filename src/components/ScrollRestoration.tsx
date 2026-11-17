@@ -44,6 +44,12 @@ export default function ScrollRestoration() {
       const keys=Object.keys(positions);for(const key of keys.slice(0,Math.max(0,keys.length-60)))delete positions[key]
       try{sessionStorage.setItem(STORAGE_KEY, JSON.stringify(positions))}catch{/* Storage limits must not block navigation. */}
 
+      // A dialog belongs to the current list and keeps its window position.
+      if (prev.pathname === location.pathname && (new URLSearchParams(prev.search).has('dialog') || new URLSearchParams(location.search).has('dialog'))) {
+        prevLocRef.current = location
+        return
+      }
+
       // ВОССТАНАВЛИВАЕМ или СБРАСЫВАЕМ для новой страницы
       if (navigationType === 'POP') {
         const saved = positions[location.key]
