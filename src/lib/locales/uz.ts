@@ -903,5 +903,7 @@ export const uz:Record<keyof typeof ru,string> = {
 "Колонка соответствия": "Moslik ustuni",
 "Проверьте системы и колонки соответствия размеров": "O‘lcham mosligi tizim va ustunlarini tekshiring",
 "Буквенная": "Harfli",
-"Цифровая": "Raqamli"
+"Цифровая": "Raqamli",
+"Существующие размеры и остатки сохранены. Сопоставление с новой сеткой выполняйте вручную.": "Mavjud o‘lchamlar va qoldiqlar saqlandi. Yangi o‘lchamlar bilan moslikni qo‘lda belgilang.",
+"Числовая (36–56)": "Raqamli (36–56)"
 }

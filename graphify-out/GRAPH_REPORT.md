@@ -1,17 +1,17 @@
-# Graph Report - loft-admin-final  (2026-11-17)
+# Graph Report - loft-admin-final  (2026-11-19)
 
 ## Corpus Check
-- 108 files · ~60,329 words
+- 113 files · ~65,583 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .css 2, (none) 1)
 
 ## Summary
-- 662 nodes · 2005 edges · 23 communities (19 shown, 4 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 17 edges (avg confidence: 0.85)
+- 714 nodes · 2168 edges · 20 communities (18 shown, 2 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 35 edges (avg confidence: 0.9)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7b3eda4e`
+- Built from commit: `4f4cafa6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,62 +20,59 @@
 - CampaignsPage.tsx
 - Иконки и справочники
 - pagePreload.ts
-- ReminderSettings.tsx
+- supabase.ts
 - useAdminLanguage
 - OrdersPage.tsx
-- SettingsForms.tsx
-- tx
+- DESIGN_SYSTEM.md
+- LOFT Admin — техническая архитектура
 - Браузерные проверки
-- ref_node_assert
+- getExchangeRate.ts
 - Типы клиентского кода
 - Типы инструментов сборки
 - Типы серверного кода
 - ProductsPage.tsx
 - Настройки TypeScript
-- Публикация и заголовки
+- LOFT Admin — продукт и рабочие процессы менеджера
 - Security architecture — 6 November 2026
-- React + TypeScript + Vite
 - TESTING.md
-- AGENTS.md
 - CACHING.md
-- SizeChartsPage.tsx
 
 ## God Nodes (most connected - your core abstractions)
 1. `useAdminLanguage()` - 93 edges
-2. `tx()` - 70 edges
-3. `t()` - 68 edges
+2. `tx()` - 71 edges
+3. `t()` - 69 edges
 4. `react` - 43 edges
 5. `uiError()` - 38 edges
-6. `OrdersPage()` - 31 edges
-7. `useLocalTimeZone()` - 30 edges
+6. `useLocalTimeZone()` - 31 edges
+7. `OrdersPage()` - 31 edges
 8. `lucide-react` - 30 edges
-9. `useAdminRefresh()` - 29 edges
+9. `useAdminRefresh()` - 30 edges
 10. `supabase` - 24 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `handler()` --calls--> `exchangeRate()`  [EXTRACTED]
-  api/getExchangeRate.ts → server/exchangeRate.ts
-- `AdminBackButton()` --calls--> `useAdminBack()`  [EXTRACTED]
-  src/components/AdminPageHeader.tsx → src/lib/adminNavigation.ts
-- `AdminBackButton()` --calls--> `useAdminLanguage()`  [EXTRACTED]
-  src/components/AdminPageHeader.tsx → src/lib/i18n.ts
-- `AdminHeaderRow()` --calls--> `useAdminLanguage()`  [EXTRACTED]
-  src/components/AdminPageHeader.tsx → src/lib/i18n.ts
-- `AnalyticsPage()` --calls--> `AdminHeaderRow()`  [EXTRACTED]
-  src/pages/AnalyticsPage.tsx → src/components/AdminPageHeader.tsx
+- `7. Кеш и Realtime` --references--> `invalidateTopics()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/adminLive.ts
+- `7. Кеш и Realtime` --references--> `useAdminRefresh()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/adminLive.ts
+- `3. Маршруты и состояние` --references--> `parentRoute()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/adminNavigation.ts
+- `3. Маршруты и состояние` --references--> `getCurrentUser()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/auth.ts
+- `8. Время, локализация и аналитика` --references--> `t()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/i18n.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (23 total, 4 thin omitted)
+## Communities (20 total, 2 thin omitted)
 
 ### Community 0 - "Зависимости и инструменты"
-Cohesion: 0.05
-Nodes (50): dependencies, lucide-react@^1.17.0, react@^19.2.6, react-dom@^19.2.6, react-icons@^5.7.0, react-router-dom@7.18.2, sonner@^2.0.7, devDependencies (+42 more)
+Cohesion: 0.06
+Nodes (48): dependencies, lucide-react@^1.17.0, react@^19.2.6, react-icons@^5.7.0, react-router-dom@7.18.2, sonner@^2.0.7, @supabase/supabase-js@2.108.1, devDependencies (+40 more)
 
 ### Community 1 - "CampaignsPage.tsx"
-Cohesion: 0.12
-Nodes (29): AdminDialog(), stack, Collapse(), adminDate(), adminTime(), CampaignContent, campaignMessage(), campaignVersion() (+21 more)
+Cohesion: 0.09
+Nodes (39): Collapse(), LoftSwitch(), labels, ReminderSettings(), adminDate(), adminTime(), CampaignContent, campaignMessage() (+31 more)
 
 ### Community 2 - "Иконки и справочники"
 Cohesion: 0.07
@@ -83,35 +80,35 @@ Nodes (37): CategoryIcon(), CategoryIconProps, ICON_MAP, resolveCategoryIcon(), 
 
 ### Community 3 - "pagePreload.ts"
 Cohesion: 0.06
-Nodes (57): react, react-dom, App(), ProtectedLayout(), AnimatedRoutes(), RouteFrame(), AppToaster(), readTheme() (+49 more)
+Nodes (54): react-dom@^19.2.6, react-dom, react-router-dom, App(), ProtectedLayout(), AnimatedRoutes(), RouteFrame(), RouteErrorBoundary (+46 more)
 
-### Community 4 - "ReminderSettings.tsx"
-Cohesion: 0.29
-Nodes (12): LoftSwitch(), labels, ReminderSettings(), clock(), instant(), localWorkClock(), Parts, parts() (+4 more)
+### Community 4 - "supabase.ts"
+Cohesion: 0.06
+Nodes (41): typescript@~6.0.2, typescript, AdminMenuRows(), groups, ManagerTasks(), names, getCurrentUser(), login() (+33 more)
 
 ### Community 5 - "useAdminLanguage"
-Cohesion: 0.10
-Nodes (40): lucide-react, react-router-dom, AdminLanguagePicker(), AdminMenuPage(), MenuEntry, AdminPageHeader(), JeansIcon(), JeansIconProps (+32 more)
+Cohesion: 0.08
+Nodes (71): Компоненты и точки переиспользования, lucide-react, react, sonner, AdminAddButton(), AdminDialog(), stack, AdminLanguagePicker() (+63 more)
 
 ### Community 6 - "OrdersPage.tsx"
 Cohesion: 0.07
-Nodes (70): CancelOrderModal(), groups, names, AdminNotification, NotificationBell(), seenStorageKey(), labels, OrderHistory() (+62 more)
+Nodes (66): 8. Время, локализация и аналитика, AdminNotification, NotificationBell(), seenStorageKey(), labels, OrderHistory(), adminDateTime(), DataTopic (+58 more)
 
-### Community 7 - "SettingsForms.tsx"
-Cohesion: 0.29
-Nodes (8): AdminTheme, applyThemeToDom(), currentTheme, getTheme(), listeners, setTheme(), subscribe(), useTheme()
+### Community 7 - "DESIGN_SYSTEM.md"
+Cohesion: 0.08
+Nodes (29): LOFT Admin — действующая дизайн-система, Адаптивность и доступность, Анимации: точные значения и отличия от клиента, Палитра и тема, Типографика, отступы, названия, Уточнение сетки брюк и джинсов — 19.11.2026, Чек-лист нового экрана, Documentation (+21 more)
 
-### Community 8 - "tx"
-Cohesion: 0.15
-Nodes (28): AdminAddButton(), AdminBackButton(), AdminHeaderRow(), IconPicker(), categoriesCacheApi, CategoryRow, CategoryTree, fetchCategoriesTree() (+20 more)
+### Community 8 - "LOFT Admin — техническая архитектура"
+Cohesion: 0.07
+Nodes (23): Telegram и рассылки, Данные и безопасность, Интерфейс и состояние, Контекст перед задачей, Правила работы с LOFT Admin, Проверки и отчёт, 10. Развёртывание и проверки, 1. Общая схема и граница репозитория (+15 more)
 
 ### Community 9 - "Браузерные проверки"
-Cohesion: 0.18
-Nodes (12): ADMIN, catalog(), Harness, install(), jwt(), now(), productId, session() (+4 more)
+Cohesion: 0.17
+Nodes (13): ADMIN, catalog(), Harness, install(), jwt(), now(), productId, session() (+5 more)
 
-### Community 10 - "ref_node_assert"
-Cohesion: 0.06
-Nodes (14): handler(), handler(), @supabase/supabase-js@2.108.1, typescript@~6.0.2, @supabase/supabase-js, typescript, CachedRate, exchangeRate() (+6 more)
+### Community 10 - "getExchangeRate.ts"
+Cohesion: 0.13
+Nodes (9): handler(), handler(), @supabase/supabase-js, CachedRate, exchangeRate(), valid(), VercelRequest, VercelResponse (+1 more)
 
 ### Community 11 - "Типы клиентского кода"
 Cohesion: 0.11
@@ -127,41 +124,37 @@ Nodes (14): compilerOptions, allowImportingTsExtensions, lib, module, moduleReso
 
 ### Community 14 - "ProductsPage.tsx"
 Cohesion: 0.05
-Nodes (65): AdminMenuRows(), ManagerTasks(), Recommendations, analyticsCacheApi, AnalyticsCacheEntry, AnalyticsPeriod, brandsCacheApi, BrandStat (+57 more)
+Nodes (51): 4. Данные, RPC и Storage, Recommendations, analyticsCacheApi, AnalyticsCacheEntry, AnalyticsPeriod, brandsCacheApi, BrandStat, categoriesCacheApi (+43 more)
 
 ### Community 15 - "Настройки TypeScript"
 Cohesion: 0.40
 Nodes (4): compilerOptions, rewriteRelativeImportExtensions, files, references
 
+### Community 16 - "LOFT Admin — продукт и рабочие процессы менеджера"
+Cohesion: 0.17
+Nodes (12): LOFT Admin — продукт и рабочие процессы менеджера, Аналитика и деньги, Заказы: принятие, деньги и выполнение, Заявки на спецзаказ, Колокольчик, задачи, напоминания, Назначение и роли, Настройки и границы развития, Отмены и возвраты (+4 more)
+
 ### Community 18 - "Security architecture — 6 November 2026"
 Cohesion: 0.29
 Nodes (6): Deployment order, Inventory and payments, Notifications and monitoring, Security architecture — 6 November 2026, Sessions, registration and files, Validation and limits
 
-### Community 19 - "React + TypeScript + Vite"
-Cohesion: 0.50
-Nodes (3): Expanding the ESLint configuration, React Compiler, React + TypeScript + Vite
-
-### Community 23 - "SizeChartsPage.tsx"
-Cohesion: 0.18
-Nodes (18): SizeChartEditor(), allowed, Origin, Page, parentRoute(), read(), rememberAdminOrigin(), safe() (+10 more)
-
 ## Knowledge Gaps
-- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `pagePreload.ts` to `Зависимости и инструменты`, `CampaignsPage.tsx`, `Иконки и справочники`, `ReminderSettings.tsx`, `useAdminLanguage`, `OrdersPage.tsx`, `SettingsForms.tsx`, `tx`, `ProductsPage.tsx`, `SizeChartsPage.tsx`?**
-  _High betweenness centrality (0.162) - this node is a cross-community bridge._
+- **Why does `react` connect `useAdminLanguage` to `Зависимости и инструменты`, `CampaignsPage.tsx`, `Иконки и справочники`, `pagePreload.ts`, `supabase.ts`, `OrdersPage.tsx`, `DESIGN_SYSTEM.md`, `ProductsPage.tsx`?**
+  _High betweenness centrality (0.118) - this node is a cross-community bridge._
 - **Should `Зависимости и инструменты` be split into smaller, more focused modules?**
-  _Cohesion score 0.05370101596516691 - nodes in this community are weakly interconnected._
-- **Why does `useAdminLanguage()` connect `useAdminLanguage` to `CampaignsPage.tsx`, `Иконки и справочники`, `pagePreload.ts`, `ReminderSettings.tsx`, `OrdersPage.tsx`, `tx`, `ProductsPage.tsx`, `SizeChartsPage.tsx`?**
-  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+  _Cohesion score 0.05568627450980392 - nodes in this community are weakly interconnected._
+- **Why does `useAdminLanguage()` connect `useAdminLanguage` to `CampaignsPage.tsx`, `Иконки и справочники`, `pagePreload.ts`, `supabase.ts`, `OrdersPage.tsx`, `DESIGN_SYSTEM.md`, `ProductsPage.tsx`?**
+  _High betweenness centrality (0.057) - this node is a cross-community bridge._
 - **Should `CampaignsPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.11746031746031746 - nodes in this community are weakly interconnected._
-- **Why does `@supabase/supabase-js` connect `ref_node_assert` to `Зависимости и инструменты`, `OrdersPage.tsx`?**
-  _High betweenness centrality (0.053) - this node is a cross-community bridge._
+  _Cohesion score 0.09098639455782313 - nodes in this community are weakly interconnected._
+- **Why does `@playwright/test` connect `Браузерные проверки` to `Зависимости и инструменты`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Should `Иконки и справочники` be split into smaller, more focused modules?**
   _Cohesion score 0.0664451827242525 - nodes in this community are weakly interconnected._
 - **Should `pagePreload.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06126331811263318 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06151062867480778 - nodes in this community are weakly interconnected._

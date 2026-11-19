@@ -1,3 +1,4 @@
+import {PANTS_SIZE_GRID,usesPantsGrid} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -325,7 +326,7 @@ export default function CategoriesPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">{sub.name_ru}</p>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border text-[#8A8275] dark:text-gray-300">
-                            {tx(SIZE_TYPES.find(t => t.value === sub.size_type)?.label) || sub.size_type}
+                            {usesPantsGrid(sub.category_id,sub.id)?t('Числовая (36–56)'):tx(SIZE_TYPES.find(t => t.value === sub.size_type)?.label) || sub.size_type}
                           </span>
                           {!sub.is_active && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C9A961]/20 dark:bg-gold/30 text-[#C9A961] dark:text-gold">
@@ -509,8 +510,9 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
 
   const [nameRu, setNameRu] = useState(initial?.name_ru || '')
   const [nameUz, setNameUz] = useState(initial?.name_uz || '')
-  const [sizeType, setSizeType] = useState(initial?.size_type || 'numeric')
-  const [sizes, setSizes] = useState<string[]>(initial?.sizes || [])
+  const fixedGrid=usesPantsGrid(categoryId,initial?.id||'')
+  const [sizeType, setSizeType] = useState(fixedGrid?'numeric':initial?.size_type || 'numeric')
+  const [sizes, setSizes] = useState<string[]>(fixedGrid?[...PANTS_SIZE_GRID]:initial?.sizes || [])
   const [newSize, setNewSize] = useState('')
   const [icon, setIcon] = useState<string | null>(initial?.icon || null)
 
@@ -540,8 +542,8 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
         id: finalId,
         name_ru: nameRu.trim(),
         name_uz: nameUz.trim() || nameRu.trim(),
-        size_type: sizeType,
-        sizes,
+        size_type: fixedGrid?'numeric':sizeType,
+        sizes: fixedGrid?[...PANTS_SIZE_GRID]:sizes,
         icon,
       },
       categoryId,
@@ -611,12 +613,13 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
           <div>
             <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">{t("Тип размерной сетки")}</label>
             <select
+              disabled={fixedGrid}
               value={sizeType}
               onChange={(e) => setSizeType(e.target.value)}
               className="w-full px-4 py-3 border border-[#E8E2D5] dark:border-dark-border rounded-xl bg-white dark:bg-dark-accent text-[#1B2A4A] dark:text-white focus:outline-none focus:border-[#1B2A4A] dark:focus:border-gold text-sm font-medium"
             >
               {SIZE_TYPES.map(t => (
-                <option key={t.value} value={t.value}>{tx(t.label)}</option>
+                <option key={t.value} value={t.value}>{fixedGrid&&t.value==='numeric'?tx('Числовая (36–56)'):tx(t.label)}</option>
               ))}
             </select>
           </div>
@@ -626,7 +629,7 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
               <label className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider mb-1.5 block">
                 {t("Размеры (")}{sizes.length})
               </label>
-              <div className="flex gap-2 mb-2">
+              {!fixedGrid&&<div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   value={newSize}
@@ -642,12 +645,13 @@ function SubcategoryModal({ categoryId, initial, existingIds, onClose, onSave }:
                   <Plus size={14} />
                   {t("Добавить")}</button>
               </div>
+              }
               {sizes.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {sizes.map((size, idx) => (
                     <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-lg text-xs font-bold text-[#1B2A4A] dark:text-white">
                       {size}
-                      <button onClick={() => setSizes(sizes.filter((_, i) => i !== idx))} className="text-[#9B3B3B] dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">
+                      <button disabled={fixedGrid} onClick={() => setSizes(sizes.filter((_, i) => i !== idx))} className="text-[#9B3B3B] dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">
                         <X size={12} />
                       </button>
                     </span>

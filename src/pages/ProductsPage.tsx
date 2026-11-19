@@ -1,3 +1,4 @@
+import {PANTS_SIZE_GRID,usesPantsGrid,shopSizeOptions} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
 import {useAdminViewState} from '../lib/useAdminViewState'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
@@ -62,8 +63,8 @@ const SUBCATEGORY_SIZE_CONFIG: Record<string, { type: string; range: string[] }>
   't-shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
   'shirts': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
   'sweaters-cardigans': { type: 'alphabetical', range: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-  'pants': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-  'jeans': { type: 'combined', range: ['44', '46', '48', '50', '52', '54', '56', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'pants': { type: 'numeric', range: PANTS_SIZE_GRID },
+  'jeans': { type: 'numeric', range: PANTS_SIZE_GRID },
   'tracksuits': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
   'outerwear': { type: 'alphabetical', range: ['S', 'M', 'L', 'XL', 'XXL'] },
   'belts': { type: 'combined', range: ['S', 'M', 'L', 'XL', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130'] },
@@ -646,6 +647,7 @@ export default function ProductsPage() {
     setProductColors(dupColors)
     setActiveColorId(dupColors.length > 0 ? dupColors[0].id : null)
     setErrors({})
+    if(usesPantsGrid(product.category,product.subcategory)){setSizeType('numeric');setSelectedSizes({});setSizesByColor({})}
     setShowModal(true)
   }
 
@@ -767,6 +769,7 @@ export default function ProductsPage() {
   }
 
   const getAvailableSizes = () => {
+    if(usesPantsGrid(category,subcategory)){const legacy=editingProduct?variants.filter(v=>v.product_id===editingProduct.id&&(v.color_id||null)===(activeColorId||null)).map(v=>v.size_value):[];return sortSizeStrings(shopSizeOptions(category,subcategory,legacy))}
     const config = SUBCATEGORY_SIZE_CONFIG[subcategory]
     let raw: string[] = []
     if (config && config.range.length > 0) {
@@ -1595,6 +1598,7 @@ export default function ProductsPage() {
                   ) : undefined
                 }
               >
+                {editingProduct&&usesPantsGrid(category,subcategory)&&getAvailableSizes().some(size=>!PANTS_SIZE_GRID.includes(size))&&<p className="text-xs text-[#8A8275] dark:text-gray-300 mb-3">{t('Существующие размеры и остатки сохранены. Сопоставление с новой сеткой выполняйте вручную.')}</p>}
                 {!subcategory ? (
                   <div className="flex items-center gap-3 p-3 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border rounded-xl">
                     <div className="w-9 h-9 rounded-full bg-white dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
