@@ -1,3 +1,4 @@
+import { cachedStoreExchangeRate, loadStoreExchangeRate } from '../lib/storeExchangeRate'
 import {useAdminViewState} from '../lib/useAdminViewState'
 import {AdminHeaderRow} from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
@@ -7,10 +8,9 @@ import ProtectedFile from '../components/ProtectedFile'
 import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { displayMoney, moneyNumber } from '../lib/money'
-import { dataCache } from '../lib/resourceCache'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getChinaRequests, updateChinaRequestStatus, supabase } from '../lib/supabase'
+import { getChinaRequests, updateChinaRequestStatus } from '../lib/supabase'
 import { chinaCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
 import {
@@ -73,7 +73,7 @@ export default function ChinaPage() {
 
   const navigate = useNavigate()
   const [params]=useSearchParams()
-  const [exchangeRate, setExchangeRate] = useState<number | null>(() => dataCache.get<number>('admin:exchange-rate'))
+  const [exchangeRate, setExchangeRate] = useState<number | null>(cachedStoreExchangeRate)
   const [requests, setRequests] = useState<any[]>(() => chinaCacheApi.get(undefined,60_000) || [])
   const [loading, setLoading] = useState(() => !chinaCacheApi.get(undefined,60_000))
   const [refreshing, setRefreshing] = useState(false)
@@ -100,18 +100,11 @@ export default function ChinaPage() {
     const cached = !forceRefresh ? chinaCacheApi.get() : null
     if (forceRefresh) {
       setRefreshing(true)
-      dataCache.invalidate('admin:exchange-rate')
     } else if (!cached) if (!background && !chinaCacheApi.get(undefined,60_000)) setLoading(true)
     try {
       const [data, rate] = await Promise.all([
         cached ? Promise.resolve(cached) : getChinaRequests(),
-        dataCache.load('admin:exchange-rate', async () => {
-          const { data, error } = await supabase.from('settings').select('value').eq('key', 'exchange_rate').single()
-          if (error) throw error
-          const rate = Number(data?.value?.rate)
-          if (!Number.isFinite(rate) || rate <= 0) throw new Error('Курс магазина недоступен')
-          return rate
-        }, 60_000).catch(error => { console.error('Ошибка загрузки курса магазина:', error); return null }),
+        loadStoreExchangeRate(forceRefresh).catch(() => null),
       ])
       setExchangeRate(rate)
       setRequests(data)

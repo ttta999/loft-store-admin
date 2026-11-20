@@ -91,24 +91,34 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
-/* Dashboard cards share their surface with the opened section. */
+/* Directional page push. Header controls stay in a separate static layer. */
 ::view-transition { pointer-events: none; }
-::view-transition-group(root) { animation: none; }
-::view-transition-old(root) { display: none; }
-::view-transition-new(root) { animation: none; }
-::view-transition-group(loft-admin-header) { animation: none; z-index: 10; }
-::view-transition-old(loft-admin-header) { display: none; }
-::view-transition-new(loft-admin-header) { animation: none; }
-::view-transition-group(loft-admin-surface) { animation-duration: 340ms; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); z-index: 3; }
-::view-transition-image-pair(loft-admin-surface) { isolation: isolate; overflow: clip; border-radius: 16px; }
-::view-transition-old(loft-admin-surface), ::view-transition-new(loft-admin-surface) { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
-::view-transition-old(loft-admin-surface) { animation: admin-surface-out 120ms ease-out both; }
-::view-transition-new(loft-admin-surface) { animation: admin-surface-in 180ms ease-out both; }
-@keyframes admin-surface-out { to { opacity: 0; } }
-@keyframes admin-surface-in { from { opacity: 0; } to { opacity: 1; } }
-[data-admin-shared] { scale: 1 !important; transition: none !important; }
-[data-admin-hidden] { opacity: 0 !important; }
-@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.01ms !important; } }
+::view-transition-group(root),
+::view-transition-group(loft-admin-header),
+::view-transition-group(loft-admin-page-out),
+::view-transition-group(loft-admin-page-in) { animation: none; }
+::view-transition-old(root), ::view-transition-old(loft-admin-header) { display: none; }
+::view-transition-new(root), ::view-transition-new(loft-admin-header) { animation: none; }
+::view-transition-group(loft-admin-header) { z-index: 10; }
+/* Independent snapshot bounds avoid stretching when two pages have different widths. */
+:root[data-admin-phase="out"] [data-loft-content]:not([data-loft-content] [data-loft-content]) {
+  view-transition-name: loft-admin-page-out;
+}
+:root[data-admin-phase="in"] [data-loft-content]:not([data-loft-content] [data-loft-content]) {
+  view-transition-name: loft-admin-page-in;
+}
+::view-transition-old(loft-admin-page-out), ::view-transition-new(loft-admin-page-in) {
+  mix-blend-mode: normal;
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: both;
+}
+:root { --admin-page-offset: 100vw; }
+:root[data-admin-motion="back"] { --admin-page-offset: -100vw; }
+::view-transition-old(loft-admin-page-out) { animation-name: admin-page-out; }
+::view-transition-new(loft-admin-page-in) { animation-name: admin-page-in; }
+@keyframes admin-page-out { to { translate: calc(-1 * var(--admin-page-offset)) 0; } }
+@keyframes admin-page-in { from { translate: var(--admin-page-offset) 0; } }
 
 /* Keep narrow headers inside the viewport so a shared transition cannot change
    the mobile page scale. Desktop header placement is unchanged. */

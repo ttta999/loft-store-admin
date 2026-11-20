@@ -1,6 +1,7 @@
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import {AdminMenuRows} from '../components/AdminMenu'
 import ManagerTasks from '../components/ManagerTasks'
+import { cachedStoreExchangeRate, loadStoreExchangeRate } from '../lib/storeExchangeRate'
 import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import {getRefunds} from '../lib/refunds'
@@ -35,11 +36,12 @@ import NotificationBell from '../components/NotificationBell'
 import { warmPage } from '../lib/pagePreload'
 
 // ✅ KPI-карточка в стиле страницы заказа (десктоп)
-function KpiCard({ icon, label, value, subtitle, accent = false }: {
+function KpiCard({ icon, label, value, subtitle, secondaryValue, accent = false }: {
   icon: React.ReactNode
   label: string
   value: string
   subtitle: string
+  secondaryValue?: string
   accent?: boolean
 }) {
  useAdminLanguage()
@@ -56,6 +58,7 @@ function KpiCard({ icon, label, value, subtitle, accent = false }: {
         <p className={`text-3xl font-bold truncate mt-0.5 ${
           accent ? 'text-[#C9A961]' : 'text-[#1B2A4A] dark:text-white'
         }`}>{value}</p>
+        {secondaryValue && <p className="mt-0.5 text-sm font-medium text-[#1B2A4A] dark:text-gray-300">{secondaryValue}</p>}
         <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{tx(subtitle)}</p>
       </div>
     </div>
@@ -100,7 +103,7 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
 }
 
 export default function DashboardPage() {
- useAdminLanguage()
+ const language = useAdminLanguage()
 
   const navigate = useNavigate()
   const [refunds,setRefunds]=useState<any[]>(()=>refundsCacheApi.get()||[])
@@ -110,6 +113,19 @@ export default function DashboardPage() {
   const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount || 0)
   const [loading, setLoading] = useState(() => !(ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
   const [refreshing, setRefreshing] = useState(false)
+  const [exchangeRate, setExchangeRate] = useState(cachedStoreExchangeRate)
+
+  const refreshRate = async (force = false) => {
+    setExchangeRate(await loadStoreExchangeRate(force).catch(() => null))
+  }
+  useEffect(() => {
+    let mounted = true
+    void loadStoreExchangeRate().catch(() => null).then(rate => {
+      if (mounted) setExchangeRate(rate)
+    })
+    return () => { mounted = false }
+  }, [])
+  useAdminRefresh(['settings'], refreshRate)
 
   useEffect(() => {
     loadData(false)
@@ -207,6 +223,7 @@ export default function DashboardPage() {
     ordersCacheApi.invalidate()
     chinaCacheApi.invalidate()
     dashboardCountsCacheApi.invalidate()
+    void refreshRate(true)
     loadData(true)
   }
 
@@ -218,6 +235,7 @@ export default function DashboardPage() {
   }
 
   const totalRevenue = confirmedRevenue(orders)
+  const revenueUzs = exchangeRate === null ? NaN : totalRevenue * exchangeRate
   const activeOrders = orders.filter(o => WORK_STATUSES.includes(o.status)).length
   const pendingRequests = chinaRequests.filter(r => r.status === 'На оценке').length
 
@@ -287,6 +305,7 @@ export default function DashboardPage() {
             icon={<TrendingUp size={20} className="text-[#C9A961]" />}
             label={t("Выручка")}
             value={displayMoney(totalRevenue, 'USD')}
+            secondaryValue={Number.isFinite(revenueUzs) ? '≈ ' + displayMoney(revenueUzs, 'UZS', language) : undefined}
             subtitle={t("Подтверждённая оплата")}
             accent
           />
@@ -295,7 +314,7 @@ export default function DashboardPage() {
         <ManagerTasks/>
 
         {/* ✅ Сетка разделов: карточки-ссылки */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <NavCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             title={t("Заказы")}

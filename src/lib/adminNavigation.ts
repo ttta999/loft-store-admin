@@ -27,7 +27,7 @@ export function useAdminBack(){
  const valid=origin&&safe(origin.url)&&origin.url!==location.pathname+location.search
  const target=valid?origin.url:parentRoute(location.pathname,location.search)
  const [path,search='']=target.split('?')
- return {target,label:routeTitle(path,search),back:()=>{if(valid&&Number(history.state?.idx)===origin.index+1)navigate(-1);else navigate(target,{replace:true})}}
+ return {target,label:routeTitle(path,search),back:()=>{if(valid&&Number(history.state?.idx)===origin.index+1)navigate(-1);else navigate(target,{replace:true,state:{adminBack:true}})}}
 }
 
 export const hasDirtyAdminForms=()=>Array.from(document.querySelectorAll('[data-loft-dirty="true"]')).some(element=>!element.closest('[inert]'))

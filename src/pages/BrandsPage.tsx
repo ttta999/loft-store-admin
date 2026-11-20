@@ -34,6 +34,19 @@ interface Brand {
 const isFullBrandRows = (list: any[]): boolean =>
   !list || list.length === 0 || (list[0] != null && typeof list[0].name === 'string')
 
+function BrandLogo({ url, name, active }: { url: string | null; name: string; active: boolean }) {
+  const [failed, setFailed] = useState(false)
+  const showImage = !!url && !failed
+  const appearance = showImage
+    ? 'bg-[#929292]'
+    : active ? 'bg-white dark:bg-dark-card text-[#C9A961] dark:text-gold'
+      : 'bg-white dark:bg-dark-card text-[#8A8275] dark:text-gray-400'
+  return <div data-brand-logo className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 border border-[#E8E2D5] dark:border-dark-border overflow-hidden font-bold text-lg ${appearance}`}>
+    {showImage ? <img src={url} alt={name} onError={() => setFailed(true)} className="w-full h-full object-contain p-1.5" />
+      : name.charAt(0).toUpperCase()}
+  </div>
+}
+
 export default function BrandsPage() {
  useAdminLanguage()
  useLocalTimeZone()
@@ -247,18 +260,7 @@ export default function BrandsPage() {
                 const safeName = brand.name || '—'
                 return (
                   <div key={brand.id} className="flex flex-wrap items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors">
-                    {/* ✅ Круглая иконка: Логотип или первая буква */}
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 border border-[#E8E2D5] dark:border-dark-border overflow-hidden bg-white dark:bg-dark-card ${
-                      !brand.logo_url && (brand.is_active
-                        ? 'text-[#C9A961] dark:text-gold font-bold text-lg'
-                        : 'text-[#8A8275] dark:text-gray-400 font-bold text-lg')
-                    }`}>
-                      {brand.logo_url ? (
-                        <img src={brand.logo_url} alt={safeName} className="w-full h-full object-contain p-1.5" />
-                      ) : (
-                        safeName.charAt(0).toUpperCase()
-                      )}
-                    </div>
+                    <BrandLogo key={brand.logo_url} url={brand.logo_url} name={safeName} active={brand.is_active}/>
 
                     <div className="flex-1 min-w-[120px]">
                       <p className={`font-bold truncate ${brand.is_active ? 'text-[#1B2A4A] dark:text-white' : 'text-[#8A8275] dark:text-gray-400 line-through'}`}>

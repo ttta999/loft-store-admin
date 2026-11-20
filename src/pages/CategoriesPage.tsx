@@ -257,9 +257,8 @@ export default function CategoriesPage() {
           </div>
         ) : (
           tree.map((category, catIndex) => (
+            <section key={category.id} data-category-row={category.id}>
             <div
-              key={category.id}
-              data-category-row={category.id}
               className={`bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border overflow-hidden ${
                 category.is_active
                   ? 'border-[#E8E2D5] dark:border-dark-border'
@@ -365,9 +364,14 @@ export default function CategoriesPage() {
                   )
                 })}
 
-                <AdminAddButton onClick={() => setSubModal({ mode: 'create', categoryId: category.id })}>{t("Добавить подкатегорию")}</AdminAddButton>
               </div>
             </div>
+            <div className="mt-3 px-4 pb-2">
+              <AdminAddButton appearance="gold" onClick={() => setSubModal({ mode: 'create', categoryId: category.id })}>
+                {t("Добавить подкатегорию")}
+              </AdminAddButton>
+            </div>
+            </section>
           ))
         )}
 

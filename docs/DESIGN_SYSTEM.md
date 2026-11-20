@@ -77,8 +77,8 @@ Badges в заказах/заявках/возвратах используют 
 
 | Сценарий | Источник и значения |
 |---|---|
-| Карточка главной → раздел → назад | [dashboardTransition](../src/lib/dashboardTransition.ts), CSS group `loft-admin-surface`: 340 ms, `cubic-bezier(0.4,0,0.2,1)` |
-| Обычный fallback маршрута | [AnimatedRoutes](../src/components/AnimatedRoutes.tsx): opacity 0→1, 200 ms, `cubic-bezier(0.22,1,0.36,1)` |
+| Страница → раздел → назад | [AnimatedRoutes](../src/components/AnimatedRoutes.tsx): встречный горизонтальный сдвиг, 340 ms, `cubic-bezier(0.4,0,0.2,1)` |
+| Обычный fallback маршрута | [AnimatedRoutes](../src/components/AnimatedRoutes.tsx): направленный вход, 340 ms, та же кривая |
 | Современный `AdminDialog` | 220 ms open / 150 ms close, `cubic-bezier(.22,1,.36,1)`; 8 px + scale .98 на входе, 4 px + .99 на выходе |
 | `Collapse` | `grid-template-rows`, 200 ms `cubic-bezier(.22,1,.36,1)` |
 | Колокольчик | 250 ms open / 150 ms close, `cubic-bezier(0.22,1,0.36,1)` |
@@ -86,11 +86,11 @@ Badges в заказах/заявках/возвратах используют 
 | `AdminAddButton` | Локальный `duration-150` для background/transform и `active:scale-[0.98]`; общий press CSS тоже применим |
 | Переключение темы | 300 ms `ease` |
 
-Админка не использует клиентский Framer Motion `motionTiming`; сходство палитры не делает код/длительности идентичными. Shared transition сохраняет header отдельным неподвижным слоем, использует origin карточки и очищает временные inert/aria-hidden снимки после окончания/прерывания. При отсутствии подходящего источника применяется fallback, а не раскрытие из случайной координаты.
+Админка не использует клиентский Framer Motion `motionTiming`; сходство палитры не делает код/длительности идентичными. Общий переход сохраняет шапку отдельным неподвижным слоем и использует origin маршрута. Снимки обеих страниц сохраняют собственные размеры. Для браузеров без View Transition API применяется направленный вход.
 
 Нельзя анимировать transform предка sticky/fixed chrome ради page transition. URL диалога той же страницы не должен запускать повторную анимацию всей страницы. Закрытие должно завершаться до удаления визуальной поверхности, с восстановлением фокуса и прокрутки. [ScrollRestoration](../src/components/ScrollRestoration.tsx), [useAdminDialogRoute](../src/lib/useAdminDialogRoute.ts).
 
-`prefers-reduced-motion`: CSS 0.01 ms, media-query проверки маршрутов и диалогов, `motion-reduce:!transition-none` у Collapse. Новая анимация обязана сохранять эту ветку и корректный instant/fade fallback.
+`prefers-reduced-motion`: CSS 0.01 ms, media-query проверки маршрутов и диалогов, `motion-reduce:!transition-none` у Collapse. Новая анимация обязана сохранять эту ветку и корректный мгновенную навигацию при уменьшении движения.
 
 ## Адаптивность и доступность
 

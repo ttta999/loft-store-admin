@@ -13,7 +13,7 @@
 - Переиспользуй `AdminPageHeader`, `AdminAddButton`, `AdminDialog`, `Collapse`, skeleton, `CategoryIcon` и имеющиеся формы. Не создавай дубли.
 - Поддерживай light/dark/system и RU/UZ. Новые UI-ключи — в оба словаря; не переводить SQL raw-статусы и пользовательский контент.
 - Сохраняй origin-aware Back, `useAdminDialogRoute`, query разделов, `useAdminViewState`, прокрутку и dirty-form guard.
-- Не ломай dashboard shared transition, неподвижную шапку, exit до unmount и reduced motion. Здесь нет Framer Motion/Zustand; не добавляй библиотеку ради копирования клиентской реализации.
+- Не ломай единый направленный переход страниц, неподвижную шапку, exit до unmount и reduced motion. Здесь нет Framer Motion/Zustand; не добавляй библиотеку ради копирования клиентской реализации.
 - Используй `ResourceCache`, `cache.ts`, `adminLive`, существующую topic invalidation. Кеш/ответ старого пользователя не должен попасть новой сессии.
 - Loading, допустимый cached state, подтверждённое empty и error/retry различаются. Успех показывать только по серверному результату.
 - Не трогай посторонние страницы, публичные контракты и Telegram-тексты без задачи.
