@@ -1,3 +1,5 @@
+import { ContentSkeleton } from '../components/PageSkeleton'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import {AdminMenuRows} from '../components/AdminMenu'
 import ManagerTasks from '../components/ManagerTasks'
@@ -239,53 +241,29 @@ export default function DashboardPage() {
   const activeOrders = orders.filter(o => WORK_STATUSES.includes(o.status)).length
   const pendingRequests = chinaRequests.filter(r => r.status === 'На оценке').length
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg flex items-center justify-center">
-        <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B2A4A] dark:border-gold mx-auto mb-4"></div>
-          <p className="text-[#1B2A4A] dark:text-white font-medium">{t("Загрузка панели...")}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      {/* ✅ Sticky-шапка (десктоп): лого слева, действия справа */}
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-[220px]">
-            <div className="w-11 h-11 rounded-full bg-[#1B2A4A] dark:bg-gold flex items-center justify-center flex-shrink-0">
-              <Store size={20} className="text-white dark:text-[#1B2A4A]" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-[#1B2A4A] dark:text-white truncate">LOFT Admin Panel</h1>
-              <p className="text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{t("Панель управления магазином")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+      <AdminPageHeader home title="LOFT Admin Panel" icon={<Store/>} actions={<>
             <NotificationBell />
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title={t("Обновить данные")}
+              className="flex items-center gap-2 min-h-11 px-3 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
+              title={t("Обновить данные")} aria-label={t("Обновить")}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              {t("Обновить")}</button>
+              <span className="hidden lg:inline">{t("Обновить")}</span></button>
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-500/30 bg-[#FBF9F4] dark:bg-red-500/10 text-sm font-bold text-[#9B3B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
+              onClick={handleLogout} aria-label={t("Выйти")}
+              className="flex items-center gap-2 min-h-11 px-3 rounded-xl border border-red-200 dark:border-red-500/30 bg-[#FBF9F4] dark:bg-red-500/10 text-sm font-bold text-[#9B3B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
             >
               <LogOut size={16} />
-              {t("Выйти")}</button>
-          </div>
-        </div>
-      </div>
+              <span className="hidden lg:inline">{t("Выйти")}</span></button>
+      </>}/>
 
       <div data-loft-content className="max-w-6xl mx-auto p-6">
+        {loading ? <ContentSkeleton/> : <>
         {/* ✅ KPI-строка: 3 карточки со счётчиками */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard
@@ -339,6 +317,7 @@ export default function DashboardPage() {
          {path:'/campaigns',title:'Рассылки',icon:<Bell size={20}/>},
          {path:'/settings',title:'Настройки',icon:<Settings size={20}/>},
         ]}/>
+        </>}
       </div>
     </div>
   )

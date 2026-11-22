@@ -1,7 +1,7 @@
 import {PANTS_SIZE_GRID,usesPantsGrid,shopSizeOptions} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
 import {useAdminViewState} from '../lib/useAdminViewState'
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import RecommendationPicker, { type Recommendations } from '../components/RecommendationPicker'
@@ -872,9 +872,8 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
       {/* ✅ Sticky-шапка */}
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-7xl mx-auto">
-          <AdminHeaderRow title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={openAddModal}>{t("Добавить товар")}</AdminAddButton></>}/>
+      <AdminPageHeader title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={openAddModal}>{t("Добавить товар")}</AdminAddButton></>}/>
+  <div className="max-w-7xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* ✅ Поиск */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
@@ -979,9 +978,7 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
-      </div>
-
-      <div data-loft-content className="max-w-7xl mx-auto p-6">
+  <div data-loft-content className="max-w-7xl mx-auto p-6">
         {filteredProducts.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">

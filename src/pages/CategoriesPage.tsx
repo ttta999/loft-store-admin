@@ -1,6 +1,6 @@
 import {PANTS_SIZE_GRID,usesPantsGrid} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import PageSkeleton from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
@@ -232,9 +232,8 @@ export default function CategoriesPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-5xl mx-auto">
-          <AdminHeaderRow title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={()=>setCategoryModal({mode:"create"})}>{t("Добавить категорию")}</AdminAddButton></>}/>
+      <AdminPageHeader title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={()=>setCategoryModal({mode:"create"})}>{t("Добавить категорию")}</AdminAddButton></>}/>
+  <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
 
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <span className="px-4 py-2 rounded-xl text-sm font-bold bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border text-[#1B2A4A] dark:text-white">
@@ -244,9 +243,7 @@ export default function CategoriesPage() {
               {t("Подкатегорий:")}{' '}<span className="text-[#C9A961]">{activeSubs}</span> {' '}{t("активных")}</span>
           </div>
         </div>
-      </div>
-
-      <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
+  <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
         {tree.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">

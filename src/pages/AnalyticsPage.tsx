@@ -1,4 +1,4 @@
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {adminTime,adminDateTime} from '../lib/adminDateTime'
 import {localDateKey,timestampDate} from '../lib/dateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
@@ -306,9 +306,8 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       {/* ✅ Sticky-шапка */}
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-7xl mx-auto">
-          <AdminHeaderRow title={t("Аналитика")} icon={<BarChart3/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+      <AdminPageHeader title={t("Аналитика")} icon={<BarChart3/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+  <div className="max-w-7xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* Переключатель периода + время обновления */}
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
@@ -339,9 +338,7 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
-      </div>
-
-      <div data-loft-content className="max-w-7xl mx-auto p-6 space-y-4">
+  <div data-loft-content className="max-w-7xl mx-auto p-6 space-y-4">
         {/* ✅ KPI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard

@@ -1,5 +1,5 @@
 import {useAdminViewState} from '../lib/useAdminViewState'
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -311,9 +311,8 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-5xl mx-auto">
-          <AdminHeaderRow title={t("Заказы")} icon={<Package/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+      <AdminPageHeader title={t("Заказы")} icon={<Package/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+  <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* ✅ Поиск по номеру заказа / имени / телефону */}
           <div className="mt-4 bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border flex items-center gap-3 p-3">
@@ -384,9 +383,7 @@ export default function OrdersPage() {
             </select>
           </div>
         </div>
-      </div>
-
-      <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
+  <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
         {/* ✅ Блок «На обработке» — компактные строки */}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border-2 border-[#C9A961]/40 dark:border-gold/40 overflow-hidden">

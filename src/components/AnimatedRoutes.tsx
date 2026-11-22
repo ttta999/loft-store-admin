@@ -14,7 +14,6 @@ function RouteFrame() {
 }
 
 const content = () => document.querySelector<HTMLElement>('[data-loft-content]')
-const header = () => document.querySelector<HTMLElement>('.sticky.top-0')
 const section = (search: string) => new URLSearchParams(search).get('section')
 
 export default function AnimatedRoutes({ children }: { children: ReactNode }) {
@@ -53,21 +52,12 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
 
     void preloadPage(location.pathname).catch(() => {})
     const root = document.documentElement
-    const marked = new Set<HTMLElement>()
     let active = true
     let applied = false
     let transition: ViewTransition | undefined
     let fallback: Animation | undefined
-    const mark = (element: HTMLElement | null, name: string) => {
-      if (!element) return
-      marked.add(element)
-      element.style.viewTransitionName = name
-    }
     const interrupt = () => { transition?.skipTransition(); fallback?.cancel() }
     const cleanup = () => {
-      for (const element of marked) element.style.removeProperty('view-transition-name')
-      marked.clear()
-      delete root.dataset.adminPhase
       delete root.dataset.adminMotion
       window.removeEventListener('pointerdown', interrupt)
       window.removeEventListener('wheel', interrupt)
@@ -86,14 +76,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       window.addEventListener('pointerdown', interrupt, { passive: true })
       window.addEventListener('wheel', interrupt, { passive: true })
       if (typeof document.startViewTransition === 'function' && content()) {
-        root.dataset.adminPhase = 'out'
-        mark(header(), 'loft-admin-header')
-        transition = document.startViewTransition(() => {
-          apply()
-          if (!active) return
-          root.dataset.adminPhase = 'in'
-          mark(header(), 'loft-admin-header')
-        })
+        transition = document.startViewTransition(apply)
         void transition.ready.catch(() => {})
         void transition.updateCallbackDone.catch(apply)
         void transition.finished.catch(() => {}).then(() => { if (active) cleanup() })

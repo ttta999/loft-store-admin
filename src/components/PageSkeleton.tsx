@@ -1,5 +1,5 @@
 import {useLocation} from 'react-router-dom'
-import {Package,Globe,ShoppingBag,Layers,Tag,Ruler,Undo2,BarChart3,Send,Settings,Bell,Truck,Palette,DollarSign} from 'lucide-react'
+import {Package,Globe,ShoppingBag,Layers,Tag,Ruler,Undo2,BarChart3,Store,Send,Settings,Bell,Truck,Palette,DollarSign} from 'lucide-react'
 import AdminPageHeader from './AdminPageHeader'
 import {routeTitle} from '../lib/adminNavigation'
 import {t,useAdminLanguage} from '../lib/i18n'
@@ -10,6 +10,7 @@ export function ContentSkeleton({kind='list'}:{kind?:'list'|'products'|'settings
 export default function PageSkeleton({title}:{title?:string}){
  const location=useLocation(),section=new URLSearchParams(location.search).get('section')
  const icons:Record<string,typeof Package>={'/orders':Package,'/china':Globe,'/catalog':ShoppingBag,'/products':ShoppingBag,'/categories':Layers,'/brands':Tag,'/size-charts':Ruler,'/refunds':Undo2,'/analytics':BarChart3,'/campaigns':Send,'/settings':section==='reminders'?Bell:section==='payments'?Truck:section==='theme'?Palette:section==='prices'?DollarSign:Settings}
- const Icon=icons[location.pathname]||Settings
- return <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg text-[#1B2A4A] dark:text-white"><AdminPageHeader title={title||routeTitle(location.pathname,location.search)} icon={<Icon/>}/><div data-loft-content className="max-w-6xl mx-auto p-4 sm:p-6"><ContentSkeleton kind={location.pathname==='/products'?'products':location.pathname==='/settings'?'settings':'list'}/></div></div>
+ const home=location.pathname==='/'
+ const Icon=home?Store:icons[location.pathname]||Settings
+ return <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg text-[#1B2A4A] dark:text-white"><AdminPageHeader home={home} title={title||(home?'LOFT Admin Panel':routeTitle(location.pathname,location.search))} icon={<Icon/>}/><div data-loft-content className="max-w-6xl mx-auto p-4 sm:p-6"><ContentSkeleton kind={location.pathname==='/products'?'products':location.pathname==='/settings'?'settings':'list'}/></div></div>
 }

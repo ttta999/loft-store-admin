@@ -1,5 +1,15 @@
 import type {ru} from './ru'
 export const uz:Record<keyof typeof ru,string> = {
+  "Подтверждение возврата": "Qaytarishni tasdiqlash",
+  "Переведите сумму клиенту через банк и прикрепите квитанцию": "Summani bank orqali mijozga o‘tkazing va kvitansiyani biriktiring",
+  "Информация о переводе": "Pul o‘tkazmasi haqida",
+  "LOFT Store не переводит деньги автоматически. Перед подтверждением проверьте перевод в банке. Если при сохранении произошла ошибка, не отправляйте деньги повторно без проверки": "LOFT Store pulni avtomatik o‘tkazmaydi. Tasdiqlashdan oldin o‘tkazmani bankda tekshiring. Saqlashda xato yuz bersa, tekshirmasdan pulni qayta yubormang",
+  "Заменить файл": "Faylni almashtirish",
+  "Загрузить квитанцию": "Kvitansiyani yuklash",
+  "JPEG, PNG, WebP или PDF · до 8 МБ": "JPEG, PNG, WebP yoki PDF · 8 MB gacha",
+  "Подтверждаю, что банковский перевод клиенту выполнен": "Mijozga bank o‘tkazmasi bajarilganini tasdiqlayman",
+  "Подтвердить возврат": "Qaytarishni tasdiqlash",
+  "Выполненные": "Bajarilgan",
   "\nСпецзаказ №": "\nMaxsus buyurtma №",
   " (скрыто)": " (yashirilgan)",
   " · Ошибок: {0}": " · Xatolar: {0}",

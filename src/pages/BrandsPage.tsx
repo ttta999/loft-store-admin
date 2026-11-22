@@ -1,5 +1,5 @@
 import AdminAddButton from '../components/AdminAddButton'
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {adminDate} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -34,16 +34,12 @@ interface Brand {
 const isFullBrandRows = (list: any[]): boolean =>
   !list || list.length === 0 || (list[0] != null && typeof list[0].name === 'string')
 
-function BrandLogo({ url, name, active }: { url: string | null; name: string; active: boolean }) {
+function BrandLogo({ url, name }: { url: string | null; name: string }) {
   const [failed, setFailed] = useState(false)
   const showImage = !!url && !failed
-  const appearance = showImage
-    ? 'bg-[#929292]'
-    : active ? 'bg-white dark:bg-dark-card text-[#C9A961] dark:text-gold'
-      : 'bg-white dark:bg-dark-card text-[#8A8275] dark:text-gray-400'
-  return <div data-brand-logo className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 border border-[#E8E2D5] dark:border-dark-border overflow-hidden font-bold text-lg ${appearance}`}>
-    {showImage ? <img src={url} alt={name} onError={() => setFailed(true)} className="w-full h-full object-contain p-1.5" />
-      : name.charAt(0).toUpperCase()}
+  return <div data-brand-logo className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0 overflow-hidden bg-white dark:bg-dark-card">
+    {showImage ? <img src={url} alt={name} onError={() => setFailed(true)} className="w-full h-full object-contain p-1 bg-white" />
+      : <span className="text-sm font-bold text-[#1B2A4A] dark:text-white">{name.charAt(0).toUpperCase()}</span>}
   </div>
 }
 
@@ -205,9 +201,8 @@ export default function BrandsPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4">
-        <div className="max-w-6xl mx-auto">
-          <AdminHeaderRow title={t("Бренды")} icon={<Tag size={18}/>} actions={<><AdminAddButton onClick={()=>setShowAddModal(true)}>{t("Добавить бренд")}</AdminAddButton></>}/>
+      <AdminPageHeader title={t("Бренды")} icon={<Tag size={18}/>} actions={<><AdminAddButton onClick={()=>setShowAddModal(true)}>{t("Добавить бренд")}</AdminAddButton></>}/>
+  <div className="max-w-6xl mx-auto px-4 pt-3 sm:px-6">
 
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
@@ -231,9 +226,7 @@ export default function BrandsPage() {
               {t("Обновить")}</button>
           </div>
         </div>
-      </div>
-
-      <div data-loft-content className="max-w-6xl mx-auto p-6 space-y-4">
+  <div data-loft-content className="max-w-6xl mx-auto p-6 space-y-4">
         <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border overflow-hidden">
           <div className="flex items-center gap-3 p-5 border-b border-[#E8E2D5] dark:border-dark-border">
             <div className="w-10 h-10 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
@@ -260,7 +253,7 @@ export default function BrandsPage() {
                 const safeName = brand.name || '—'
                 return (
                   <div key={brand.id} className="flex flex-wrap items-center gap-4 p-4 hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors">
-                    <BrandLogo key={brand.logo_url} url={brand.logo_url} name={safeName} active={brand.is_active}/>
+                    <BrandLogo key={brand.logo_url} url={brand.logo_url} name={safeName}/>
 
                     <div className="flex-1 min-w-[120px]">
                       <p className={`font-bold truncate ${brand.is_active ? 'text-[#1B2A4A] dark:text-white' : 'text-[#8A8275] dark:text-gray-400 line-through'}`}>

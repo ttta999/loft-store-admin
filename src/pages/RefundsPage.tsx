@@ -1,4 +1,4 @@
-import {AdminHeaderRow} from '../components/AdminPageHeader'
+import AdminPageHeader from '../components/AdminPageHeader'
 import {ContentSkeleton} from '../components/PageSkeleton'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
@@ -6,7 +6,7 @@ import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import {  RefreshCw, Undo2, ChevronDown, Search, X, User, Package, CreditCard, MapPin, MessageCircle, FileText, ShieldCheck } from 'lucide-react'
+import {  RefreshCw, Undo2, ChevronDown, Search, X, User, Package, CreditCard, MapPin, MessageCircle, FileText, ShieldCheck, Info, Upload, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase, sendClientNotification, getAdminCacheScope } from '../lib/supabase'
 import { refundsCacheApi } from '../lib/cache'
@@ -20,30 +20,43 @@ const button='inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounde
 const input='w-full p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-[#1B2A4A] dark:text-white text-base sm:text-sm focus:outline-none focus:border-[#C9A961] placeholder:text-[#8A8275] dark:placeholder:text-gray-500'
 const actions:Record<string,string>={created:'Создан возврат',late_payment_check:'Открыта проверка платежа',claim:'Взят в работу',payment_received:'Подтверждено поступление оплаты',no_payment:'Оплата не обнаружена',proof:'Прикреплена квитанция',complete:'Подтверждён обратный перевод'}
 
-function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promise<void>}) {
- useAdminLanguage()
+function formatProofSize(bytes:number,locale:string) {
+ const unit=bytes>=1048576?'megabyte':bytes>=1024?'kilobyte':'byte'
+ const divisor=unit==='megabyte'?1048576:unit==='kilobyte'?1024:1
+ return new Intl.NumberFormat(locale,{style:'unit',unit,maximumFractionDigits:1}).format(bytes/divisor)
+}
+
+function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:(action?:string)=>Promise<void>}) {
+ const language=useAdminLanguage()
  useLocalTimeZone()
 
  const o=r.orders || {};const navigate=useNavigate()
  const [amount,setAmount]=useState('');const [currency,setCurrency]=useState('UZS');const [comment,setComment]=useState('')
  const [history,setHistory]=useState<any[]>([]);const [receipt,setReceipt]=useState<string|null>(null);const [proof,setProof]=useState<string|null>(null)
  const [confirmOpen,setConfirmOpen]=useState(false);const [busy,setBusy]=useState(false);const [confirmed,setConfirmed]=useState(false);const [message,setMessage]=useState('')
+ const [instructionsOpen,setInstructionsOpen]=useState(false)
+ const [attachedFile,setAttachedFile]=useState<File|null>(null)
+ const fileInput=useRef<HTMLInputElement>(null)
+ const processing=useRef(false)
  const operation=useRef<{signature:string,key:string}|null>(null)
  const uploaded=useRef<{file:File,path:string}|null>(null)
  const mine=r.assigned_to===userId;const closed=r.status==='Возврат выполнен'
  useEffect(()=>{let active=true;void getRefundDetail(r).then(data=>{if(active){setHistory(data.history);setReceipt(data.receipt);setProof(data.proof)}}).catch(()=>{if(active)toast.error(uiError('Не удалось загрузить документы возврата'))});return()=>{active=false}},[r.id,r.updated_at])
  const run=async(action:string,extra:Record<string,unknown>={})=>{
-  if(busy)return;setBusy(true)
+  if(processing.current)return
+  processing.current=true;setBusy(true)
   const signature=JSON.stringify([r.id,action,extra]);if(operation.current?.signature!==signature)operation.current={signature,key:crypto.randomUUID()}
-  try{await refundAction(r.id,action,operation.current.key,extra);operation.current=null;await onSaved();setConfirmed(false);toast.success(tx(t("Изменения сохранены")))}
-  catch(e:any){toast.error(uiError(e.message||'Не удалось сохранить возврат'))}finally{setBusy(false)}
+  try{await refundAction(r.id,action,operation.current.key,extra);operation.current=null;await onSaved(action);setConfirmed(false);toast.success(tx(t("Изменения сохранены")))}
+  catch(e:any){toast.error(uiError(e.message||'Не удалось сохранить возврат'))}finally{processing.current=false;setBusy(false)}
  }
  const upload=async(file:File)=>{
-  if(busy)return;setBusy(true)
+  if(processing.current)return
+  processing.current=true;setBusy(true)
+  setConfirmed(false)
   try{if(uploaded.current?.file!==file)uploaded.current={file,path:await uploadRefundProof(r,file)};const path=uploaded.current!.path
    const signature=JSON.stringify([r.id,'proof',path]);if(operation.current?.signature!==signature)operation.current={signature,key:crypto.randomUUID()}
-   await refundAction(r.id,'proof',operation.current.key,{p_proof:path});operation.current=null;await onSaved();toast.success(tx(t("Квитанция сохранена")))
-  }catch(e:any){toast.error(uiError(e.message||'Не удалось сохранить квитанцию'))}finally{setBusy(false)}
+   await refundAction(r.id,'proof',operation.current.key,{p_proof:path});operation.current=null;setAttachedFile(file);await onSaved();toast.success(tx(t("Квитанция сохранена")))
+  }catch(e:any){toast.error(uiError(e.message||'Не удалось сохранить квитанцию'))}finally{processing.current=false;setBusy(false)}
  }
  const special=specialOrderIds(o)
  return <div className="p-4 space-y-4 border-t border-[#E8E2D5] dark:border-dark-border bg-[#F5F1E8]/30 dark:bg-dark-bg/30 text-sm text-[#1B2A4A] dark:text-white">
@@ -65,12 +78,34 @@ function RefundDetail({r,userId,onSaved}:{r:any,userId:string,onSaved:()=>Promis
     <button className={button} disabled={busy||!(Number(amount)>0)||(r.status==='Возврат не требуется'&&comment.trim().length<3)} onClick={()=>{if(confirm(tx(t("Подтвердить фактическое поступление оплаты?"))))void run('payment_received',{p_amount:Number(amount),p_currency:currency,p_comment:comment})}}>{t("Оплата поступила")}</button>
     {r.status==='Проверка платежа'&&<button className={button} disabled={busy} onClick={()=>{if(confirm(tx(t("Проверка в банке завершена, поступление оплаты не подтверждено?"))))void run('no_payment',{p_comment:comment})}}>{t("Оплата не поступила")}</button>}
    </>}
-   {r.status==='Ожидает возврата'&&<>
-    <p>{t("Выполните перевод клиенту вручную через банк, затем прикрепите квитанцию. Приложение деньги не переводит. Не повторяйте банковский перевод после ошибки сохранения — проверьте его в банке.")}</p>
-    <label className="block">{t("Квитанция обратного перевода (до 8 МБ)")}<input aria-label={t("Квитанция обратного перевода")} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f)}}/></label>
-    <label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>{t("Подтверждаю: обратный банковский перевод фактически выполнен")}</label>
-    <button className={button} disabled={busy||!confirmed||!r.proof_url} onClick={()=>setConfirmOpen(true)}>{t("Подтвердить выполненный возврат")}</button>
-   </>}
+   {r.status==='Ожидает возврата'&&<section aria-labelledby={`refund-bank-title-${r.id}`} className="space-y-4">
+    <div className="flex items-start gap-3">
+     <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[#E8E2D5] bg-[#F5F1E8] dark:border-dark-border dark:bg-dark-accent"><CreditCard size={18}/></span>
+     <div className="min-w-0 flex-1">
+      <h3 id={`refund-bank-title-${r.id}`} className="font-bold">{t("Подтверждение возврата")}</h3>
+      <p className="mt-1 text-[#6D665B] dark:text-gray-300">{t("Переведите сумму клиенту через банк и прикрепите квитанцию")}</p>
+     </div>
+     <button type="button" className={`${button} min-h-11 min-w-11 !p-0`} aria-label={t("Информация о переводе")} aria-expanded={instructionsOpen} aria-controls={`refund-bank-info-${r.id}`} onClick={()=>setInstructionsOpen(open=>!open)}><Info size={18}/></button>
+    </div>
+    <p id={`refund-bank-info-${r.id}`} hidden={!instructionsOpen} className="rounded-xl bg-[#F5F1E8] p-3 text-[#1B2A4A] dark:bg-dark-accent dark:text-white">{t("LOFT Store не переводит деньги автоматически. Перед подтверждением проверьте перевод в банке. Если при сохранении произошла ошибка, не отправляйте деньги повторно без проверки")}</p>
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-[#E8E2D5] p-3 dark:border-dark-border">
+     <input hidden ref={fileInput} aria-label={t("Квитанция обратного перевода")} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onChange={event=>{
+      const file=event.currentTarget.files?.[0]
+      event.currentTarget.value=''
+      if(file)void upload(file)
+     }}/>
+     {(attachedFile||r.proof_url)&&<span role="status" className="flex min-w-0 w-full items-center gap-2 sm:w-auto sm:flex-1">
+      <Check size={16} className="shrink-0 text-green-700 dark:text-green-300"/>
+      <span className="min-w-0"><span className="block break-words font-semibold [overflow-wrap:anywhere]">{attachedFile?.name||t("Квитанция сохранена")}</span>
+       {attachedFile&&<span className="text-xs text-[#6D665B] dark:text-gray-300">{formatProofSize(attachedFile.size,language)}</span>}
+      </span>
+     </span>}
+     <button type="button" className={`${button} min-h-11`} disabled={busy} onClick={()=>fileInput.current?.click()}><Upload size={16}/>{attachedFile||r.proof_url?t("Заменить файл"):t("Загрузить квитанцию")}</button>
+     <span className="text-xs text-[#6D665B] dark:text-gray-300">{t("JPEG, PNG, WebP или PDF · до 8 МБ")}</span>
+    </div>
+    <label className="flex min-h-11 items-start gap-2"><input className="mt-1 size-4 shrink-0 accent-[#C9A961]" type="checkbox" disabled={busy} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>{t("Подтверждаю, что банковский перевод клиенту выполнен")}</label>
+    <button className={`${button} min-h-11`} disabled={busy||!confirmed||!r.proof_url} onClick={()=>setConfirmOpen(true)}>{t("Подтвердить возврат")}</button>
+   </section>}
   </div>}
   {confirmOpen&&<div className="loft-modal fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" role="dialog" aria-modal="true" aria-labelledby="refund-confirm-title"><div className={`${card} p-6 max-w-md space-y-4`}><h2 id="refund-confirm-title" className="font-bold text-xl">{t("Подтвердить возврат?")}</h2><p>{t("Подтвердите фактический обратный перевод")}{' '}{tx(formatMoney(r.amount,r.currency))} {' '}{t("по заказу №")}{o.id}{t(". Квитанция сохранена. Приложение не выполняет банковский перевод.")}</p><div className="flex gap-3"><button className={button} disabled={busy} onClick={()=>setConfirmOpen(false)}>{t("Назад")}</button><button className={button} disabled={busy} onClick={async()=>{await run('complete');setConfirmOpen(false)}}>{t("Перевод выполнен")}</button></div></div></div>}
   {r.manager_comment&&<p>{t("Внутренний комментарий:")}{' '}{r.manager_comment}</p>}
@@ -92,7 +127,7 @@ function statusColor(status:string){return ({'Проверка платежа':'
 type ViewState={filter:string;query:string;expanded:number|null}
 const viewKey=()=>`view:refunds:${getAdminCacheScope()}`
 
-function RefundRow({r,open,userId,toggle,onSaved}:{r:any;open:boolean;userId:string;toggle:()=>void;onSaved:()=>Promise<void>}){
+function RefundRow({r,open,userId,toggle,onSaved}:{r:any;open:boolean;userId:string;toggle:()=>void;onSaved:(action?:string)=>Promise<void>}){
  useAdminLanguage()
  useLocalTimeZone()
 
@@ -102,7 +137,7 @@ function RefundRow({r,open,userId,toggle,onSaved}:{r:any;open:boolean;userId:str
   <button className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors" aria-expanded={open} aria-controls={`refund-detail-${r.id}`} onClick={toggle}>
    <span className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center shrink-0"><Undo2 size={16} className="text-[#C9A961]"/></span>
    <span className="flex-1 min-w-0"><span className="block text-sm font-bold">{t("Возврат №")}{r.id} {' '}{t("· Заказ №")}{r.order_id}</span><span className="block text-xs text-[#8A8275] dark:text-gray-300 mt-0.5 truncate">{r.orders?.client_name} · {adminDateTime(r.created_at,{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span className="block text-[10px] text-[#8A8275] dark:text-gray-300 mt-1 truncate">{tx(cancellationSource(r.cancelled_by))}</span></span>
-   <span className="shrink-0 text-right max-w-[48%]"><span className="block text-sm font-bold text-[#C9A961]">{tx(refundAmount(r))}</span><span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusColor(r.status)}`}>{tx(r.status)}</span></span>
+   <span className="shrink-0 text-right max-w-[48%]"><span className="block text-sm font-bold text-[#C9A961]">{tx(refundAmount(r))}</span><span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusColor(r.status)}`}>{r.status==='Возврат выполнен'&&<Check size={12} aria-hidden className="mr-1 inline"/>}{tx(r.status)}</span>{r.completed_at&&<span className="mt-1 block text-[10px] text-[#6D665B] dark:text-gray-300">{adminDateTime(r.completed_at)}</span>}</span>
    <ChevronDown size={16} style={{transition:'rotate 250ms var(--loft-motion-ease)'}} className={`shrink-0 text-[#8A8275] dark:text-gray-300 transition-transform duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${open?'rotate-180':''}`}/>
   </button>
   <div id={`refund-detail-${r.id}`} data-refund-collapse className="grid transition-[grid-template-rows] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none" style={{gridTemplateRows:open?'1fr':'0fr',transition:'grid-template-rows 250ms var(--loft-motion-ease)'}} aria-hidden={!open} inert={!open}>
@@ -127,16 +162,16 @@ export default function RefundsPage(){
  const q=query.trim().toLowerCase();const searchFiltered=rows.filter(r=>!q||[r.id,r.order_id,r.orders?.client_name,r.orders?.client_phone,...specialOrderIds(r.orders||{})].some(v=>String(v||'').toLowerCase().includes(q)))
  const filtered=searchFiltered.filter(r=>filter==='Все'||(filter==='active'?['Проверка платежа','Ожидает возврата'].includes(r.status):r.status===filter));const active=rows.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length
  return <main className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg text-[#1B2A4A] dark:text-white">
-  <div className="sticky top-0 z-20 bg-[#F5F1E8]/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-[#E8E2D5] dark:border-dark-border px-6 py-4"><div className="max-w-5xl mx-auto">
-   <AdminHeaderRow title={t("Возвраты")} icon={<Undo2/>} actions={<button className={button} disabled={loading||refreshing} onClick={()=>void load(true)} aria-label={t("Обновить возвраты")}><RefreshCw size={16}/></button>}/>
+  <AdminPageHeader title={t("Возвраты")} icon={<Undo2/>} actions={<button className={button} disabled={loading||refreshing} onClick={()=>void load(true)} aria-label={t("Обновить возвраты")}><RefreshCw size={16}/></button>}/>
+  <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
    <div className={`${card} mt-4 flex items-center gap-3 p-3`}><span className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center shrink-0"><Search size={16}/></span><input className="flex-1 min-w-0 bg-transparent text-sm font-medium focus:outline-none placeholder:text-[#8A8275] dark:placeholder:text-gray-500" aria-label={t("Поиск возвратов")} placeholder={t("Поиск: № возврата, заказа, имя или телефон...")} value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label={t("Очистить поиск")} className="p-1.5 rounded-lg text-[#8A8275] hover:bg-[#F5F1E8] dark:hover:bg-dark-accent" onClick={()=>setQuery('')}><X size={16}/></button>}</div>
-   <div className="mt-3 flex items-center gap-2 flex-wrap"><label className="flex items-center gap-2 basis-full sm:basis-0 flex-1 min-w-0"><span className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">{t("Статус:")}</span><select className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold focus:outline-none focus:border-[#C9A961] truncate" value={filter} onChange={e=>setFilter(e.target.value)}>{['Все',...(filter==='active'?['active']:[]),...REFUND_STATUSES].map(s=><option key={s} value={s}>{s==='active'?t("Активные"):tx(s)} ({s==='Все'?searchFiltered.length:searchFiltered.filter(r=>s==='active'?['Проверка платежа','Ожидает возврата'].includes(r.status):r.status===s).length})</option>)}</select></label><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Показано:")}{' '}<span className="text-[#C9A961]">{filtered.length}</span></span><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Активных:")}{' '}<span className="text-[#C9A961]">{active}</span></span></div>
-  </div></div>
+   <div className="mt-3 flex items-center gap-2 flex-wrap"><label className="flex items-center gap-2 basis-full sm:basis-0 flex-1 min-w-0"><span className="text-xs font-bold text-[#8A8275] dark:text-gray-300 uppercase tracking-wider">{t("Статус:")}</span><select className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-[#E8E2D5] dark:border-dark-border bg-[#FBF9F4] dark:bg-dark-card text-sm font-bold focus:outline-none focus:border-[#C9A961] truncate" value={filter} onChange={e=>setFilter(e.target.value)}>{['Все','active','Возврат выполнен',...REFUND_STATUSES.filter(status=>status!=='Возврат выполнен')].map(s=><option key={s} value={s}>{s==='active'?t("Активные"):s==='Возврат выполнен'?t("Выполненные"):tx(s)} ({s==='Все'?searchFiltered.length:searchFiltered.filter(r=>s==='active'?['Проверка платежа','Ожидает возврата'].includes(r.status):r.status===s).length})</option>)}</select></label><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Показано:")}{' '}<span className="text-[#C9A961]">{filtered.length}</span></span><span className={`${card} !rounded-xl px-3 py-2 text-sm font-bold`}>{t("Активных:")}{' '}<span className="text-[#C9A961]">{active}</span></span></div>
+  </div>
   <div data-loft-content className="max-w-5xl mx-auto p-6">
    {error&&<div role="alert" className={`${card} p-5 mb-4 text-[#9B3B3B] dark:text-red-300`}>{uiError(error)}<button className={`${button} ml-3`} onClick={()=>void load(true)}>{t("Повторить")}</button></div>}
    {loading?<ContentSkeleton/>:<>
     {linked&&!rows.some(r=>String(r.order_id)===params.get('order'))&&!error&&<section className={`${card} p-5 mb-4`}><p className="text-sm text-[#8A8275] dark:text-gray-300 mb-3">{t("По заказу №")}{params.get('order')} {' '}{t("нет записи возврата. Если поступление денег обнаружено после отмены, откройте проверку.")}</p><button className={button} disabled={refreshing} onClick={()=>void openCheck()}>{t("Открыть проверку платежа")}</button></section>}
-    {!error&&!filtered.length?<div className={`${card} p-12 text-center`}><span className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center"><Undo2 size={28} className="text-[#8A8275] dark:text-gray-300"/></span><p className="font-medium mb-1">{q?t("Возвраты не найдены"):filter==='Все'?t("Возвратов пока нет"):t("Нет возвратов с таким статусом")}</p><p className="text-sm text-[#8A8275] dark:text-gray-300">{q?t("По запросу «{0}» ничего нет",[query]):filter==='Все'?t("Возвраты появятся здесь после отмены оплаченного заказа"):t("Попробуйте выбрать другой фильтр")}</p></div>:<div className={`${card} overflow-hidden divide-y divide-[#E8E2D5] dark:divide-dark-border`}>{filtered.map(r=><RefundRow key={r.id} r={r} open={expanded===r.id} userId={userId} toggle={()=>setExpanded(expanded===r.id?null:r.id)} onSaved={()=>load(true)}/>)}</div>}
+    {!error&&!filtered.length?<div className={`${card} p-12 text-center`}><span className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center"><Undo2 size={28} className="text-[#8A8275] dark:text-gray-300"/></span><p className="font-medium mb-1">{q?t("Возвраты не найдены"):filter==='Все'?t("Возвратов пока нет"):t("Нет возвратов с таким статусом")}</p><p className="text-sm text-[#8A8275] dark:text-gray-300">{q?t("По запросу «{0}» ничего нет",[query]):filter==='Все'?t("Возвраты появятся здесь после отмены оплаченного заказа"):t("Попробуйте выбрать другой фильтр")}</p></div>:<div className={`${card} overflow-hidden divide-y divide-[#E8E2D5] dark:divide-dark-border`}>{filtered.map(r=><RefundRow key={r.id} r={r} open={expanded===r.id} userId={userId} toggle={()=>setExpanded(expanded===r.id?null:r.id)} onSaved={async action=>{if(action==='complete'){setFilter('Все');setExpanded(r.id)}await load(true)}}/>)}</div>}
    </>}
   </div>
  </main>
