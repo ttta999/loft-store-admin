@@ -1,6 +1,6 @@
 import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminTime,adminDateTime} from '../lib/adminDateTime'
-import {localDateKey,timestampDate} from '../lib/dateTime'
+import {createLocalDateKey,timestampDate} from '../lib/dateTime'
 import {useAdminViewState} from '../lib/useAdminViewState'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,useAdminLanguage} from '../lib/i18n'
@@ -9,7 +9,7 @@ import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
-import { useState, useEffect, useRef } from 'react'
+import { startTransition, useState, useEffect, useRef } from 'react'
 import { supabase, privateFile, getAdminCacheScope } from '../lib/supabase'
 import {
   analyticsCacheApi,
@@ -107,8 +107,19 @@ function ProductThumbnail({ image, name }: { image?: string | null; name: string
  useAdminLanguage()
 
   const [failed, setFailed] = useState(false)
+  const protectedImage = image?.startsWith('private:') || image?.includes('/storage/v1/object/public/china-requests/')
+  const [signedUrl, setSignedUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!protectedImage || !image) return
+    let active = true
+    void privateFile(image, 'china-requests').then(url => {
+      if (active) setSignedUrl(url)
+    }).catch(() => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [image, protectedImage])
+  const url = protectedImage ? signedUrl : image
   return <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center">
-    {image && !failed ? <img src={image} alt={name} loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={() => setFailed(true)} /> : <Package size={20} className="text-[#8A8275] dark:text-gray-400" />}
+    {url && !failed ? <img src={url} alt={name} loading="lazy" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={() => setFailed(true)} /> : <Package size={20} className="text-[#8A8275] dark:text-gray-400" />}
   </div>
 }
 
@@ -158,12 +169,15 @@ export default function AnalyticsPage() {
 
     try {
       const entry = await analyticsCacheApi.refresh(selectedPeriod, scope, () => computeAnalytics(selectedPeriod))
-      if (entry && request === loadRequest.current && scope === getAdminCacheScope()) applyData(entry)
+      if (entry && request === loadRequest.current && scope === getAdminCacheScope()) startTransition(() => {
+        applyData(entry)
+        setLoading(false)
+        setRefreshing(false)
+      })
+      else if (request === loadRequest.current) { setLoading(false); setRefreshing(false) }
     } catch (error) {
-      if (request === loadRequest.current) setLoadError(true)
+      if (request === loadRequest.current) { setLoadError(true); setLoading(false); setRefreshing(false) }
       console.error('Ошибка загрузки аналитики:', error)
-    } finally {
-      if (request === loadRequest.current) { setLoading(false); setRefreshing(false) }
     }
   }
 
@@ -227,11 +241,12 @@ export default function AnalyticsPage() {
 
     // -------- Продажи по дням (ISO-ключ — без коллизий между годами) --------
     const statsByDay: Record<string, DailyStatsEntry> = {}
+    const localDateKey = createLocalDateKey(timeZone)
     valid.forEach((o: any) => {
       const dateObj = timestampDate(o.created_at)
       const dateKey = localDateKey(dateObj)
-      const dateLabel = adminDateTime(dateObj, { day: '2-digit', month: '2-digit' })
       if (!statsByDay[dateKey]) {
+        const dateLabel = adminDateTime(dateObj, { day: '2-digit', month: '2-digit' })
         statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
       }
       statsByDay[dateKey].revenue += Number(o.total_price_usd) || 0
@@ -287,10 +302,9 @@ export default function AnalyticsPage() {
       })
     })
 
-    const topProducts = await Promise.all(Object.values(productMapStats)
+    const topProducts = Object.values(productMapStats)
       .sort((a, b) => b.total_sold - a.total_sold)
       .slice(0, 5)
-      .map(async product => ({ ...product, product_image: product.product_image?.startsWith('private:') || product.product_image?.includes('/storage/v1/object/public/china-requests/') ? await privateFile(product.product_image || null, 'china-requests') : product.product_image })))
     const categoryStats = Object.values(categoryMapStats).sort((a, b) => b.revenue - a.revenue)
     const brandStats = Object.values(brandMapStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 

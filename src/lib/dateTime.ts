@@ -19,12 +19,18 @@ export function formatLocalDateTime(value: Timestamp, language = 'ru', options: 
 }
 export const formatLocalDate = (value: Timestamp, language = 'ru') => formatLocalDateTime(value,language,{day:'2-digit',month:'2-digit',year:'numeric'})
 export const formatLocalTime = (value: Timestamp, language = 'ru') => formatLocalDateTime(value,language,{hour:'2-digit',minute:'2-digit'})
+export function createLocalDateKey(timeZone = getDeviceTimeZone()) {
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+  return (value: Timestamp) => {
+    const date = timestampDate(value)
+    if (Number.isNaN(date.getTime())) return ''
+    const parts = formatter.formatToParts(date)
+    const part = (name: string) => parts.find(p => p.type === name)?.value || ''
+    return `${part('year')}-${part('month')}-${part('day')}`
+  }
+}
 export function localDateKey(value: Timestamp): string {
-  const date=timestampDate(value)
-  if(Number.isNaN(date.getTime()))return ''
-  const parts=new Intl.DateTimeFormat('en-US',{timeZone:getDeviceTimeZone(),year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date)
-  const part=(name:string)=>parts.find(p=>p.type===name)?.value||''
-  return `${part('year')}-${part('month')}-${part('day')}`
+  return createLocalDateKey()(value)
 }
 /** The browser resolves the selected wall time using the device's DST rules. */
 export function localInputToUtc(value: string): string {

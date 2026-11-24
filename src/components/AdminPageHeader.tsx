@@ -24,7 +24,9 @@ export function AdminHeaderShell({ location, children }: { location: AdminLocati
     : pageIcons[pathname as keyof typeof pageIcons] || Settings
 
   return <HeaderSlot.Provider value={slot}>
-    {pathname !== '/login' && <header data-admin-header className="sticky top-0 z-20 border-b border-[#E8E2D5] bg-[#F5F1E8] px-4 dark:border-dark-border dark:bg-dark-bg sm:px-6">
+    {pathname !== '/login' && <header data-admin-header className={`sticky top-0 z-20 border-b px-4 sm:px-6 ${home
+      ? 'border-transparent bg-transparent shadow-none'
+      : 'border-[#E8E2D5] bg-[#F5F1E8] dark:border-dark-border dark:bg-dark-bg'}`}>
       <div data-admin-heading className="admin-header-grid mx-auto max-w-6xl items-center text-[#1B2A4A] dark:text-white">
         {!home && <div className="admin-header-back min-w-0">
           <button data-admin-back onClick={back} className="inline-flex min-w-0 items-center gap-2 text-sm font-bold text-[#1B2A4A] dark:text-white min-h-11">

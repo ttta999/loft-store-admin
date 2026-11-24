@@ -10,7 +10,7 @@ import {getRefunds} from '../lib/refunds'
 import {refundsCacheApi} from '../lib/cache'
 import {dataCache} from '../lib/resourceCache'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
-import { useState, useEffect } from 'react'
+import { startTransition, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrders, getChinaRequests, getAdminCacheScope, supabase } from '../lib/supabase'
 import {
@@ -124,6 +124,8 @@ export default function DashboardPage() {
   const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount ?? snapshot?.brandsCount ?? 0)
   const [loading, setLoading] = useState(() => !(snapshot || ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
   const [refreshing, setRefreshing] = useState(false)
+  const latestLoad = useRef(0)
+  const invalidateLoad = useCallback(() => { latestLoad.current++ }, [])
   const [exchangeRate, setExchangeRate] = useState(cachedStoreExchangeRate)
 
   const refreshRate = async (force = false) => {
@@ -139,19 +141,30 @@ export default function DashboardPage() {
   useAdminRefresh(['settings'], refreshRate)
 
   useEffect(() => {
-    loadData(false)
-  }, [])
+    void loadData(false)
+    return invalidateLoad
+  }, [invalidateLoad])
 
   useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => loadData(false, true))
 
   useEffect(()=>{
    if (loading) return
-   const paths=['/analytics','/orders','/china','/catalog','/refunds'];let index=0,timer:ReturnType<typeof setTimeout>|undefined
+   // Warm the module once Dashboard is usable. This starts no analytics reads.
+   const warmAnalytics = () => warmPage('/analytics')
+   const idle = typeof window.requestIdleCallback === 'function'
+     ? window.requestIdleCallback(warmAnalytics) : undefined
+   if (idle === undefined) warmAnalytics()
+   const paths=['/orders','/china','/catalog','/refunds'];let index=0,timer:ReturnType<typeof setTimeout>|undefined
    const warm=()=>{if(index<paths.length){warmPage(paths[index++]);timer=setTimeout(warm,250)}}
-   timer=setTimeout(warm,700);return()=>clearTimeout(timer)
+   timer=setTimeout(warm,700)
+   return () => {
+     clearTimeout(timer)
+     if (idle !== undefined) window.cancelIdleCallback(idle)
+   }
   },[loading])
 
   const loadData = async (forceRefresh = false, background = false) => {
+    const request = ++latestLoad.current
     const cachedOrders = !forceRefresh ? ordersCacheApi.get() : null
     const cachedChina = !forceRefresh ? chinaCacheApi.get() : null
     const cachedCounts = !forceRefresh ? dashboardCountsCacheApi.get() : null
@@ -166,29 +179,35 @@ export default function DashboardPage() {
         getRefunds(forceRefresh),
       ])
 
-      if (scope !== getAdminCacheScope()) return
+      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
       const [pCount, bCount] = counts
       dataCache.set(snapshotKey, {
         orders: ordersData, china: chinaData, refunds: refundData, productsCount: pCount, brandsCount: bCount,
       }, 120_000)
-
-      setRefunds(refundData)
-      setOrders(ordersData as any[])
-      setChinaRequests(chinaData as any[])
-      setProductsCount(pCount)
-      setBrandsCount(bCount)
-
-      // 4. ✅ Сохраняем свежие данные в кеш
       ordersCacheApi.set(ordersData as any[])
       chinaCacheApi.set(chinaData as any[])
       if (!cachedCounts) dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
+
+      if (document.documentElement.dataset.adminDashboardReturn) {
+        await new Promise<void>(resolve => window.addEventListener('loft:admin-transition-end', () => resolve(), { once: true }))
+      }
+      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
+      startTransition(() => {
+        setRefunds(refundData)
+        setOrders(ordersData as any[])
+        setChinaRequests(chinaData as any[])
+        setProductsCount(pCount)
+        setBrandsCount(bCount)
+        setLoading(false)
+        setRefreshing(false)
+      })
     } catch (error) {
+      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
       console.error('Ошибка загрузки:', error)
       // Тост только если совсем ничего не смогли показать
       if (!background && !snapshot && !cachedOrders && !cachedChina && !cachedCounts) {
         toast.error(uiError('Ошибка загрузки данных панели'))
       }
-    } finally {
       setLoading(false)
       setRefreshing(false)
     }
@@ -223,10 +242,13 @@ export default function DashboardPage() {
     navigate('/login')
   }
 
-  const totalRevenue = confirmedRevenue(orders)
+  const { totalRevenue, activeOrders } = useMemo(() => ({
+    totalRevenue: confirmedRevenue(orders),
+    activeOrders: orders.filter(order => WORK_STATUSES.includes(order.status)).length,
+  }), [orders])
   const revenueUzs = exchangeRate === null ? NaN : totalRevenue * exchangeRate
-  const activeOrders = orders.filter(o => WORK_STATUSES.includes(o.status)).length
-  const pendingRequests = chinaRequests.filter(r => r.status === 'На оценке').length
+  const pendingRequests = useMemo(() => chinaRequests.filter(r => r.status === 'На оценке').length, [chinaRequests])
+  const pendingRefunds = useMemo(() => refunds.filter(r => ['Проверка платежа','Ожидает возврата'].includes(r.status)).length, [refunds])
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
@@ -299,7 +321,7 @@ export default function DashboardPage() {
         </div>
         <AdminMenuRows entries={[
          {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,count:productsCount+' · '+brandsCount},
-         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:String(refunds.filter(r=>['Проверка платежа','Ожидает возврата'].includes(r.status)).length)},
+         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:String(pendingRefunds)},
          {path:'/analytics',title:'Аналитика',icon:<BarChart3 size={20}/>},
          {path:'/campaigns',title:'Рассылки',icon:<Bell size={20}/>},
          {path:'/settings',title:'Настройки',icon:<Settings size={20}/>},
