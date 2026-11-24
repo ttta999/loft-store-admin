@@ -1,3 +1,4 @@
+import { setDashboardSession } from './dashboardSession'
 import {dataCache} from './resourceCache'
 import { readAll } from './readAll'
 import { createDataFetch } from './dataFetch'
@@ -13,6 +14,7 @@ export const getAdminCacheScope = () => cacheUserId || 'anonymous'
 supabase.auth.onAuthStateChange((event, session) => {
   const nextUserId = session?.user.id || null
   if (nextUserId !== cacheUserId || event === 'SIGNED_OUT') {
+    setDashboardSession(null)
     cacheUserId = nextUserId
     invalidateAllCaches()
   }

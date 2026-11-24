@@ -1,0 +1,1 @@
+export const dashboardActionClass = 'relative w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center hover:bg-[#F5F1E8] dark:hover:bg-dark-accent text-[#1B2A4A] dark:text-white shrink-0 motion-safe:transition-[color,background-color,border-color,scale] motion-safe:active:scale-[0.98]'

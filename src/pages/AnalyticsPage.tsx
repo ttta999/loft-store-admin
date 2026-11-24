@@ -9,11 +9,12 @@ import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
-import { startTransition, useState, useEffect, useRef } from 'react'
+import { startTransition, useState, useEffect, useRef, useCallback } from 'react'
 import { supabase, privateFile, getAdminCacheScope } from '../lib/supabase'
 import {
   analyticsCacheApi,
   type AnalyticsPeriod,
+  type AnalyticsCacheEntry,
   type OrderStatsEntry,
   type DailyStatsEntry,
   type ProductStatsEntry,
@@ -123,6 +124,138 @@ function ProductThumbnail({ image, name }: { image?: string | null; name: string
   </div>
 }
 
+const getDateFilter = (period: AnalyticsPeriod): string | null => {
+  if (period === 'all') return null
+  const now = new Date()
+  if (period === 'week') now.setDate(now.getDate() - 7)
+  else if (period === 'month') now.setMonth(now.getMonth() - 1)
+  else if (period === 'year') now.setFullYear(now.getFullYear() - 1)
+  return now.toISOString()
+}
+
+// ✅ ОДИН проход по заказам: считаем все метрики сразу
+async function computeAnalytics(selectedPeriod: AnalyticsPeriod, timeZone: string) {
+  const fetchStart = performance.now()
+  const dateFilter = getDateFilter(selectedPeriod)
+  // The scoped analytics cache owns deduplication. Signal-bearing reads bypass the
+  // transport cache so the refresh timestamp represents a real server response.
+  const signal = new AbortController().signal
+
+  let ordersQuery = supabase
+    .from('orders')
+    .select('id, total_price_usd, status, created_at, items, delivery_method, payment_method, client_phone, payment_status, paid_at')
+  if (dateFilter) {
+    ordersQuery = ordersQuery.gte('created_at', dateFilter)
+  }
+
+  const [{ data: ordersRaw, error: ordersError }, { data: productsRaw, error: productsError }] = await Promise.all([
+    readAll(ordersQuery.abortSignal(signal)),
+    readAll(supabase.from('products').select('id, category, brand, images').abortSignal(signal)),
+  ])
+
+  performance.measure('loft:analytics:fetch', { start: fetchStart, end: performance.now() })
+  if (ordersError || productsError) throw ordersError || productsError
+  const computeStart = performance.now()
+  const orders = ordersRaw || []
+  const productMap: Record<string, { category: string; brand: string | null; images?: string[] }> = {}
+  ;(productsRaw || []).forEach((p: any) => {
+    productMap[p.id] = { category: p.category, brand: p.brand, images: p.images || null }
+  })
+
+  // -------- Основные метрики --------
+  const valid = orders.filter(isConfirmedRevenue)
+  const totalRevenue = confirmedRevenue(valid)
+  const totalOrders = valid.length
+  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+  const activeOrders = orders.filter((o: any) => WORK_STATUSES.includes(o.status)).length
+  const cancelledOrders = orders.filter((o: any) => o.status === 'Отменён').length
+  const pendingPaymentOrders = orders.filter((o: any) => o.status === 'Ожидает оплаты').length
+  const uniqueCustomers = new Set(valid.map((o: any) => o.client_phone).filter(Boolean)).size
+  const deliveryOrders = valid.filter((o: any) => o.delivery_method === 'delivery').length
+  const pickupOrders = totalOrders - deliveryOrders
+  const onlinePaymentOrders = valid.filter((o: any) => o.payment_method === 'online_card').length
+  const receiptPaymentOrders = totalOrders - onlinePaymentOrders
+
+  const orderStats: OrderStatsEntry = {
+    totalRevenue, totalOrders, averageOrderValue, activeOrders,
+    cancelledOrders, pendingPaymentOrders, uniqueCustomers,
+    deliveryOrders, pickupOrders, onlinePaymentOrders, receiptPaymentOrders,
+  }
+
+  // -------- Продажи по дням (ISO-ключ — без коллизий между годами) --------
+  const statsByDay: Record<string, DailyStatsEntry> = {}
+  const localDateKey = createLocalDateKey(timeZone)
+  valid.forEach((o: any) => {
+    const dateObj = timestampDate(o.created_at)
+    const dateKey = localDateKey(dateObj)
+    if (!statsByDay[dateKey]) {
+      const dateLabel = adminDateTime(dateObj, { day: '2-digit', month: '2-digit' })
+      statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
+    }
+    statsByDay[dateKey].revenue += Number(o.total_price_usd) || 0
+    statsByDay[dateKey].orders += 1
+  })
+  const dailyStats = Object.values(statsByDay)
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+    .slice(-7)
+
+  // -------- Топ товаров + категории + бренды (один проход по items) --------
+  const productMapStats: Record<string, ProductStatsEntry> = {}
+  const categoryMapStats: Record<string, CategoryStat> = {}
+  const brandMapStats: Record<string, BrandStat> = {}
+
+  valid.forEach((o: any) => {
+    const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
+    items.forEach((item: any) => {
+      const qty = item.quantity || 1
+      const rev = (item.priceUsd || 0) * qty
+      const productId = item.productId || item.id
+      const isSpecial = String(productId).startsWith('special')
+
+      // Топ товаров
+      if (!productMapStats[productId]) {
+        productMapStats[productId] = {
+          product_id: productId,
+          product_name: item.name,
+          product_image: productMap[productId]?.images?.[0] || item.image || null,
+          total_sold: 0,
+          revenue: 0,
+        }
+      }
+      productMapStats[productId].total_sold += qty
+      productMapStats[productId].revenue += rev
+
+      // Категории
+      const catKey = isSpecial ? 'special' : (productMap[productId]?.category || 'other')
+      if (!categoryMapStats[catKey]) {
+        categoryMapStats[catKey] = { key: catKey, label: CATEGORY_LABELS[catKey] || catKey, revenue: 0, sold: 0 }
+      }
+      categoryMapStats[catKey].revenue += rev
+      categoryMapStats[catKey].sold += qty
+
+      // Бренды (спецзаказы и без бренда не учитываем)
+      const brandName = isSpecial ? null : productMap[productId]?.brand
+      if (brandName) {
+        if (!brandMapStats[brandName]) {
+          brandMapStats[brandName] = { name: brandName, revenue: 0, sold: 0 }
+        }
+        brandMapStats[brandName].revenue += rev
+        brandMapStats[brandName].sold += qty
+      }
+    })
+  })
+
+  const topProducts = Object.values(productMapStats)
+    .sort((a, b) => b.total_sold - a.total_sold)
+    .slice(0, 5)
+  const categoryStats = Object.values(categoryMapStats).sort((a, b) => b.revenue - a.revenue)
+  const brandStats = Object.values(brandMapStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+
+  performance.measure('loft:analytics:compute', { start: computeStart, end: performance.now() })
+  return { orderStats, dailyStats, topProducts, categoryStats, brandStats, timestamp: Date.now() }
+}
+
+
 export default function AnalyticsPage() {
  useAdminLanguage()
  const timeZone=useLocalTimeZone()
@@ -130,193 +263,68 @@ export default function AnalyticsPage() {
   const loadRequest = useRef(0)
   const scope = getAdminCacheScope()
   const [period, setPeriod] = useAdminViewState<AnalyticsPeriod>('analytics:period', 'month')
-  const [cached] = useState(() => analyticsCacheApi.get(period, scope))
-  const [orderStats, setOrderStats] = useState<OrderStatsEntry | null>(cached?.orderStats ?? null)
-  const [dailyStats, setDailyStats] = useState<DailyStatsEntry[]>(cached?.dailyStats ?? [])
-  const [topProducts, setTopProducts] = useState<ProductStatsEntry[]>(cached?.topProducts ?? [])
-  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>(cached?.categoryStats ?? [])
-  const [brandStats, setBrandStats] = useState<BrandStat[]>(cached?.brandStats ?? [])
-  const [loading, setLoading] = useState(!cached)
-  const [loadError, setLoadError] = useState(false)
+  const selection = `${period}:${timeZone}`
+  const lastSelection = useRef(selection)
+  const cached = analyticsCacheApi.get(period, scope, timeZone)
+  const [result, setResult] = useState<{ selection: string; entry: AnalyticsCacheEntry } | null>(
+    () => cached ? { selection, entry: cached } : null,
+  )
+  const [errorSelection, setErrorSelection] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<number>(cached?.timestamp||0)
+  const currentEntry = cached ?? (result?.selection === selection ? result.entry : null)
+  const displayed = currentEntry || result?.entry
+  const pending = !currentEntry && errorSelection !== selection
+  const loadError = errorSelection === selection
+  const { orderStats, dailyStats = [], topProducts = [], categoryStats = [], brandStats = [] } = displayed ?? {}
+  const lastUpdated = currentEntry?.timestamp ?? 0
 
-  useEffect(() => {
-    loadAnalytics(period, false)
-  }, [period,timeZone])
-
-  const applyData = (entry: { orderStats: OrderStatsEntry; dailyStats: DailyStatsEntry[]; topProducts: ProductStatsEntry[]; categoryStats: CategoryStat[]; brandStats: BrandStat[]; timestamp: number }) => {
-    setOrderStats(entry.orderStats)
-    setDailyStats(entry.dailyStats)
-    setTopProducts(entry.topProducts)
-    setCategoryStats(entry.categoryStats)
-    setBrandStats(entry.brandStats)
-    setLastUpdated(entry.timestamp)
-  }
-
-  useAdminRefresh(['orders','refunds','products','brands','categories','subcategories'], () => loadAnalytics(period, false, true))
-
-  const loadAnalytics = async (selectedPeriod: AnalyticsPeriod, forceRefresh = false, background = false) => {
+  const loadAnalytics = useCallback(async (revalidateCached = true) => {
     const request = ++loadRequest.current
-    setLoadError(false)
-    const cached = !forceRefresh && analyticsCacheApi.get(selectedPeriod, scope)
-    if (cached) applyData(cached)
-    if (forceRefresh) setRefreshing(true)
-    if (!background && !cached) {
-      setLastUpdated(0)
-      setLoading(true)
-    } else if (cached) setLoading(false)
+    const current = () => request === loadRequest.current && scope === getAdminCacheScope()
+    const hit = analyticsCacheApi.get(period, scope, timeZone)
+    if (hit && !revalidateCached) return
 
     try {
-      const entry = await analyticsCacheApi.refresh(selectedPeriod, scope, () => computeAnalytics(selectedPeriod))
-      if (entry && request === loadRequest.current && scope === getAdminCacheScope()) startTransition(() => {
-        applyData(entry)
-        setLoading(false)
-        setRefreshing(false)
+      const entry = await analyticsCacheApi.refresh(period, scope, () => computeAnalytics(period, timeZone), timeZone)
+      if (!entry && current() && !hit) setErrorSelection(selection)
+      if (entry && current()) startTransition(() => {
+        setResult(previous => current() ? { selection, entry } : previous)
+        setErrorSelection(previous => current() ? null : previous)
       })
-      else if (request === loadRequest.current) { setLoading(false); setRefreshing(false) }
     } catch (error) {
-      if (request === loadRequest.current) { setLoadError(true); setLoading(false); setRefreshing(false) }
+      if (current()) setErrorSelection(selection)
       console.error('Ошибка загрузки аналитики:', error)
+    } finally {
+      if (current()) setRefreshing(false)
     }
-  }
+  }, [period, scope, selection, timeZone])
 
-  const getDateFilter = (period: AnalyticsPeriod): string | null => {
-    if (period === 'all') return null
-    const now = new Date()
-    if (period === 'week') now.setDate(now.getDate() - 7)
-    else if (period === 'month') now.setMonth(now.getMonth() - 1)
-    else if (period === 'year') now.setFullYear(now.getFullYear() - 1)
-    return now.toISOString()
-  }
+  useEffect(() => {
+    const sameSelection = lastSelection.current === selection
+    lastSelection.current = selection
+    void loadAnalytics(sameSelection)
+    return () => { loadRequest.current++ }
+  }, [period, selection, loadAnalytics])
 
-  // ✅ ОДИН проход по заказам: считаем все метрики сразу
-  const computeAnalytics = async (selectedPeriod: AnalyticsPeriod) => {
-    const fetchStart = performance.now()
-    const dateFilter = getDateFilter(selectedPeriod)
-    // The scoped analytics cache owns deduplication. Signal-bearing reads bypass the
-    // transport cache so the refresh timestamp represents a real server response.
-    const signal = new AbortController().signal
+  useAdminRefresh(['orders','refunds','products','brands','categories','subcategories'], () => loadAnalytics())
 
-    let ordersQuery = supabase
-      .from('orders')
-      .select('id, total_price_usd, status, created_at, items, delivery_method, payment_method, client_phone, payment_status, paid_at')
-    if (dateFilter) {
-      ordersQuery = ordersQuery.gte('created_at', dateFilter)
-    }
-
-    const [{ data: ordersRaw, error: ordersError }, { data: productsRaw, error: productsError }] = await Promise.all([
-      readAll(ordersQuery.abortSignal(signal)),
-      readAll(supabase.from('products').select('id, category, brand, images').abortSignal(signal)),
-    ])
-
-    performance.measure('loft:analytics:fetch', { start: fetchStart, end: performance.now() })
-    if (ordersError || productsError) throw ordersError || productsError
-    const computeStart = performance.now()
-    const orders = ordersRaw || []
-    const productMap: Record<string, { category: string; brand: string | null; images?: string[] }> = {}
-    ;(productsRaw || []).forEach((p: any) => {
-      productMap[p.id] = { category: p.category, brand: p.brand, images: p.images || null }
-    })
-
-    // -------- Основные метрики --------
-    const valid = orders.filter(isConfirmedRevenue)
-    const totalRevenue = confirmedRevenue(valid)
-    const totalOrders = valid.length
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-    const activeOrders = orders.filter((o: any) => WORK_STATUSES.includes(o.status)).length
-    const cancelledOrders = orders.filter((o: any) => o.status === 'Отменён').length
-    const pendingPaymentOrders = orders.filter((o: any) => o.status === 'Ожидает оплаты').length
-    const uniqueCustomers = new Set(valid.map((o: any) => o.client_phone).filter(Boolean)).size
-    const deliveryOrders = valid.filter((o: any) => o.delivery_method === 'delivery').length
-    const pickupOrders = totalOrders - deliveryOrders
-    const onlinePaymentOrders = valid.filter((o: any) => o.payment_method === 'online_card').length
-    const receiptPaymentOrders = totalOrders - onlinePaymentOrders
-
-    const orderStats: OrderStatsEntry = {
-      totalRevenue, totalOrders, averageOrderValue, activeOrders,
-      cancelledOrders, pendingPaymentOrders, uniqueCustomers,
-      deliveryOrders, pickupOrders, onlinePaymentOrders, receiptPaymentOrders,
-    }
-
-    // -------- Продажи по дням (ISO-ключ — без коллизий между годами) --------
-    const statsByDay: Record<string, DailyStatsEntry> = {}
-    const localDateKey = createLocalDateKey(timeZone)
-    valid.forEach((o: any) => {
-      const dateObj = timestampDate(o.created_at)
-      const dateKey = localDateKey(dateObj)
-      if (!statsByDay[dateKey]) {
-        const dateLabel = adminDateTime(dateObj, { day: '2-digit', month: '2-digit' })
-        statsByDay[dateKey] = { dateKey, dateLabel, revenue: 0, orders: 0 }
-      }
-      statsByDay[dateKey].revenue += Number(o.total_price_usd) || 0
-      statsByDay[dateKey].orders += 1
-    })
-    const dailyStats = Object.values(statsByDay)
-      .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-      .slice(-7)
-
-    // -------- Топ товаров + категории + бренды (один проход по items) --------
-    const productMapStats: Record<string, ProductStatsEntry> = {}
-    const categoryMapStats: Record<string, CategoryStat> = {}
-    const brandMapStats: Record<string, BrandStat> = {}
-
-    valid.forEach((o: any) => {
-      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || [])
-      items.forEach((item: any) => {
-        const qty = item.quantity || 1
-        const rev = (item.priceUsd || 0) * qty
-        const productId = item.productId || item.id
-        const isSpecial = String(productId).startsWith('special')
-
-        // Топ товаров
-        if (!productMapStats[productId]) {
-          productMapStats[productId] = {
-            product_id: productId,
-            product_name: item.name,
-            product_image: productMap[productId]?.images?.[0] || item.image || null,
-            total_sold: 0,
-            revenue: 0,
-          }
-        }
-        productMapStats[productId].total_sold += qty
-        productMapStats[productId].revenue += rev
-
-        // Категории
-        const catKey = isSpecial ? 'special' : (productMap[productId]?.category || 'other')
-        if (!categoryMapStats[catKey]) {
-          categoryMapStats[catKey] = { key: catKey, label: CATEGORY_LABELS[catKey] || catKey, revenue: 0, sold: 0 }
-        }
-        categoryMapStats[catKey].revenue += rev
-        categoryMapStats[catKey].sold += qty
-
-        // Бренды (спецзаказы и без бренда не учитываем)
-        const brandName = isSpecial ? null : productMap[productId]?.brand
-        if (brandName) {
-          if (!brandMapStats[brandName]) {
-            brandMapStats[brandName] = { name: brandName, revenue: 0, sold: 0 }
-          }
-          brandMapStats[brandName].revenue += rev
-          brandMapStats[brandName].sold += qty
-        }
-      })
-    })
-
-    const topProducts = Object.values(productMapStats)
-      .sort((a, b) => b.total_sold - a.total_sold)
-      .slice(0, 5)
-    const categoryStats = Object.values(categoryMapStats).sort((a, b) => b.revenue - a.revenue)
-    const brandStats = Object.values(brandMapStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-
-    performance.measure('loft:analytics:compute', { start: computeStart, end: performance.now() })
-    return { orderStats, dailyStats, topProducts, categoryStats, brandStats, timestamp: Date.now() }
-  }
 
   const handleRefresh = () => {
+    setRefreshing(true)
+    setErrorSelection(null)
     analyticsCacheApi.invalidate(period)
-    loadAnalytics(period, true)
+    void loadAnalytics()
   }
 
+  const choosePeriod = (nextPeriod: AnalyticsPeriod) => {
+    if (nextPeriod === period) return
+    loadRequest.current++
+    const hit = analyticsCacheApi.get(nextPeriod, scope, timeZone)
+    setResult(previous => hit ? { selection: nextPeriod + ':' + timeZone, entry: hit } : previous)
+    setErrorSelection(null)
+    setRefreshing(false)
+    setPeriod(nextPeriod)
+  }
 
   const maxRevenue = Math.max(...dailyStats.map(d => d.revenue), 1)
   const maxCategoryRevenue = Math.max(...categoryStats.map(c => c.revenue), 1)
@@ -339,7 +347,8 @@ export default function AnalyticsPage() {
               ].map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setPeriod(key)}
+                  aria-pressed={period === key}
+                  onClick={() => choosePeriod(key)}
                   className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors ${
                     period === key
                       ? 'bg-[#1B2A4A] dark:bg-gold text-white dark:text-[#1B2A4A]'
@@ -350,18 +359,18 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
-            {lastUpdated > 0 && (
-              <p className="text-xs text-[#8A8275] dark:text-gray-300">
-                {t("Обновлено:")}{' '}{adminTime(lastUpdated)}
-              </p>
-            )}
+            <p role="status" className="min-h-4 text-xs text-[#8A8275] dark:text-gray-300">
+              {pending ? t('Данные обновляются…') : lastUpdated > 0 ? `${t('Обновлено:')} ${adminTime(lastUpdated)}` : null}
+            </p>
           </div>
         </div>
   <div data-loft-content className="max-w-7xl mx-auto p-6 space-y-4">
         {loadError && <p role="alert" className="text-sm text-[#9B3B3B] dark:text-red-300">
           {t('Ошибка загрузки данных панели')}
         </p>}
-        {loading ? <ContentSkeleton kind="analytics"/> : (!loadError || lastUpdated > 0) && <>
+        {!displayed && pending && <ContentSkeleton kind="analytics"/>}
+        {displayed && <div data-analytics-results aria-busy={pending} inert={!currentEntry}
+          className={`space-y-4 tabular-nums motion-safe:transition-opacity motion-safe:duration-150 ${currentEntry ? '' : 'opacity-25'}`}>
         {/* ✅ KPI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
@@ -466,8 +475,8 @@ export default function AnalyticsPage() {
                     </span>
                     <div className="flex-1">
                       <div
-                        className="h-6 rounded-lg bg-gradient-to-r from-[#1B2A4A] to-[#C9A961] dark:from-gold dark:to-gold/80"
-                        style={{ width: `${Math.min((cat.revenue / maxCategoryRevenue) * 100, 100)}%` }}
+                        className="h-6 origin-left rounded-lg motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out bg-gradient-to-r from-[#1B2A4A] to-[#C9A961] dark:from-gold dark:to-gold/80"
+                        style={{ scale: `${Math.min(cat.revenue / maxCategoryRevenue, 1)} 1` }}
                       />
                     </div>
                     <span className="text-xs font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap w-20 text-right">
@@ -539,10 +548,10 @@ export default function AnalyticsPage() {
                 <div key={day.dateKey} className="flex items-center gap-4">
                   <div className="w-16 text-sm font-bold text-[#1B2A4A] dark:text-white flex-shrink-0">{adminDateTime(new Date(day.dateKey+'T12:00:00'),{day:'2-digit',month:'2-digit'})}</div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="h-7 rounded-lg bg-gradient-to-r from-[#1B2A4A] to-[#C9A961] dark:from-gold dark:to-gold/80"
-                        style={{ width: `${Math.min((day.revenue / maxRevenue) * 100, 100)}%` }}
+                        className="h-7 min-w-0 flex-1 origin-left motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out rounded-lg bg-gradient-to-r from-[#1B2A4A] to-[#C9A961] dark:from-gold dark:to-gold/80"
+                        style={{ scale: `${Math.min(day.revenue / maxRevenue, 1)} 1` }}
                       />
                       <span className="text-sm font-bold text-[#1B2A4A] dark:text-white whitespace-nowrap">
                         {displayMoney(day.revenue, 'USD')}
@@ -598,7 +607,7 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
-        </>}
+        </div>}
       </div>
     </div>
   )

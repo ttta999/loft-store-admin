@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Package, Globe, ShoppingBag, Layers, Tag, Ruler, Undo2, BarChart3, Send, Settings, Bell, Truck, Monitor, DollarSign } from 'lucide-react'
+import { ArrowLeft, Package, Globe, ShoppingBag, Layers, Tag, Ruler, Undo2, BarChart3, Send, Settings, Bell, Truck, Monitor, DollarSign, RefreshCw, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import NotificationBell from './NotificationBell'
+import { dashboardActionClass } from '../lib/adminHeaderStyles'
+import { DASHBOARD_REFRESH, setDashboardSession, useDashboardRefreshing, useDashboardSession } from '../lib/dashboardSession'
+import { invalidateAllCaches } from '../lib/cache'
+import { logout } from '../lib/auth'
 import { tx, useAdminLanguage } from '../lib/i18n'
 import { routeTitle, useAdminBack, type AdminLocation } from '../lib/adminNavigation'
 
@@ -11,6 +17,31 @@ const pageIcons = {
   '/analytics': BarChart3, '/campaigns': Send,
 }
 const settingsIcons = { payments: Truck, prices: DollarSign, sale: Tag, reminders: Bell, theme: Monitor }
+
+function DashboardHeaderActions() {
+  const grant = useDashboardSession()
+  const refreshing = useDashboardRefreshing()
+  const navigate = useNavigate()
+  const signOut = async () => {
+    setDashboardSession(null)
+    invalidateAllCaches()
+    await logout()
+    navigate('/login')
+  }
+
+  return <>
+    <NotificationBell key={grant?.id ?? 'pending'} enabled={Boolean(grant)} />
+    <button type="button" title={tx('Обновить данные')} aria-label={tx('Обновить')}
+      aria-busy={refreshing} disabled={!grant || refreshing} className={dashboardActionClass}
+      onClick={() => window.dispatchEvent(new Event(DASHBOARD_REFRESH))}>
+      <RefreshCw size={18} className={refreshing ? 'motion-safe:animate-spin' : ''} />
+    </button>
+    <button type="button" title={tx('Выйти')} aria-label={tx('Выйти')}
+      disabled={!grant} className={dashboardActionClass} onClick={signOut}>
+      <LogOut size={18} />
+    </button>
+  </>
+}
 
 export function AdminHeaderShell({ location, children }: { location: AdminLocation; children: ReactNode }) {
   useAdminLanguage()
@@ -23,7 +54,7 @@ export function AdminHeaderShell({ location, children }: { location: AdminLocati
     ? section && Object.hasOwn(settingsIcons, section) ? settingsIcons[section] : Settings
     : pageIcons[pathname as keyof typeof pageIcons] || Settings
 
-  return <HeaderSlot.Provider value={slot}>
+  return <HeaderSlot.Provider value={home ? null : slot}>
     {pathname !== '/login' && <header data-admin-header className={`sticky top-0 z-20 border-b px-4 sm:px-6 ${home
       ? 'border-transparent bg-transparent shadow-none'
       : 'border-[#E8E2D5] bg-[#F5F1E8] dark:border-dark-border dark:bg-dark-bg'}`}>
@@ -42,7 +73,7 @@ export function AdminHeaderShell({ location, children }: { location: AdminLocati
           </h1>
           {!home && <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[#E8E2D5] bg-[#FBF9F4] text-[#C9A961] dark:border-dark-border dark:bg-dark-card sm:size-10"><Icon size={18}/></span>}
         </div>
-        <div className="admin-header-actions flex min-w-0 items-center justify-end gap-2" ref={setSlot} />
+        <div className="admin-header-actions flex min-w-0 items-center justify-end gap-2" ref={home ? undefined : setSlot}>{home && <DashboardHeaderActions />}</div>
       </div>
     </header>}
     {children}

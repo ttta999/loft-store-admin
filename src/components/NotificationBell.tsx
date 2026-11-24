@@ -1,3 +1,4 @@
+import { dashboardActionClass } from '../lib/adminHeaderStyles'
 import {timestampDate} from '../lib/dateTime'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
@@ -37,7 +38,7 @@ const STORAGE_KEY = 'admin_orders_last_seen'
 const NOTIFICATIONS_TTL = 30_000
 const seenStorageKey = () => `${STORAGE_KEY}:${getAdminCacheScope()}`
 
-export default function NotificationBell() {
+export default function NotificationBell({ enabled = true }: { enabled?: boolean }) {
  useAdminLanguage()
  useLocalTimeZone()
 
@@ -74,6 +75,7 @@ export default function NotificationBell() {
   })
 
   const loadNotifications = async (force = false) => {
+    if (!enabled) return
     const generation = ++loadGeneration.current
     const scope = getAdminCacheScope()
     const cached = !force ? dataCache.get<{ lastSeen: string; list: AdminNotification[] }>('admin:notifications') : null
@@ -106,11 +108,12 @@ export default function NotificationBell() {
 
   // ✅ Polling каждые 30 секунд
   useEffect(() => {
+    if (!enabled) return
     loadNotifications()
     const interval = setInterval(() => loadNotifications(true), 30_000)
     return () => { clearInterval(interval); loadGeneration.current++ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastSeen])
+  }, [enabled, lastSeen])
 
   // ✅ Клик вне дропдауна закрывает его
   useEffect(() => {
@@ -177,8 +180,10 @@ export default function NotificationBell() {
       <button
         ref={bellButtonRef}
         aria-expanded={open}
+        aria-label={t("Уведомления о новых заказах и спецзаказах")}
         onClick={() => { if (!open) { setPresent(true); void loadNotifications(true) } setOpen(!open) }}
-        className="relative w-10 h-10 rounded-full bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors text-[#1B2A4A] dark:text-white"
+        disabled={!enabled}
+        className={dashboardActionClass}
         title={t("Уведомления о новых заказах и спецзаказах")}
       >
         <Bell size={18} />

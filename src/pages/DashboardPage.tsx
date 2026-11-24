@@ -1,5 +1,4 @@
 import { ContentSkeleton } from '../components/PageSkeleton'
-import AdminHeaderActions from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import {AdminMenuRows} from '../components/AdminMenu'
 import ManagerTasks from '../components/ManagerTasks'
@@ -8,7 +7,8 @@ import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import {getRefunds} from '../lib/refunds'
 import {refundsCacheApi} from '../lib/cache'
-import {dataCache} from '../lib/resourceCache'
+import { adminTime } from '../lib/adminDateTime'
+import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, getDashboardSession, saveDashboardSnapshot, setDashboardRefreshing, type DashboardSnapshot } from '../lib/dashboardSession'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { startTransition, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -17,24 +17,19 @@ import {
   ordersCacheApi,
   chinaCacheApi,
   dashboardCountsCacheApi,
-  invalidateAllCaches,
 } from '../lib/cache'
 import {
   Bell,
   Undo2,
   Package,
   Globe,
-  LogOut,
   TrendingUp,
   ShoppingBag,
   BarChart3,
   Settings,
   ChevronRight,
-  RefreshCw,
 } from 'lucide-react'
-import { logout } from '../lib/auth'
 import { toast } from 'sonner'
-import NotificationBell from '../components/NotificationBell'
 import { warmPage } from '../lib/pagePreload'
 
 // ✅ KPI-карточка в стиле страницы заказа (десктоп)
@@ -104,33 +99,51 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
   )
 }
 
+const fetchCounts = async () => {
+  const [products, brands] = await Promise.all([
+    supabase.from('products').select('*', { count: 'exact', head: true }),
+    supabase.from('brands').select('*', { count: 'exact', head: true }),
+  ])
+  if (products.error || brands.error) throw products.error || brands.error
+  return [products.count ?? 0, brands.count ?? 0]
+}
+
+function readDashboardResources() {
+  return {
+    orders: ordersCacheApi.get(),
+    china: chinaCacheApi.get(),
+    counts: dashboardCountsCacheApi.get(),
+    refunds: refundsCacheApi.get(),
+  }
+}
+
+function dashboardExpired(view?: DashboardSnapshot) {
+  return !view || Date.now() - view.updatedAt >= DASHBOARD_FRESH_FOR
+}
+
 export default function DashboardPage() {
  const language = useAdminLanguage()
 
   const navigate = useNavigate()
   const scope = getAdminCacheScope()
-  const snapshotKey = `admin:dashboard-view:${scope}`
-  const [snapshot] = useState(() => dataCache.get<{
-    orders: Awaited<ReturnType<typeof getOrders>>
-    china: Awaited<ReturnType<typeof getChinaRequests>>
-    refunds: Awaited<ReturnType<typeof getRefunds>>
-    productsCount: number
-    brandsCount: number
-  }>(snapshotKey))
-  const [refunds, setRefunds] = useState<any[]>(() => refundsCacheApi.get() ?? snapshot?.refunds ?? [])
-  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() ?? snapshot?.orders ?? [])
-  const [chinaRequests, setChinaRequests] = useState<any[]>(() => chinaCacheApi.get() ?? snapshot?.china ?? [])
-  const [productsCount, setProductsCount] = useState(() => dashboardCountsCacheApi.get()?.productsCount ?? snapshot?.productsCount ?? 0)
-  const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount ?? snapshot?.brandsCount ?? 0)
-  const [loading, setLoading] = useState(() => !(snapshot || ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
-  const [refreshing, setRefreshing] = useState(false)
+  const grant = getDashboardSession()
+  const [snapshot, setSnapshot] = useState(() => grant?.snapshot)
+  const [failed, setFailed] = useState(false)
+  const [checking, setChecking] = useState(() =>
+    dashboardExpired(grant?.snapshot) || Object.values(readDashboardResources()).some(value => value === null),
+  )
+  const loading = !snapshot && !failed
+  const { orders = [], china: chinaRequests = [], refunds = [], productsCount = 0, brandsCount = 0 } = snapshot ?? {}
   const latestLoad = useRef(0)
-  const invalidateLoad = useCallback(() => { latestLoad.current++ }, [])
+  const invalidateLoad = useCallback(() => {
+    latestLoad.current++
+    setDashboardRefreshing(grant, false)
+  }, [grant])
   const [exchangeRate, setExchangeRate] = useState(cachedStoreExchangeRate)
 
-  const refreshRate = async (force = false) => {
+  const refreshRate = useCallback(async (force = false) => {
     setExchangeRate(await loadStoreExchangeRate(force).catch(() => null))
-  }
+  }, [])
   useEffect(() => {
     let mounted = true
     void loadStoreExchangeRate().catch(() => null).then(rate => {
@@ -139,13 +152,6 @@ export default function DashboardPage() {
     return () => { mounted = false }
   }, [])
   useAdminRefresh(['settings'], refreshRate)
-
-  useEffect(() => {
-    void loadData(false)
-    return invalidateLoad
-  }, [invalidateLoad])
-
-  useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => loadData(false, true))
 
   useEffect(()=>{
    if (loading) return
@@ -163,84 +169,73 @@ export default function DashboardPage() {
    }
   },[loading])
 
-  const loadData = async (forceRefresh = false, background = false) => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     const request = ++latestLoad.current
-    const cachedOrders = !forceRefresh ? ordersCacheApi.get() : null
-    const cachedChina = !forceRefresh ? chinaCacheApi.get() : null
-    const cachedCounts = !forceRefresh ? dashboardCountsCacheApi.get() : null
-
-    if (forceRefresh) setRefreshing(true)
-
+    const current = () => grant && grant === getDashboardSession() &&
+      scope === getAdminCacheScope() && request === latestLoad.current
+    // Retain the last successful, coherent view. Resource invalidations and
+    // expiry determine whether to revalidate, independently of the visible view.
+    const expired = dashboardExpired(grant?.snapshot)
+    const { orders: cachedOrders, china: cachedChina, counts: cachedCounts, refunds: cachedRefunds } = readDashboardResources()
+    if (!forceRefresh && !expired && cachedOrders && cachedChina && cachedCounts && cachedRefunds) return
+    const refreshAll = forceRefresh || expired
     try {
       const [ordersData, chinaData, counts, refundData] = await Promise.all([
-        cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
-        cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
-        cachedCounts ? Promise.resolve([cachedCounts.productsCount, cachedCounts.brandsCount] as [number, number]) : fetchCounts(),
-        getRefunds(forceRefresh),
+        !refreshAll && cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
+        !refreshAll && cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
+        !refreshAll && cachedCounts ? Promise.resolve([cachedCounts.productsCount, cachedCounts.brandsCount]) : fetchCounts(),
+        getRefunds(refreshAll),
       ])
-
-      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
+      if (!current() || !grant) return
       const [pCount, bCount] = counts
-      dataCache.set(snapshotKey, {
-        orders: ordersData, china: chinaData, refunds: refundData, productsCount: pCount, brandsCount: bCount,
-      }, 120_000)
-      ordersCacheApi.set(ordersData as any[])
-      chinaCacheApi.set(chinaData as any[])
-      if (!cachedCounts) dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
-
-      if (document.documentElement.dataset.adminDashboardReturn) {
-        await new Promise<void>(resolve => window.addEventListener('loft:admin-transition-end', () => resolve(), { once: true }))
+      const updated: DashboardSnapshot = {
+        orders: ordersData, china: chinaData, refunds: refundData,
+        productsCount: pCount, brandsCount: bCount, updatedAt: Date.now(),
       }
-      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
+      saveDashboardSnapshot(grant, updated)
+      ordersCacheApi.set(ordersData)
+      chinaCacheApi.set(chinaData)
+      dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
       startTransition(() => {
-        setRefunds(refundData)
-        setOrders(ordersData as any[])
-        setChinaRequests(chinaData as any[])
-        setProductsCount(pCount)
-        setBrandsCount(bCount)
-        setLoading(false)
-        setRefreshing(false)
+        setSnapshot(updated)
+        setFailed(false)
+        setChecking(false)
       })
     } catch (error) {
-      if (request !== latestLoad.current || scope !== getAdminCacheScope()) return
+      if (!current()) return
       console.error('Ошибка загрузки:', error)
-      // Тост только если совсем ничего не смогли показать
-      if (!background && !snapshot && !cachedOrders && !cachedChina && !cachedCounts) {
-        toast.error(uiError('Ошибка загрузки данных панели'))
-      }
-      setLoading(false)
-      setRefreshing(false)
+      if (!grant?.snapshot) toast.error(uiError('Ошибка загрузки данных панели'))
+      setFailed(true)
+      setChecking(false)
+    } finally {
+      if (current()) setDashboardRefreshing(grant, false)
     }
-  }
+  }, [grant, scope])
 
-  // ✅ HEAD-запрос для счётчиков — мгновенный, не грузит строки, не портит кеш
-  const fetchCounts = async (): Promise<[number, number]> => {
-    try {
-      const [pRes, bRes] = await Promise.all([
-        supabase.from('products').select('*', { count: 'exact', head: true }),
-        supabase.from('brands').select('*', { count: 'exact', head: true }),
-      ])
-      return [pRes.count || 0, bRes.count || 0]
-    } catch (err) {
-      console.error('Ошибка fetchCounts:', err)
-      return [0, 0]
+  useEffect(() => {
+    void loadData(false)
+    return invalidateLoad
+  }, [invalidateLoad, loadData])
+
+  useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => {
+    setChecking(true)
+    return loadData(true)
+  })
+
+
+  useEffect(() => {
+    const refresh = () => {
+      setChecking(true)
+      setDashboardRefreshing(grant, true)
+      ordersCacheApi.invalidate()
+      chinaCacheApi.invalidate()
+      dashboardCountsCacheApi.invalidate()
+      void refreshRate(true)
+      void loadData(true)
     }
-  }
-
-  const handleRefresh = () => {
-    ordersCacheApi.invalidate()
-    chinaCacheApi.invalidate()
-    dashboardCountsCacheApi.invalidate()
-    void refreshRate(true)
-    loadData(true)
-  }
-
-  const handleLogout = async () => {
-    // ✅ Сбрасываем весь кеш админки при выходе
-    invalidateAllCaches()
-    await logout()
-    navigate('/login')
-  }
+    window.addEventListener(DASHBOARD_REFRESH, refresh)
+    return () => window.removeEventListener(DASHBOARD_REFRESH, refresh)
+  }, [grant, loadData, refreshRate])
 
   const { totalRevenue, activeOrders } = useMemo(() => ({
     totalRevenue: confirmedRevenue(orders),
@@ -253,28 +248,15 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <AdminHeaderActions actions={<>
-            <NotificationBell />
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 min-h-11 px-3 rounded-xl text-sm font-bold text-[#1B2A4A] dark:text-white bg-[#FBF9F4] dark:bg-dark-card border border-[#E8E2D5] dark:border-dark-border hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors disabled:opacity-50"
-              title={t("Обновить данные")} aria-label={t("Обновить")}
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              <span className="hidden lg:inline">{t("Обновить")}</span></button>
-            <button
-              onClick={handleLogout} aria-label={t("Выйти")}
-              className="flex items-center gap-2 min-h-11 px-3 rounded-xl border border-red-200 dark:border-red-500/30 bg-[#FBF9F4] dark:bg-red-500/10 text-sm font-bold text-[#9B3B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors"
-            >
-              <LogOut size={16} />
-              <span className="hidden lg:inline">{t("Выйти")}</span></button>
-      </>}/>
-
       <div data-loft-content className="max-w-6xl mx-auto p-6">
+        {snapshot && <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 text-xs text-[#8A8275] dark:text-gray-300">
+          <p role="status">{failed ? t('Не удалось обновить. Показаны последние данные.') : checking ? t('Данные обновляются…') : ''}</p>
+          <p className="whitespace-nowrap">{t('Обновлено:')} {adminTime(snapshot.updatedAt)}</p>
+        </div>}
+        {!snapshot && failed && <p role="alert">{t('Ошибка загрузки данных панели')}</p>}
         {loading ? <ContentSkeleton/> : <>
         {/* ✅ KPI-строка: 3 карточки со счётчиками */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {snapshot && <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             label={t("Активные заказы")}
@@ -296,7 +278,7 @@ export default function DashboardPage() {
             subtitle={t("Подтверждённая оплата")}
             accent
           />
-        </div>
+        </div>}
 
         <ManagerTasks/>
 
@@ -306,7 +288,7 @@ export default function DashboardPage() {
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             title={t("Заказы")}
             description={t("Управление заказами клиентов")}
-            count={`Всего: ${orders.length}`}
+            count={snapshot ? t("Всего:") + " " + orders.length : undefined}
             destination="/orders"
             onClick={() => navigate('/orders')}
           />
@@ -314,14 +296,14 @@ export default function DashboardPage() {
             icon={<Globe size={20} className="text-[#C9A961]" />}
             title={t("Спецзаказы")}
             description={t("Заявки на спецзаказы из Китая")}
-            count={`Всего: ${chinaRequests.length}`}
+            count={snapshot ? t("Всего:") + " " + chinaRequests.length : undefined}
             destination="/china"
             onClick={() => navigate('/china')}
           />
         </div>
         <AdminMenuRows entries={[
-         {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,count:productsCount+' · '+brandsCount},
-         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:String(pendingRefunds)},
+         {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,count:snapshot ? productsCount+' · '+brandsCount : undefined},
+         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:snapshot ? String(pendingRefunds) : undefined},
          {path:'/analytics',title:'Аналитика',icon:<BarChart3 size={20}/>},
          {path:'/campaigns',title:'Рассылки',icon:<Bell size={20}/>},
          {path:'/settings',title:'Настройки',icon:<Settings size={20}/>},

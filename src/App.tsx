@@ -2,7 +2,7 @@ import {hasDirtyAdminForms} from './lib/adminNavigation'
 import {setLanguageScope,useAdminLanguage} from './lib/i18n'
 import PageSkeleton from './components/PageSkeleton'
 import { useAdminLive } from './lib/adminLive'
-import { supabase } from './lib/supabase'
+import { getAdminCacheScope, supabase } from './lib/supabase'
 import { SizeChartsPage, CampaignsPage, RefundsPage, OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
 import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
@@ -11,17 +11,41 @@ import { BrowserRouter, Route, Navigate, Outlet } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import CatalogMenuPage from './pages/CatalogMenuPage'
+import { getDashboardSession, setDashboardSession, useDashboardSession } from './lib/dashboardSession'
+import { invalidateAllCaches } from './lib/cache'
 import { getCurrentUser } from './lib/auth'
 
 function ProtectedLayout() {
  useAdminLanguage()
 
  const [allowed,setAllowed]=useState<boolean|null>(null),[userId,setUserId]=useState<string|null>(null)
- useAdminLive(allowed===true,userId)
+ const grant=useDashboardSession()
+ useAdminLive(allowed===true&&grant?.id===userId,userId)
  useEffect(()=>{
   let active=true,generation=0,running=false,again=false,last=0
-  const check=async()=>{if(!active)return;if(running){again=true;return}running=true;const id=++generation;try{const user=await getCurrentUser();if(active&&id===generation){setLanguageScope(user?.id||null);setUserId(user?.id||null);setAllowed(!!user)}}finally{running=false;last=Date.now();if(active&&again){again=false;void check()}}}
-  const {data:{subscription}}=supabase.auth.onAuthStateChange((event)=>{if(event==='INITIAL_SESSION')return;if(event==='SIGNED_OUT'){generation++;setLanguageScope(null);setUserId(null);setAllowed(false)}else queueMicrotask(()=>void check())})
+  const check = async () => {
+    if (!active) return
+    if (running) { again = true; return }
+    running = true
+    const id = ++generation
+    try {
+      const user = await getCurrentUser()
+      if (!active || id !== generation) return
+      const verifiedId = user?.id ?? null
+      if (verifiedId && verifiedId !== getAdminCacheScope()) return
+      const previous = getDashboardSession()
+      if (previous && previous.id !== verifiedId) invalidateAllCaches()
+      setDashboardSession(verifiedId)
+      setLanguageScope(verifiedId)
+      setUserId(verifiedId)
+      setAllowed(Boolean(user))
+    } finally {
+      running = false
+      last = Date.now()
+      if (active && again) { again = false; void check() }
+    }
+  }
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((event)=>{if(event==='INITIAL_SESSION')return;if(event==='SIGNED_OUT'){generation++;setDashboardSession(null);setLanguageScope(null);setUserId(null);setAllowed(false)}else queueMicrotask(()=>void check())})
   const resume=()=>{if(!document.hidden&&!running&&Date.now()-last>10000)void check()}
   const unload=(e:BeforeUnloadEvent)=>{if(hasDirtyAdminForms()){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',unload)
   void check();window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);const timer=setInterval(resume,60000)
@@ -29,6 +53,7 @@ function ProtectedLayout() {
  },[])
  if(allowed===null)return <PageSkeleton/>
  if(!allowed)return <Navigate to="/login" replace/>
+ if(grant?.id!==userId)return <PageSkeleton/>
  return <Fragment key={userId}><Outlet/></Fragment>
 }
 export default function App() {

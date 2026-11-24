@@ -351,6 +351,8 @@ export const uz:Record<keyof typeof ru,string> = {
   "Обновить настройки и отменить несохранённые изменения?": "Sozlamalarni yangilab, saqlanmagan o‘zgarishlarni bekor qilasizmi?",
   "Обновить рассылки": "Xabar tarqatmalarini yangilash",
   "Обновить список": "Ro‘yxatni yangilash",
+  "Данные обновляются…": "Ma’lumotlar yangilanmoqda…",
+  "Не удалось обновить. Показаны последние данные.": "Yangilab bo‘lmadi. Oxirgi ma’lumotlar ko‘rsatilmoqda.",
   "Обновлено:": "Yangilangan:",
   "Обувь": "Oyoq kiyim",
   "Обувь ": "Oyoq kiyim ",
