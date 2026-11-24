@@ -1,10 +1,11 @@
+import { useOrderFocus } from '../lib/useOrderFocus'
 import {useAdminViewState} from '../lib/useAdminViewState'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import ProtectedFile from '../components/ProtectedFile'
-import PageSkeleton from '../components/PageSkeleton'
+import { ContentSkeleton } from '../components/PageSkeleton'
 import OrderHistory from '../components/OrderHistory'
 import { useAdminRefresh } from '../lib/adminLive'
 import SpecialOrderPhoto from '../components/SpecialOrderPhoto'
@@ -12,7 +13,7 @@ import {orderStatus, nextOrdinaryStatuses, canManagerCancel, formatOrderMoney, f
 import CancelOrderModal from '../components/CancelOrderModal'
 import { specialOrderIds, specialStatusTone, usesSpecialFulfillment, nextSpecialStatuses, SPECIAL_PICKUP, SPECIAL_DELIVERY } from '../lib/specialOrders'
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getOrders, sendClientNotification, supabase } from '../lib/supabase'
 import { ordersCacheApi } from '../lib/cache'
 import { toast } from 'sonner'
@@ -131,6 +132,10 @@ export default function OrdersPage() {
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { key: locationKey } = useLocation()
+  const requestedOrder = searchParams.get('order')
+  const targetId = requestedOrder && /^\d+$/.test(requestedOrder) ? requestedOrder : null
+  const [changedExpansion, setChangedExpansion] = useState<string | null>(null)
   const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get(undefined,60_000) || [])
   const [loading, setLoading] = useState(() => !ordersCacheApi.get(undefined,60_000))
   const [refreshing, setRefreshing] = useState(false)
@@ -138,7 +143,7 @@ export default function OrdersPage() {
   const [cancelOrder,setCancelOrder]=useState<any>(null)
   const [statusFilter, setStatusFilter] = useAdminViewState<string>('orders:status','all')
   const [searchQuery, setSearchQuery] = useAdminViewState('orders:search','')
-  const [expandedId, setExpandedId] = useAdminViewState<string | null>('orders:expanded',searchParams.get('order'))
+  const [expandedId, setExpandedId] = useAdminViewState<string | null>('orders:expanded',null)
   const [showCustomMessage, setShowCustomMessage] = useState<string | null>(null)
   const [customMessageText, setCustomMessageText] = useState('')
 
@@ -283,7 +288,8 @@ export default function OrdersPage() {
       )
     : orders
 
-  const filteredOrders = searchFiltered.filter(order => {
+  const target = targetId ? orders.find(order => String(order.id) === targetId) : undefined
+  const filtered = searchFiltered.filter(order => {
     const task=searchParams.get('task')
     if(task==='payment'&&!(order.payment_method==='online_card'&&order.receipt_submitted_at&&order.payment_status==='pending'&&order.status!=='Отменён'))return false
     if(task==='supplier'&&!(order.special_fulfillment&&order.status==='Принят'&&order.payment_status==='paid'&&order.paid_at))return false
@@ -295,6 +301,14 @@ export default function OrdersPage() {
     return true
   })
 
+  // Keep the manager's filters. Only the explicitly linked, already authorized
+  // row may appear outside their selection, in its original sort position.
+  const visibleOrders = new Set(filtered)
+  if (target) visibleOrders.add(target)
+  const filteredOrders = target && !filtered.includes(target)
+    ? orders.filter(order => visibleOrders.has(order)) : filtered
+  useOrderFocus(!loading && target ? targetId : null, locationKey)
+
   const deliveryOrders = searchFiltered.filter(o => o.delivery_method === 'delivery')
   const pickupOrders = searchFiltered.filter(o => o.delivery_method === 'pickup')
   const pendingPaymentOrders = filteredOrders.filter(o => o.status === 'Ожидает оплаты')
@@ -305,13 +319,11 @@ export default function OrdersPage() {
     ? Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...DELIVERY_STATUSES, ...PICKUP_STATUSES, ...SPECIAL_DELIVERY.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s})), ...SPECIAL_PICKUP.map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old, s])).values())
     : Array.from(new Map([{old:'Ожидает оплаты',new:'На обработке'},{old:'Отменён клиентом',new:'Отменён клиентом'},{old:'Отменён магазином',new:'Отменён магазином'}, ...getAvailableStatuses(filter), ...(filter === 'pickup' ? SPECIAL_PICKUP : SPECIAL_DELIVERY).map(s => ({old:s,new:s==='Ожидает оплаты'?'На обработке':s}))].map(s => [s.old,s])).values())
 
-  if(loading)return <PageSkeleton title={t("Заказы")}/>
-
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
-      <AdminPageHeader title={t("Заказы")} icon={<Package/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+      <AdminHeaderActions actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
   <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* ✅ Поиск по номеру заказа / имени / телефону */}
@@ -383,8 +395,10 @@ export default function OrdersPage() {
             </select>
           </div>
         </div>
-  <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
+  <div data-loft-content data-order-list className="max-w-5xl mx-auto p-6 space-y-4">
         {/* ✅ Блок «На обработке» — компактные строки */}
+        {loading ? <ContentSkeleton/> : <>
+        {targetId && !target && <p role="status" className="text-sm">{t("Заказов не найдено")}</p>}
         {pendingPaymentOrders.length > 0 && (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border-2 border-[#C9A961]/40 dark:border-gold/40 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[#C9A961]/30 dark:border-gold/30 bg-[#C9A961]/5 dark:bg-gold/10">
@@ -399,8 +413,8 @@ export default function OrdersPage() {
               {pendingPaymentOrders.map((order) => {
                 const clientChatId = order.user_chat_id || order.user_id
                 return (
-                  <div key={order.id} className="p-3.5 flex items-center gap-3 flex-wrap">
-                    <div className="flex-1 min-w-[180px]">
+                  <div key={order.id} id={`admin-order-${order.id}`} data-order-row className="p-3.5 flex items-center gap-3 flex-wrap">
+                    <div data-order-summary tabIndex={-1} className="flex-1 min-w-[180px]">
                       <p className="text-sm font-bold text-[#1B2A4A] dark:text-white">
                         {t("Заказ №")}{order.id}
                         {specialRequestNumber(order) && <span className="ml-2 text-xs text-purple-700 dark:text-purple-300">{t("Спецзаказ №")}{specialRequestNumber(order)}</span>}
@@ -471,14 +485,19 @@ export default function OrdersPage() {
             {mainOrders.map((order) => {
               const clientChatId = order.user_chat_id || order.user_id
               const orderCurrency = getOrderCurrency(order)
-              const isOpen = expandedId === String(order.id)
+              const orderId = String(order.id)
+              const isOpen = (target && changedExpansion !== locationKey ? targetId : expandedId) === orderId
               const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || [])
 
               return (
-                <div key={order.id}>
+                <div key={order.id} id={`admin-order-${order.id}`} data-order-row>
                   {/* ✅ Компактная строка заказа */}
                   <button
-                    onClick={() => setExpandedId(isOpen ? null : String(order.id))}
+                    data-order-summary aria-expanded={isOpen}
+                    onClick={() => {
+                      setChangedExpansion(locationKey)
+                      setExpandedId(isOpen ? null : orderId)
+                    }}
                     className="w-full flex items-center gap-3 p-3.5 text-left hover:bg-[#F5F1E8] dark:hover:bg-dark-accent transition-colors"
                   >
                     <div className="w-9 h-9 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border flex items-center justify-center flex-shrink-0">
@@ -677,6 +696,7 @@ export default function OrdersPage() {
             })}
           </div>
         )}
+        </>}
       </div>
 
       {/* ✅ МОДАЛКА: ССЫЛКА НА ТРЕК КУРЬЕРА */}

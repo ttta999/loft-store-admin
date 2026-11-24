@@ -1,6 +1,6 @@
 import { cachedStoreExchangeRate, loadStoreExchangeRate } from '../lib/storeExchangeRate'
 import {useAdminViewState} from '../lib/useAdminViewState'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -169,13 +169,13 @@ export default function ChinaPage() {
 
   const filteredRequests = searchFiltered.filter(r => filter === 'all' || r.status === filter)
 
-  if(loading)return <PageSkeleton title={t("Спецзаказы")}/>
+  if(loading)return <PageSkeleton/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
       {/* ✅ Sticky-шапка: назад / заголовок / refresh + поиск + фильтры */}
-      <AdminPageHeader title={t("Спецзаказы")} icon={<Globe/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+      <AdminHeaderActions actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
   <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* ✅ Поиск по номеру / названию / ссылке / комментарию */}

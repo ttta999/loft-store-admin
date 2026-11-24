@@ -1,5 +1,5 @@
 import AdminAddButton from '../components/AdminAddButton'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminDate} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
@@ -194,14 +194,14 @@ export default function BrandsPage() {
     }
   }
 
-  if(loading)return <PageSkeleton title={t("Бренды")}/>
+  if(loading)return <PageSkeleton/>
 
   const activeCount = brands.filter(b => b.is_active).length
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <AdminPageHeader title={t("Бренды")} icon={<Tag size={18}/>} actions={<><AdminAddButton onClick={()=>setShowAddModal(true)}>{t("Добавить бренд")}</AdminAddButton></>}/>
+      <AdminHeaderActions actions={<><AdminAddButton onClick={()=>setShowAddModal(true)}>{t("Добавить бренд")}</AdminAddButton></>}/>
   <div className="max-w-6xl mx-auto px-4 pt-3 sm:px-6">
 
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">

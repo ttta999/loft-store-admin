@@ -43,13 +43,10 @@ export const RefundsPage = RefundsPageResource.Component
 const CampaignsResource = deferredPage(() => import('../pages/CampaignsPage'))
 export const CampaignsPage = CampaignsResource.Component
 
-const CatalogMenuResource=deferredPage(()=>import('../pages/CatalogMenuPage'))
-export const CatalogMenuPage=CatalogMenuResource.Component
 const SizeChartsResource=deferredPage(()=>import('../pages/SizeChartsPage'))
 export const SizeChartsPage=SizeChartsResource.Component
 
 const loaders: Record<string, () => Promise<unknown>> = {
-  '/catalog':CatalogMenuResource.load,
   '/size-charts':SizeChartsResource.load,
   '/campaigns': CampaignsResource.load,
   '/refunds': RefundsPageResource.load,

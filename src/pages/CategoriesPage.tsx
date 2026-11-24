@@ -1,8 +1,8 @@
 import {PANTS_SIZE_GRID,usesPantsGrid} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
-import PageSkeleton from '../components/PageSkeleton'
+import { ContentSkeleton } from '../components/PageSkeleton'
 import { useAdminRefresh } from '../lib/adminLive'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
@@ -227,12 +227,11 @@ export default function CategoriesPage() {
   const activeCategories = tree.filter(c => c.is_active).length
   const activeSubs = tree.reduce((sum, c) => sum + c.subcategories.filter(s => s.is_active).length, 0)
 
-  if(loading)return <PageSkeleton title={t("Категории")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <AdminPageHeader title={t("Категории")} icon={<Layers size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={()=>setCategoryModal({mode:"create"})}>{t("Добавить категорию")}</AdminAddButton></>}/>
+      <AdminHeaderActions actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton disabled={loading} onClick={()=>setCategoryModal({mode:"create"})}>{t("Добавить категорию")}</AdminAddButton></>}/>
   <div className="max-w-5xl mx-auto px-4 pt-3 sm:px-6">
 
           <div className="mt-4 flex items-center gap-3 flex-wrap">
@@ -244,6 +243,7 @@ export default function CategoriesPage() {
           </div>
         </div>
   <div data-loft-content className="max-w-5xl mx-auto p-6 space-y-4">
+        {loading ? <ContentSkeleton/> : <>
         {tree.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">
@@ -379,6 +379,7 @@ export default function CategoriesPage() {
           <p className="text-xs text-[#8A8275] dark:text-gray-300 leading-relaxed">
             {t("Категории не удаляются — только отключаются. Отключённая категория скрывается из приложения вместе со своими товарами, но остаётся здесь для истории. Все изменения логируются.")}</p>
         </div>
+        </>}
       </div>
 
       {categoryModal && (

@@ -1,9 +1,9 @@
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminDateTime} from '../lib/adminDateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import AdminLanguagePicker from '../components/AdminLanguagePicker'
 import {t,tx,uiError,getAdminLocale,useAdminLanguage} from '../lib/i18n'
-import PageSkeleton,{ContentSkeleton} from '../components/PageSkeleton'
+import {ContentSkeleton} from '../components/PageSkeleton'
 import { ClipboardList } from 'lucide-react'
 import { CheckCircle2, CircleSlash } from 'lucide-react'
 import { dataCache } from '../lib/resourceCache'
@@ -62,7 +62,6 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
  useLocalTimeZone()
 
   const [dirty,setDirty]=useState(false),[loadFailed,setLoadFailed]=useState(false)
-  const titles={theme:'Язык и оформление',sale:'Скидки',delivery:'Оплата и доставка',prices:'Валюта и цены'}
   const { theme, setTheme } = useTheme()
 
   const [cached] = useState(()=>getSettingsCache(section,60000))
@@ -234,14 +233,13 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
     loadSettings()
   }
 
-  if(loading)return embedded?<ContentSkeleton kind="settings"/>:<PageSkeleton title={tx(titles[section])}/>
-
   return (
     <div data-loft-dirty={dirty?'true':undefined} onChange={()=>{if(section!=='theme')setDirty(true)}} className={`${embedded?'':'min-h-screen'} bg-[#F5F1E8] dark:bg-dark-bg`}>
 
-      {!embedded&&<AdminPageHeader title={tx(titles[section])} icon={section==='theme'?<Monitor/>:section==='sale'?<Tag/>:section==='delivery'?<Truck/>:<DollarSign/>} actions={<button onClick={handleRefresh} aria-label={t("Обновить настройки")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button>}/>}
+      {!embedded&&<AdminHeaderActions actions={<button onClick={handleRefresh} aria-label={t("Обновить настройки")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button>}/>}
 
       <div data-loft-content className={`${embedded?'':'max-w-6xl mx-auto p-4 sm:p-6'} grid grid-cols-1 gap-4`}>
+        {loading ? <ContentSkeleton kind="settings"/> : <>
         {loadFailed&&<p role="alert" className="p-4 rounded-2xl border border-[#E8E2D5] dark:border-dark-border text-[#9B3B3B] dark:text-red-300">{t("Ошибка загрузки настроек")} <button className="underline font-bold" onClick={()=>void loadSettings()}>{t("Повторить")}</button></p>}
         {/* ========== ТЕМА ОФОРМЛЕНИЯ ========== */}
         {section==='theme'&&<AdminLanguagePicker/>}
@@ -429,6 +427,7 @@ export default function SettingsForms({section,embedded=false}:{section:'theme'|
             </div>
           </div>
         </div>)}
+        </>}
       </div>
     </div>
   )

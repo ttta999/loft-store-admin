@@ -1,5 +1,5 @@
 import { ContentSkeleton } from '../components/PageSkeleton'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
 import {AdminMenuRows} from '../components/AdminMenu'
 import ManagerTasks from '../components/ManagerTasks'
@@ -29,7 +29,6 @@ import {
   BarChart3,
   Settings,
   ChevronRight,
-  Store,
   RefreshCw,
 } from 'lucide-react'
 import { logout } from '../lib/auth'
@@ -244,7 +243,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <AdminPageHeader home title="LOFT Admin Panel" icon={<Store/>} actions={<>
+      <AdminHeaderActions actions={<>
             <NotificationBell />
             <button
               onClick={handleRefresh}

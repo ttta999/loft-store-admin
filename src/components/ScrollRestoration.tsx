@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { useLocation, useNavigationType } from 'react-router-dom'
+import { useLocation, type NavigationType } from 'react-router-dom'
+import { consumeAdminScroll } from '../lib/adminNavigation'
 
 if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual'
 }
 
 const STORAGE_KEY = 'loft-scroll-positions'
-
 const getSavedPositions = (): Record<string, number> => {
   try {
     return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}')
@@ -15,9 +15,8 @@ const getSavedPositions = (): Record<string, number> => {
   }
 }
 
-export default function ScrollRestoration() {
+export default function ScrollRestoration({ navigationType }: { navigationType: NavigationType }) {
   const location = useLocation()
-  const navigationType = useNavigationType()
   
   // Храним актуальный скролл вне зависимости от циклов рендера
   const scrollPosRef = useRef(0)
@@ -40,7 +39,7 @@ export default function ScrollRestoration() {
     if (prev.key !== location.key) {
       // СОХРАНЯЕМ позицию старой страницы до того, как сбросим её
       const positions = getSavedPositions()
-      positions[prev.key] = scrollPosRef.current
+      positions[prev.key] = consumeAdminScroll(prev.key) ?? scrollPosRef.current
       const keys=Object.keys(positions);for(const key of keys.slice(0,Math.max(0,keys.length-60)))delete positions[key]
       try{sessionStorage.setItem(STORAGE_KEY, JSON.stringify(positions))}catch{/* Storage limits must not block navigation. */}
 
@@ -56,40 +55,43 @@ export default function ScrollRestoration() {
         
         if (saved !== undefined && saved > 0) {
           // Применяем скролл
-          window.scrollTo(0, saved)
+          window.scrollTo({top:saved,behavior:'instant'})
 
           // Страховка для списков, которые рендерятся асинхронно
           const observer = new ResizeObserver(() => {
             if (document.documentElement.scrollHeight >= saved + window.innerHeight) {
-              window.scrollTo(0, saved)
+              window.scrollTo({top:saved,behavior:'instant'})
               observer.disconnect()
             }
           })
           // Stop restoring as soon as the user starts scrolling themselves.
           const stop = () => observer.disconnect()
+          window.addEventListener('loft:admin-order-focus', stop, { once: true })
           window.addEventListener('wheel', stop, { passive: true, once: true })
           window.addEventListener('touchstart', stop, { passive: true, once: true })
           window.addEventListener('keydown', stop, { once: true })
+          window.addEventListener('pointerdown', stop, { passive: true, once: true })
           if (document.documentElement.scrollHeight >= saved + window.innerHeight) observer.disconnect()
-          else observer.observe(document.documentElement)
-          
-          // Отключаем обсервер через 400мс
-          const timer = setTimeout(() => observer.disconnect(), 400)
+          else {
+            const page = document.querySelector('[data-admin-page]')
+            if (page) observer.observe(page)
+          }
           
           prevLocRef.current = location
           return () => {
             observer.disconnect()
+            window.removeEventListener('loft:admin-order-focus', stop)
             window.removeEventListener('wheel', stop)
             window.removeEventListener('touchstart', stop)
             window.removeEventListener('keydown', stop)
-            clearTimeout(timer)
+            window.removeEventListener('pointerdown', stop)
           }
         } else {
-          window.scrollTo(0, 0)
+          window.scrollTo({top:0,behavior:'instant'})
         }
       } else {
         // Если это PUSH (переход вперед) - всегда наверх
-        window.scrollTo(0, 0)
+        window.scrollTo({top:0,behavior:'instant'})
       }
     }
     

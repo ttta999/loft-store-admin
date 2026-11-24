@@ -97,9 +97,9 @@ body {
 ::view-transition-group(root), ::view-transition-group(loft-admin-header) { animation: none; }
 :root[data-admin-motion] [data-admin-header] { view-transition-name: loft-admin-header; }
 ::view-transition-group(loft-admin-header) { z-index: 10; }
-::view-transition-old(loft-admin-header) { display: none; }
-::view-transition-new(loft-admin-header) { animation: none; }
-:root[data-admin-motion] { --admin-page-offset: 100%; overflow-x: clip; scrollbar-gutter: stable; }
+::view-transition-old(loft-admin-header) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(loft-admin-header) { animation: none; mix-blend-mode: normal; }
+:root[data-admin-motion] { --admin-page-offset: 100%; }
 :root[data-admin-motion="back"] { --admin-page-offset: -100%; }
 :root[data-admin-motion]::view-transition-old(root),
 :root[data-admin-motion]::view-transition-new(root) {
@@ -113,6 +113,8 @@ body {
 @keyframes admin-page-out { to { transform: translateX(calc(-1 * var(--admin-page-offset))); } }
 @keyframes admin-page-in { from { transform: translateX(var(--admin-page-offset)); } }
 
+:root { --admin-header-height: 97px; overflow-x: clip; }
+[data-admin-page] > .min-h-screen { min-height: calc(100dvh - var(--admin-header-height)); }
 .admin-header-grid {
   display: grid;
   grid-template: 48px 48px / minmax(0, 1fr) minmax(0, 70%) minmax(0, 1fr);
@@ -122,6 +124,7 @@ body {
 .admin-header-title { grid-area: title; }
 .admin-header-actions { grid-area: actions; }
 @media (min-width: 768px) {
+  :root { --admin-header-height: 73px; }
   .admin-header-grid {
     grid-template: 72px / minmax(0, 1fr) minmax(0, 42%) minmax(0, 1fr);
     grid-template-areas: "back title actions";
@@ -132,3 +135,26 @@ body {
 /* Native controls share the application typeface, including Uzbek glyphs. */
 button, input, textarea, select { font-family: inherit; }
 :focus-visible { outline: 2px solid #c9a961; outline-offset: 3px; }
+
+[data-order-list] { padding-bottom: calc(1.5rem + var(--order-focus-space, 0px)); }
+[data-order-highlight="true"] { animation: loft-order-highlight 1800ms ease-out; }
+@keyframes loft-order-highlight {
+  0%, 20% { box-shadow: inset 0 0 0 2px #c9a961; background-color: rgb(201 169 97 / 16%); }
+  100% { box-shadow: inset 0 0 0 2px transparent; background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-order-highlight="true"] { animation: loft-order-highlight 1800ms step-end !important; }
+}
+
+/* The phone's action row sits near the right edge. Keep the existing
+   notification surface inside the viewport when it opens below that row. */
+@media (max-width: 767px) {
+  [data-admin-header] [data-notification-menu] {
+    position: fixed;
+    inset-inline: 1rem;
+    top: var(--admin-header-height);
+    width: auto;
+    max-width: none;
+    transform-origin: top right;
+  }
+}

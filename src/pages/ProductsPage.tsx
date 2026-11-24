@@ -1,9 +1,9 @@
 import {PANTS_SIZE_GRID,usesPantsGrid,shopSizeOptions} from '../lib/shopSizeGrid'
 import AdminAddButton from '../components/AdminAddButton'
 import {useAdminViewState} from '../lib/useAdminViewState'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {t,tx,uiError,useAdminLanguage} from '../lib/i18n'
-import PageSkeleton from '../components/PageSkeleton'
+import { ContentSkeleton } from '../components/PageSkeleton'
 import RecommendationPicker, { type Recommendations } from '../components/RecommendationPicker'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
@@ -866,13 +866,12 @@ export default function ProductsPage() {
     return null
   }
 
-  if(loading)return <PageSkeleton title={t("Товары")}/>
 
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
       {/* ✅ Sticky-шапка */}
-      <AdminPageHeader title={t("Товары")} icon={<Package size={18}/>} actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton onClick={openAddModal}>{t("Добавить товар")}</AdminAddButton></>}/>
+      <AdminHeaderActions actions={<><button aria-label={t("Обновить")} onClick={handleRefresh} disabled={refreshing} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16}/></button><AdminAddButton disabled={loading} onClick={openAddModal}>{t("Добавить товар")}</AdminAddButton></>}/>
   <div className="max-w-7xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* ✅ Поиск */}
@@ -979,6 +978,7 @@ export default function ProductsPage() {
           </div>
         </div>
   <div data-loft-content className="max-w-7xl mx-auto p-6">
+      {loading ? <ContentSkeleton kind="products"/> : <>
         {filteredProducts.length === 0 ? (
           <div className="bg-[#FBF9F4] dark:bg-dark-card rounded-2xl border border-[#E8E2D5] dark:border-dark-border p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-[#F5F1E8] dark:bg-dark-accent border border-[#E8E2D5] dark:border-dark-border mx-auto mb-4 flex items-center justify-center">
@@ -1164,6 +1164,7 @@ export default function ProductsPage() {
             })}
           </div>
         )}
+      </>}
       </div>
 
       {/* ✅ МОДАЛКА ТОВАРА */}

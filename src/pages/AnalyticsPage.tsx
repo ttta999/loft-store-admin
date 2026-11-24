@@ -1,9 +1,9 @@
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminTime,adminDateTime} from '../lib/adminDateTime'
 import {localDateKey,timestampDate} from '../lib/dateTime'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,useAdminLanguage} from '../lib/i18n'
-import PageSkeleton from '../components/PageSkeleton'
+import { ContentSkeleton } from '../components/PageSkeleton'
 import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
@@ -26,7 +26,6 @@ import {
   DollarSign,
   Calendar,
   Users,
-  BarChart3,
   Award,
   RefreshCw,
   XCircle,
@@ -297,7 +296,6 @@ export default function AnalyticsPage() {
     loadAnalytics(period, true)
   }
 
-  if(loading)return <PageSkeleton title={t("Аналитика")}/>
 
   const maxRevenue = Math.max(...dailyStats.map(d => d.revenue), 1)
   const maxCategoryRevenue = Math.max(...categoryStats.map(c => c.revenue), 1)
@@ -306,7 +304,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
       {/* ✅ Sticky-шапка */}
-      <AdminPageHeader title={t("Аналитика")} icon={<BarChart3/>} actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
+      <AdminHeaderActions actions={<button onClick={handleRefresh} disabled={refreshing} aria-label={t("Обновить список")} className="p-3 rounded-xl border border-[#E8E2D5] dark:border-dark-border"><RefreshCw size={16} className={refreshing?"animate-spin":""}/><span className="sr-only">{t("Обновить")}</span></button>}/>
   <div className="max-w-7xl mx-auto px-4 pt-3 sm:px-6">
 
           {/* Переключатель периода + время обновления */}
@@ -339,6 +337,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
   <div data-loft-content className="max-w-7xl mx-auto p-6 space-y-4">
+        {loading ? <ContentSkeleton/> : <>
         {/* ✅ KPI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
@@ -575,6 +574,7 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
+        </>}
       </div>
     </div>
   )

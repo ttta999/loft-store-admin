@@ -1,6 +1,6 @@
 import {useAdminDialogRoute} from '../lib/useAdminDialogRoute'
 import {useAdminViewState} from '../lib/useAdminViewState'
-import AdminPageHeader from '../components/AdminPageHeader'
+import AdminHeaderActions from '../components/AdminPageHeader'
 import {ContentSkeleton} from '../components/PageSkeleton'
 import AdminDialog from '../components/AdminDialog'
 import {adminDateTime} from '../lib/adminDateTime'
@@ -76,7 +76,7 @@ export default function CampaignsPage(){
  useEffect(()=>{if(dialogRoute.mode!=='edit')setEditing(null);if(dialogRoute.mode!=='preview')setPreview(null);if(dialogRoute.mode==='edit'&&!editing){const row=rows.find(c=>c.id===dialogRoute.item);if(dialogRoute.item==='new')setEditing(blank());else if(row)setEditing({...blank(),...row,target_id:row.target_id||'',audience_brand_id:row.audience_brand_id||''})}if(dialogRoute.mode==='preview'&&!preview){const row=rows.find(c=>c.id===dialogRoute.item);if(row)void showPreview(row)}},[dialogRoute.mode,dialogRoute.item,rows])
  const shown=rows.filter(c=>filter==='all'||c.status===filter)
  return <main className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg text-[#1B2A4A] dark:text-white">
-  <AdminPageHeader title={t("Рассылки")} icon={<Send size={18}/>} actions={<><button aria-label={t("Обновить рассылки")} className={button} onClick={()=>void load(true)}><RefreshCw size={16}/></button><button aria-label={t("Новая рассылка")} className={primary} onClick={()=>{setAdvanced(false);setSchedule('');setScheduleError(false);beginEdit(blank())}}><Plus size={16}/><span className="hidden sm:inline">{t("Новая рассылка")}</span></button></>}/>
+  <AdminHeaderActions actions={<><button aria-label={t("Обновить рассылки")} className={button} onClick={()=>void load(true)}><RefreshCw size={16}/></button><button aria-label={t("Новая рассылка")} className={primary} onClick={()=>{setAdvanced(false);setSchedule('');setScheduleError(false);beginEdit(blank())}}><Plus size={16}/><span className="hidden sm:inline">{t("Новая рассылка")}</span></button></>}/>
   <div data-loft-content className="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
    <p className="text-sm text-[#8A8275] dark:text-gray-300">{t("Новости получают только клиенты, которые дали согласие. Сообщения о заказах отправляются отдельно и имеют приоритет.")}</p>
    <label className="block text-sm">{t("Статус")}<select className={`${input} mt-2 max-w-sm block`} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">{t("Все")}</option>{Object.entries(statuses).map(([k,v])=><option key={k} value={k}>{tx(v)}</option>)}</select></label>

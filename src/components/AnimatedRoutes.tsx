@@ -1,16 +1,17 @@
+import { AdminHeaderShell } from './AdminPageHeader'
 import RouteErrorBoundary from './RouteErrorBoundary'
-import { rememberAdminOrigin, hasDirtyAdminForms } from '../lib/adminNavigation'
+import { rememberAdminOrigin, hasDirtyAdminForms, captureAdminScroll } from '../lib/adminNavigation'
 import PageSkeleton from './PageSkeleton'
 import { t, tx } from '../lib/i18n'
 import { preloadPage } from '../lib/pagePreload'
 import { Suspense, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { Outlet, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { Outlet, Route, Routes, useLocation, useNavigate, useNavigationType, type NavigationType } from 'react-router-dom'
 import ScrollRestoration from './ScrollRestoration'
 
-function RouteFrame() {
+function RouteFrame({ navigationType }: { navigationType: NavigationType }) {
   const location = useLocation()
-  return <><ScrollRestoration /><RouteErrorBoundary path={location.pathname} search={location.search}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></RouteErrorBoundary></>
+  return <><ScrollRestoration navigationType={navigationType} /><RouteErrorBoundary path={location.pathname} search={location.search}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></RouteErrorBoundary></>
 }
 
 const content = () => document.querySelector<HTMLElement>('[data-loft-content]')
@@ -21,7 +22,12 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const navigationType = useNavigationType()
   const historyIndex = useRef(Number(history.state?.idx) || 0)
-  const [displayed, setDisplayed] = useState(location)
+  const [frame, setFrame] = useState({ location, navigationType })
+  const displayed = frame.location
+  const commit = () => {
+    captureAdminScroll(displayed.key)
+    setFrame({ location, navigationType })
+  }
 
   useLayoutEffect(() => {
     if (displayed === location) return
@@ -46,7 +52,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       (location.pathname !== '/settings' || section(displayed.search) === section(location.search))
     if (samePage || location.pathname === '/login' || displayed.pathname === '/login' ||
         matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplayed(location)
+      commit()
       return
     }
 
@@ -61,11 +67,12 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       delete root.dataset.adminMotion
       window.removeEventListener('pointerdown', interrupt)
       window.removeEventListener('wheel', interrupt)
+      window.dispatchEvent(new Event('loft:admin-transition-end'))
     }
     const apply = () => {
       if (!active || applied) return
       applied = true
-      flushSync(() => setDisplayed(location))
+      flushSync(commit)
     }
 
     // Commit the destination with its existing Suspense skeleton. Neither module
@@ -75,25 +82,31 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       root.dataset.adminMotion = backwards ? 'back' : 'forward'
       window.addEventListener('pointerdown', interrupt, { passive: true })
       window.addEventListener('wheel', interrupt, { passive: true })
-      if (typeof document.startViewTransition === 'function' && content()) {
-        transition = document.startViewTransition(apply)
-        void transition.ready.catch(() => {})
-        void transition.updateCallbackDone.catch(apply)
-        void transition.finished.catch(() => {}).then(() => { if (active) cleanup() })
-      } else {
-        apply()
-        fallback = content()?.animate(
-          [{ translate: backwards ? '-100vw 0' : '100vw 0' }, { translate: '0px 0' }],
-          { duration: 340, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        )
-        if (fallback) void fallback.finished.catch(() => {}).then(() => { if (active) cleanup() })
-        else cleanup()
+      if (typeof document.startViewTransition === 'function') {
+        try {
+          transition = document.startViewTransition(apply)
+          void transition.ready.catch(() => {})
+          void transition.updateCallbackDone.catch(apply)
+          void transition.finished.catch(() => {}).then(() => { if (active) cleanup() })
+          return
+        } catch { /* The current browser could not capture the route. */ }
       }
+      apply()
+      fallback = content()?.animate(
+        [{ translate: backwards ? '-100vw 0' : '100vw 0' }, { translate: '0px 0' }],
+        { duration: 340, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      )
+      if (fallback) void fallback.finished.catch(() => {}).then(() => { if (active) cleanup() })
+      else cleanup()
     })
 
     return () => { active = false; interrupt(); cleanup() }
     // The displayed route changes inside the transition, not in response to itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location])
-  return <Routes location={displayed}><Route element={<RouteFrame />}>{children}</Route></Routes>
+  return <AdminHeaderShell location={displayed}>
+    <div data-admin-page={displayed.pathname === '/login' ? undefined : ''}>
+      <Routes location={displayed}><Route element={<RouteFrame navigationType={frame.navigationType} />}>{children}</Route></Routes>
+    </div>
+  </AdminHeaderShell>
 }
