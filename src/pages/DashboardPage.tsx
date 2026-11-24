@@ -8,10 +8,11 @@ import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import {getRefunds} from '../lib/refunds'
 import {refundsCacheApi} from '../lib/cache'
+import {dataCache} from '../lib/resourceCache'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getOrders, getChinaRequests, supabase } from '../lib/supabase'
+import { getOrders, getChinaRequests, getAdminCacheScope, supabase } from '../lib/supabase'
 import {
   ordersCacheApi,
   chinaCacheApi,
@@ -107,12 +108,21 @@ export default function DashboardPage() {
  const language = useAdminLanguage()
 
   const navigate = useNavigate()
-  const [refunds,setRefunds]=useState<any[]>(()=>refundsCacheApi.get()||[])
-  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() || [])
-  const [chinaRequests, setChinaRequests] = useState<any[]>(() => chinaCacheApi.get() || [])
-  const [productsCount, setProductsCount] = useState(() => dashboardCountsCacheApi.get()?.productsCount || 0)
-  const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount || 0)
-  const [loading, setLoading] = useState(() => !(ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
+  const scope = getAdminCacheScope()
+  const snapshotKey = `admin:dashboard-view:${scope}`
+  const [snapshot] = useState(() => dataCache.get<{
+    orders: Awaited<ReturnType<typeof getOrders>>
+    china: Awaited<ReturnType<typeof getChinaRequests>>
+    refunds: Awaited<ReturnType<typeof getRefunds>>
+    productsCount: number
+    brandsCount: number
+  }>(snapshotKey))
+  const [refunds, setRefunds] = useState<any[]>(() => refundsCacheApi.get() ?? snapshot?.refunds ?? [])
+  const [orders, setOrders] = useState<any[]>(() => ordersCacheApi.get() ?? snapshot?.orders ?? [])
+  const [chinaRequests, setChinaRequests] = useState<any[]>(() => chinaCacheApi.get() ?? snapshot?.china ?? [])
+  const [productsCount, setProductsCount] = useState(() => dashboardCountsCacheApi.get()?.productsCount ?? snapshot?.productsCount ?? 0)
+  const [brandsCount, setBrandsCount] = useState(() => dashboardCountsCacheApi.get()?.brandsCount ?? snapshot?.brandsCount ?? 0)
+  const [loading, setLoading] = useState(() => !(snapshot || ordersCacheApi.get() || chinaCacheApi.get() || dashboardCountsCacheApi.get()))
   const [refreshing, setRefreshing] = useState(false)
   const [exchangeRate, setExchangeRate] = useState(cachedStoreExchangeRate)
 
@@ -135,46 +145,20 @@ export default function DashboardPage() {
   useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => loadData(false, true))
 
   useEffect(()=>{
-   const paths=['/orders','/china','/catalog','/refunds'];let index=0,timer:ReturnType<typeof setTimeout>|undefined
+   if (loading) return
+   const paths=['/analytics','/orders','/china','/catalog','/refunds'];let index=0,timer:ReturnType<typeof setTimeout>|undefined
    const warm=()=>{if(index<paths.length){warmPage(paths[index++]);timer=setTimeout(warm,250)}}
    timer=setTimeout(warm,700);return()=>clearTimeout(timer)
-  },[])
+  },[loading])
 
   const loadData = async (forceRefresh = false, background = false) => {
-    // 1. Читаем все три кеша
     const cachedOrders = !forceRefresh ? ordersCacheApi.get() : null
     const cachedChina = !forceRefresh ? chinaCacheApi.get() : null
     const cachedCounts = !forceRefresh ? dashboardCountsCacheApi.get() : null
 
-    const hasAllCached = cachedOrders && cachedChina && cachedCounts
-
-    // 2. ✅ МГНОВЕННАЯ отрисовка — если есть все кеши, loading=false сразу
-    if (hasAllCached) {
-      setOrders(cachedOrders as any[])
-      setChinaRequests(cachedChina as any[])
-      setProductsCount(cachedCounts!.productsCount)
-      setBrandsCount(cachedCounts!.brandsCount)
-      setLoading(false)
-      // Продолжаем в фоне — обновляем данные свежими
-    } else {
-      // ✅ Частичный кеш — рисуем что есть, остальные грузим фоном (без спиннера)
-      if (cachedOrders || cachedChina || cachedCounts) {
-        if (cachedOrders) setOrders(cachedOrders as any[])
-        if (cachedChina) setChinaRequests(cachedChina as any[])
-        if (cachedCounts) {
-          setProductsCount(cachedCounts.productsCount)
-          setBrandsCount(cachedCounts.brandsCount)
-        }
-        setLoading(false)
-      } else {
-        if (!background) setLoading(true)
-      }
-    }
-
     if (forceRefresh) setRefreshing(true)
 
     try {
-      // 3. ✅ Параллельная загрузка только того, чего нет в кеше
       const [ordersData, chinaData, counts, refundData] = await Promise.all([
         cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
         cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
@@ -182,7 +166,11 @@ export default function DashboardPage() {
         getRefunds(forceRefresh),
       ])
 
+      if (scope !== getAdminCacheScope()) return
       const [pCount, bCount] = counts
+      dataCache.set(snapshotKey, {
+        orders: ordersData, china: chinaData, refunds: refundData, productsCount: pCount, brandsCount: bCount,
+      }, 120_000)
 
       setRefunds(refundData)
       setOrders(ordersData as any[])
@@ -197,7 +185,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Ошибка загрузки:', error)
       // Тост только если совсем ничего не смогли показать
-      if (!cachedOrders && !cachedChina && !cachedCounts) {
+      if (!background && !snapshot && !cachedOrders && !cachedChina && !cachedCounts) {
         toast.error(uiError('Ошибка загрузки данных панели'))
       }
     } finally {

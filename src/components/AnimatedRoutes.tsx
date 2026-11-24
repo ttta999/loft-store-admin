@@ -65,6 +65,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     const interrupt = () => { transition?.skipTransition(); fallback?.cancel() }
     const cleanup = () => {
       delete root.dataset.adminMotion
+      delete root.dataset.adminDashboardReturn
       window.removeEventListener('pointerdown', interrupt)
       window.removeEventListener('wheel', interrupt)
       window.dispatchEvent(new Event('loft:admin-transition-end'))
@@ -80,6 +81,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     queueMicrotask(() => {
       if (!active) return
       root.dataset.adminMotion = backwards ? 'back' : 'forward'
+      if (location.pathname === '/') root.dataset.adminDashboardReturn = 'true'
       window.addEventListener('pointerdown', interrupt, { passive: true })
       window.addEventListener('wheel', interrupt, { passive: true })
       if (typeof document.startViewTransition === 'function') {

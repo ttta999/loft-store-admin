@@ -77,12 +77,15 @@ function collection<T>(key: string, ttl = DEFAULT_TTL, dependents: string[] = []
   }
 }
 export const analyticsCacheApi = {
-  get(period: AnalyticsPeriod, ttl = 60_000): AnalyticsCacheEntry | null {
-    const entry = dataCache.get<AnalyticsCacheEntry>(`admin:analytics:${period}:${getDeviceTimeZone()}`)
-    return entry && Date.now() - entry.timestamp < ttl ? entry : null
+  get(period: AnalyticsPeriod, scope: string): AnalyticsCacheEntry | null {
+    return dataCache.get<AnalyticsCacheEntry>(`admin:analytics:${period}:${getDeviceTimeZone()}:${scope}:view`)
   },
-  set(period: AnalyticsPeriod, data: Omit<AnalyticsCacheEntry, 'timestamp'>) {
-    dataCache.set(`admin:analytics:${period}:${getDeviceTimeZone()}`, { ...data, timestamp: Date.now() }, 60_000)
+  async refresh(period: AnalyticsPeriod, scope: string, loader: () => Promise<AnalyticsCacheEntry>) {
+    const key = `admin:analytics:${period}:${getDeviceTimeZone()}:${scope}`
+    const entry = await dataCache.load(key + ':refresh', loader, 1_000, true)
+    if (dataCache.get(key + ':refresh') !== entry) return null
+    dataCache.set(key + ':view', entry, 120_000)
+    return entry
   },
   invalidate(period?: AnalyticsPeriod) {
     dataCache.invalidate(period ? `admin:analytics:${period}:${getDeviceTimeZone()}` : 'admin:analytics:')

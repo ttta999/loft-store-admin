@@ -1,6 +1,7 @@
 import AdminHeaderActions from '../components/AdminPageHeader'
 import {adminTime,adminDateTime} from '../lib/adminDateTime'
 import {localDateKey,timestampDate} from '../lib/dateTime'
+import {useAdminViewState} from '../lib/useAdminViewState'
 import {useLocalTimeZone} from '../lib/useLocalTimeZone'
 import {t,tx,useAdminLanguage} from '../lib/i18n'
 import { ContentSkeleton } from '../components/PageSkeleton'
@@ -9,7 +10,7 @@ import { useAdminRefresh } from '../lib/adminLive'
 import { readAll } from '../lib/readAll'
 import { isConfirmedRevenue, confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { useState, useEffect, useRef } from 'react'
-import { supabase, privateFile } from '../lib/supabase'
+import { supabase, privateFile, getAdminCacheScope } from '../lib/supabase'
 import {
   analyticsCacheApi,
   type AnalyticsPeriod,
@@ -116,14 +117,16 @@ export default function AnalyticsPage() {
  const timeZone=useLocalTimeZone()
 
   const loadRequest = useRef(0)
-  const [cached] = useState(() => analyticsCacheApi.get('month'))
-  const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const scope = getAdminCacheScope()
+  const [period, setPeriod] = useAdminViewState<AnalyticsPeriod>('analytics:period', 'month')
+  const [cached] = useState(() => analyticsCacheApi.get(period, scope))
   const [orderStats, setOrderStats] = useState<OrderStatsEntry | null>(cached?.orderStats ?? null)
   const [dailyStats, setDailyStats] = useState<DailyStatsEntry[]>(cached?.dailyStats ?? [])
   const [topProducts, setTopProducts] = useState<ProductStatsEntry[]>(cached?.topProducts ?? [])
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>(cached?.categoryStats ?? [])
   const [brandStats, setBrandStats] = useState<BrandStat[]>(cached?.brandStats ?? [])
   const [loading, setLoading] = useState(!cached)
+  const [loadError, setLoadError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<number>(cached?.timestamp||0)
 
@@ -144,23 +147,20 @@ export default function AnalyticsPage() {
 
   const loadAnalytics = async (selectedPeriod: AnalyticsPeriod, forceRefresh = false, background = false) => {
     const request = ++loadRequest.current
-    if (!forceRefresh) {
-      const cached = analyticsCacheApi.get(selectedPeriod)
-      if (cached) {
-        applyData(cached)
-        setLoading(false)
-        return
-      }
-    }
-
+    setLoadError(false)
+    const cached = !forceRefresh && analyticsCacheApi.get(selectedPeriod, scope)
+    if (cached) applyData(cached)
     if (forceRefresh) setRefreshing(true)
-    else if (!background) setLoading(true)
+    if (!background && !cached) {
+      setLastUpdated(0)
+      setLoading(true)
+    } else if (cached) setLoading(false)
 
     try {
-      const entry = await computeAnalytics(selectedPeriod)
-      analyticsCacheApi.set(selectedPeriod, entry)
-      if (request === loadRequest.current) applyData({ ...entry, timestamp: Date.now() })
+      const entry = await analyticsCacheApi.refresh(selectedPeriod, scope, () => computeAnalytics(selectedPeriod))
+      if (entry && request === loadRequest.current && scope === getAdminCacheScope()) applyData(entry)
     } catch (error) {
+      if (request === loadRequest.current) setLoadError(true)
       console.error('Ошибка загрузки аналитики:', error)
     } finally {
       if (request === loadRequest.current) { setLoading(false); setRefreshing(false) }
@@ -178,7 +178,11 @@ export default function AnalyticsPage() {
 
   // ✅ ОДИН проход по заказам: считаем все метрики сразу
   const computeAnalytics = async (selectedPeriod: AnalyticsPeriod) => {
+    const fetchStart = performance.now()
     const dateFilter = getDateFilter(selectedPeriod)
+    // The scoped analytics cache owns deduplication. Signal-bearing reads bypass the
+    // transport cache so the refresh timestamp represents a real server response.
+    const signal = new AbortController().signal
 
     let ordersQuery = supabase
       .from('orders')
@@ -188,11 +192,13 @@ export default function AnalyticsPage() {
     }
 
     const [{ data: ordersRaw, error: ordersError }, { data: productsRaw, error: productsError }] = await Promise.all([
-      readAll(ordersQuery),
-      readAll(supabase.from('products').select('id, category, brand, images')),
+      readAll(ordersQuery.abortSignal(signal)),
+      readAll(supabase.from('products').select('id, category, brand, images').abortSignal(signal)),
     ])
 
+    performance.measure('loft:analytics:fetch', { start: fetchStart, end: performance.now() })
     if (ordersError || productsError) throw ordersError || productsError
+    const computeStart = performance.now()
     const orders = ordersRaw || []
     const productMap: Record<string, { category: string; brand: string | null; images?: string[] }> = {}
     ;(productsRaw || []).forEach((p: any) => {
@@ -288,6 +294,7 @@ export default function AnalyticsPage() {
     const categoryStats = Object.values(categoryMapStats).sort((a, b) => b.revenue - a.revenue)
     const brandStats = Object.values(brandMapStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
+    performance.measure('loft:analytics:compute', { start: computeStart, end: performance.now() })
     return { orderStats, dailyStats, topProducts, categoryStats, brandStats, timestamp: Date.now() }
   }
 
@@ -329,7 +336,7 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
-            {lastUpdated && (
+            {lastUpdated > 0 && (
               <p className="text-xs text-[#8A8275] dark:text-gray-300">
                 {t("Обновлено:")}{' '}{adminTime(lastUpdated)}
               </p>
@@ -337,7 +344,10 @@ export default function AnalyticsPage() {
           </div>
         </div>
   <div data-loft-content className="max-w-7xl mx-auto p-6 space-y-4">
-        {loading ? <ContentSkeleton/> : <>
+        {loadError && <p role="alert" className="text-sm text-[#9B3B3B] dark:text-red-300">
+          {t('Ошибка загрузки данных панели')}
+        </p>}
+        {loading ? <ContentSkeleton kind="analytics"/> : (!loadError || lastUpdated > 0) && <>
         {/* ✅ KPI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard

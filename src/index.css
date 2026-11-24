@@ -99,6 +99,8 @@ body {
 ::view-transition-group(loft-admin-header) { z-index: 10; }
 ::view-transition-old(loft-admin-header) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(loft-admin-header) { animation: none; mix-blend-mode: normal; }
+/* Dashboard chrome is ready in the same commit as the incoming frame. */
+:root[data-admin-dashboard-return]::view-transition-old(loft-admin-header) { display: none; }
 :root[data-admin-motion] { --admin-page-offset: 100%; }
 :root[data-admin-motion="back"] { --admin-page-offset: -100%; }
 :root[data-admin-motion]::view-transition-old(root),
