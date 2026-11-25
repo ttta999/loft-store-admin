@@ -17,6 +17,36 @@ function RouteFrame({ navigationType }: { navigationType: NavigationType }) {
 const content = () => document.querySelector<HTMLElement>('[data-loft-content]')
 const section = (search: string) => new URLSearchParams(search).get('section')
 
+// WebKit can leave the sticky app bar's native snapshot blank despite a
+// committed destination. Move only the pages at this boundary; keep real chrome.
+function captureOutgoingPage() {
+  const page = document.querySelector<HTMLElement>('[data-admin-page]')
+  if (!page) return null
+  const rect = page.getBoundingClientRect()
+  const top = Math.max(0, rect.top, document.querySelector('[data-admin-header]')?.getBoundingClientRect().bottom ?? 0)
+  const bottom = Math.min(innerHeight, rect.bottom)
+  if (bottom <= top) return null
+
+  const viewport = document.createElement('div')
+  viewport.dataset.adminOutgoing = 'true'
+  viewport.inert = true
+  viewport.setAttribute('aria-hidden', 'true')
+  Object.assign(viewport.style, {
+    position: 'fixed', top: `${top}px`, left: `${rect.left}px`, width: `${rect.width}px`,
+    height: `${bottom - top}px`, overflow: 'hidden', pointerEvents: 'none', zIndex: '10',
+  })
+  const copy = page.cloneNode(true) as HTMLElement
+  copy.removeAttribute('data-admin-page')
+  copy.setAttribute('data-admin-page-copy', '')
+  for (const element of copy.querySelectorAll('[id], [autofocus]')) {
+    element.removeAttribute('id')
+    element.removeAttribute('autofocus')
+  }
+  Object.assign(copy.style, { position: 'absolute', top: `${rect.top - top}px`, width: '100%', height: `${rect.height}px` })
+  viewport.append(copy)
+  return viewport
+}
+
 export default function AnimatedRoutes({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -62,10 +92,14 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     let applied = false
     let transition: ViewTransition | undefined
     let fallback: Animation | undefined
-    const interrupt = () => { transition?.skipTransition(); fallback?.cancel() }
+    let outgoing: HTMLElement | null = null
+    let leaving: Animation | undefined
+    const interrupt = () => { transition?.skipTransition(); fallback?.cancel(); leaving?.cancel() }
     const cleanup = () => {
       delete root.dataset.adminMotion
       delete root.dataset.adminDashboardReturn
+      delete root.dataset.adminDashboardExit
+      outgoing?.remove()
       window.removeEventListener('pointerdown', interrupt)
       window.removeEventListener('wheel', interrupt)
       window.dispatchEvent(new Event('loft:admin-transition-end'))
@@ -82,8 +116,26 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
       if (!active) return
       root.dataset.adminMotion = backwards ? 'back' : 'forward'
       if (location.pathname === '/') root.dataset.adminDashboardReturn = 'true'
+      else if (displayed.pathname === '/' && location.pathname === '/analytics') root.dataset.adminDashboardExit = 'true'
       window.addEventListener('pointerdown', interrupt, { passive: true })
       window.addEventListener('wheel', interrupt, { passive: true })
+      if (root.dataset.adminDashboardReturn || root.dataset.adminDashboardExit) {
+        outgoing = captureOutgoingPage()
+        apply()
+        const incoming = document.querySelector<HTMLElement>('[data-admin-page]')
+        const offset = backwards ? '-100vw' : '100vw'
+        const timing = { duration: 340, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+        if (outgoing) {
+          document.body.append(outgoing)
+          leaving = outgoing.animate([{ translate: '0px 0' }, { translate: backwards ? '100vw 0' : '-100vw 0' }], timing)
+        }
+        fallback = incoming?.animate([{ translate: offset + ' 0' }, { translate: '0px 0' }], timing)
+        const animations = [fallback, leaving].filter(effect => effect !== undefined)
+        const finished = Promise.allSettled(animations.map(animation => animation.finished))
+        window.dispatchEvent(new CustomEvent('loft:admin-live-header', { detail: { animations, finished } }))
+        void finished.then(() => { if (active) cleanup() })
+        return
+      }
       if (typeof document.startViewTransition === 'function') {
         try {
           transition = document.startViewTransition(apply)

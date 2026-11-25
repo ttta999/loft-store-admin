@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Package, Globe, ShoppingBag, Layers, Tag, Ruler, Undo2, BarChart3, Send, Settings, Bell, Truck, Monitor, DollarSign, RefreshCw, LogOut } from 'lucide-react'
+import { ArrowLeft, Package, Globe, ShoppingBag, Layers, Tag, Ruler, Undo2, BarChart3, Send, Settings, Bell, Truck, Monitor, DollarSign, RefreshCw, LogOut, Check, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import NotificationBell from './NotificationBell'
 import { dashboardActionClass } from '../lib/adminHeaderStyles'
-import { DASHBOARD_REFRESH, setDashboardSession, useDashboardRefreshing, useDashboardSession } from '../lib/dashboardSession'
+import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, setDashboardRefresh, setDashboardSession, useDashboardRefreshState, useDashboardSession, useDashboardUpdatedAt } from '../lib/dashboardSession'
+import { adminTime } from '../lib/adminDateTime'
 import { invalidateAllCaches } from '../lib/cache'
 import { logout } from '../lib/auth'
 import { tx, useAdminLanguage } from '../lib/i18n'
@@ -20,7 +21,23 @@ const settingsIcons = { payments: Truck, prices: DollarSign, sale: Tag, reminder
 
 function DashboardHeaderActions() {
   const grant = useDashboardSession()
-  const refreshing = useDashboardRefreshing()
+  const refresh = useDashboardRefreshState()
+  const updatedAt = useDashboardUpdatedAt()
+  const [expiredAt, setExpiredAt] = useState(() => Date.now() - updatedAt >= DASHBOARD_FRESH_FOR ? updatedAt : 0)
+  const refreshing = refresh === 'busy'
+  const expired = updatedAt !== 0 && expiredAt === updatedAt
+  const warning = refresh === 'error' || expired
+  useEffect(() => {
+    if (!updatedAt || expiredAt === updatedAt) return
+    const remaining = updatedAt + DASHBOARD_FRESH_FOR - Date.now()
+    const timer = window.setTimeout(() => setExpiredAt(updatedAt), Math.max(0, remaining))
+    return () => clearTimeout(timer)
+  }, [updatedAt, expiredAt])
+  useEffect(() => {
+    if (refresh !== 'success') return
+    const timer = window.setTimeout(() => setDashboardRefresh(grant, 'idle'), 850)
+    return () => clearTimeout(timer)
+  }, [grant, refresh])
   const navigate = useNavigate()
   const signOut = async () => {
     setDashboardSession(null)
@@ -31,11 +48,34 @@ function DashboardHeaderActions() {
 
   return <>
     <NotificationBell key={grant?.id ?? 'pending'} enabled={Boolean(grant)} />
-    <button type="button" title={tx('Обновить данные')} aria-label={tx('Обновить')}
-      aria-busy={refreshing} disabled={!grant || refreshing} className={dashboardActionClass}
-      onClick={() => window.dispatchEvent(new Event(DASHBOARD_REFRESH))}>
-      <RefreshCw size={18} className={refreshing ? 'motion-safe:animate-spin' : ''} />
-    </button>
+    <div className="group relative">
+      <button type="button" aria-label={tx('Обновить')} aria-describedby="dashboard-refresh-info"
+        data-dashboard-refresh={refresh} aria-busy={refreshing} aria-disabled={!grant || refreshing}
+        className={dashboardActionClass}
+        onKeyDown={event => { if (event.key === 'Escape') event.currentTarget.blur() }}
+        onClick={event => {
+          if (!grant) return
+          event.currentTarget.focus({ preventScroll: true })
+          if (!refreshing) window.dispatchEvent(new Event(DASHBOARD_REFRESH))
+        }}>
+        {refresh === 'success' ? <Check size={18} className="dashboard-refresh-success" />
+          : refresh === 'error' ? <AlertTriangle size={18} className="text-[#9B3B3B] dark:text-red-300" />
+          : <RefreshCw size={18} className={refreshing ? 'motion-safe:animate-spin' : ''} />}
+        {expired && refresh !== 'error' && <span aria-hidden="true" className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold" />}
+      </button>
+      <div id="dashboard-refresh-info" role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-max max-w-60 rounded-xl border border-[#E8E2D5] bg-[#FBF9F4] px-3 py-2 text-xs shadow-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-dark-border dark:bg-dark-card">
+        {updatedAt ? <p>{tx('Последнее обновление:')} {adminTime(updatedAt)}</p> : <p>{tx('Обновить данные')}</p>}
+        {warning && <p className="mt-1 text-[#9B3B3B] dark:text-red-300" data-dashboard-stale>
+          {tx(refresh === 'error'
+            ? updatedAt ? 'Не удалось обновить. Показаны последние данные.' : 'Ошибка загрузки данных панели'
+            : 'Данные могут быть устаревшими.')}
+        </p>}
+      </div>
+      <span className="sr-only" role="status">
+        {refresh === 'success' ? tx('Данные обновлены') : expired && refresh !== 'error' ? tx('Данные могут быть устаревшими.') : ''}
+      </span>
+    </div>
     <button type="button" title={tx('Выйти')} aria-label={tx('Выйти')}
       disabled={!grant} className={dashboardActionClass} onClick={signOut}>
       <LogOut size={18} />
@@ -68,7 +108,7 @@ export function AdminHeaderShell({ location, children }: { location: AdminLocati
         <div data-admin-island className={home
           ? "admin-header-title mx-auto w-full max-w-sm rounded-full border border-[#E8E2D5] bg-[#FBF9F4] px-3 py-2.5 text-center shadow-sm dark:border-dark-border dark:bg-dark-card sm:py-3"
           : "admin-header-title flex min-w-0 items-center justify-center gap-2 text-center"}>
-          <h1 className={`line-clamp-2 text-sm font-bold leading-tight sm:text-xl ${home ? 'tracking-wide' : ''}`}>
+          <h1 className={`line-clamp-2 text-sm font-bold leading-tight sm:text-xl ${home ? 'tracking-wide select-none' : ''}`}>
             {home ? 'LOFT Админ Панель' : tx(routeTitle(pathname, search))}
           </h1>
           {!home && <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[#E8E2D5] bg-[#FBF9F4] text-[#C9A961] dark:border-dark-border dark:bg-dark-card sm:size-10"><Icon size={18}/></span>}

@@ -7,8 +7,7 @@ import { displayMoney } from '../lib/money'
 import { useAdminRefresh } from '../lib/adminLive'
 import {getRefunds} from '../lib/refunds'
 import {refundsCacheApi} from '../lib/cache'
-import { adminTime } from '../lib/adminDateTime'
-import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, getDashboardSession, saveDashboardSnapshot, setDashboardRefreshing, type DashboardSnapshot } from '../lib/dashboardSession'
+import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, getDashboardSession, saveDashboardSnapshot, setDashboardRefresh, type DashboardSnapshot } from '../lib/dashboardSession'
 import { confirmedRevenue, WORK_STATUSES } from '../lib/revenue'
 import { startTransition, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -129,15 +128,12 @@ export default function DashboardPage() {
   const grant = getDashboardSession()
   const [snapshot, setSnapshot] = useState(() => grant?.snapshot)
   const [failed, setFailed] = useState(false)
-  const [checking, setChecking] = useState(() =>
-    dashboardExpired(grant?.snapshot) || Object.values(readDashboardResources()).some(value => value === null),
-  )
   const loading = !snapshot && !failed
   const { orders = [], china: chinaRequests = [], refunds = [], productsCount = 0, brandsCount = 0 } = snapshot ?? {}
   const latestLoad = useRef(0)
   const invalidateLoad = useCallback(() => {
     latestLoad.current++
-    setDashboardRefreshing(grant, false)
+    if (grant?.refresh === 'busy' || grant?.refresh === 'success') setDashboardRefresh(grant, 'idle')
   }, [grant])
   const [exchangeRate, setExchangeRate] = useState(cachedStoreExchangeRate)
 
@@ -169,7 +165,7 @@ export default function DashboardPage() {
    }
   },[loading])
 
-  const loadData = useCallback(async (forceRefresh = false) => {
+  const loadData = useCallback(async (forceRefresh = false, manual = false) => {
     const request = ++latestLoad.current
     const current = () => grant && grant === getDashboardSession() &&
       scope === getAdminCacheScope() && request === latestLoad.current
@@ -180,11 +176,15 @@ export default function DashboardPage() {
     if (!forceRefresh && !expired && cachedOrders && cachedChina && cachedCounts && cachedRefunds) return
     const refreshAll = forceRefresh || expired
     try {
-      const [ordersData, chinaData, counts, refundData] = await Promise.all([
+      const [ordersData, chinaData, counts, refundData, rate] = await Promise.all([
         !refreshAll && cachedOrders ? Promise.resolve(cachedOrders) : getOrders(),
         !refreshAll && cachedChina ? Promise.resolve(cachedChina) : getChinaRequests(),
         !refreshAll && cachedCounts ? Promise.resolve([cachedCounts.productsCount, cachedCounts.brandsCount]) : fetchCounts(),
         getRefunds(refreshAll),
+        manual ? loadStoreExchangeRate(true).catch(error => {
+          if (current()) setExchangeRate(null)
+          throw error
+        }) : Promise.resolve(null),
       ])
       if (!current() || !grant) return
       const [pCount, bCount] = counts
@@ -197,18 +197,20 @@ export default function DashboardPage() {
       chinaCacheApi.set(chinaData)
       dashboardCountsCacheApi.set({ productsCount: pCount, brandsCount: bCount })
       startTransition(() => {
+        if (rate !== null) setExchangeRate(rate)
         setSnapshot(updated)
         setFailed(false)
-        setChecking(false)
       })
+      if (manual) setDashboardRefresh(grant, 'success')
+      else if (grant.refresh === 'error') setDashboardRefresh(grant, 'idle')
     } catch (error) {
       if (!current()) return
       console.error('Ошибка загрузки:', error)
-      if (!grant?.snapshot) toast.error(uiError('Ошибка загрузки данных панели'))
+      if (manual || grant?.refresh !== 'error') {
+        toast.error(uiError(grant?.snapshot ? 'Не удалось обновить. Показаны последние данные.' : 'Ошибка загрузки данных панели'), { position: 'bottom-center' })
+      }
       setFailed(true)
-      setChecking(false)
-    } finally {
-      if (current()) setDashboardRefreshing(grant, false)
+      setDashboardRefresh(grant, 'error')
     }
   }, [grant, scope])
 
@@ -217,25 +219,27 @@ export default function DashboardPage() {
     return invalidateLoad
   }, [invalidateLoad, loadData])
 
-  useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], () => {
-    setChecking(true)
-    return loadData(true)
+  const manualRefresh = useRef<Promise<void> | null>(null)
+  useAdminRefresh(['orders', 'china_requests', 'refunds', 'products', 'brands'], async () => {
+    if (manualRefresh.current) await manualRefresh.current
+    if (grant === getDashboardSession()) await loadData(true)
   })
 
 
   useEffect(() => {
     const refresh = () => {
-      setChecking(true)
-      setDashboardRefreshing(grant, true)
+      if (!grant || grant.refresh === 'busy') return
+      setDashboardRefresh(grant, 'busy')
       ordersCacheApi.invalidate()
       chinaCacheApi.invalidate()
       dashboardCountsCacheApi.invalidate()
-      void refreshRate(true)
-      void loadData(true)
+      const request = loadData(true, true)
+      manualRefresh.current = request
+      void request.then(() => { if (manualRefresh.current === request) manualRefresh.current = null })
     }
     window.addEventListener(DASHBOARD_REFRESH, refresh)
     return () => window.removeEventListener(DASHBOARD_REFRESH, refresh)
-  }, [grant, loadData, refreshRate])
+  }, [grant, loadData])
 
   const { totalRevenue, activeOrders } = useMemo(() => ({
     totalRevenue: confirmedRevenue(orders),
@@ -248,15 +252,11 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F5F1E8] dark:bg-dark-bg">
 
-      <div data-loft-content className="max-w-6xl mx-auto p-6">
-        {snapshot && <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 text-xs text-[#8A8275] dark:text-gray-300">
-          <p role="status">{failed ? t('Не удалось обновить. Показаны последние данные.') : checking ? t('Данные обновляются…') : ''}</p>
-          <p className="whitespace-nowrap">{t('Обновлено:')} {adminTime(snapshot.updatedAt)}</p>
-        </div>}
+      <div data-loft-content className="max-w-6xl mx-auto px-6 pb-6 pt-2">
         {!snapshot && failed && <p role="alert">{t('Ошибка загрузки данных панели')}</p>}
         {loading ? <ContentSkeleton/> : <>
         {/* ✅ KPI-строка: 3 карточки со счётчиками */}
-        {snapshot && <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {snapshot && <div data-dashboard-stats className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <KpiCard
             icon={<Package size={20} className="text-[#1B2A4A] dark:text-white" />}
             label={t("Активные заказы")}

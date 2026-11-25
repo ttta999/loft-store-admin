@@ -14,7 +14,8 @@ export interface DashboardSnapshot {
 export const DASHBOARD_REFRESH = 'loft:dashboard-refresh'
 export const DASHBOARD_FRESH_FOR = 120_000
 
-type DashboardSession = { id: string; snapshot?: DashboardSnapshot; refreshing: boolean }
+type RefreshState = 'idle' | 'busy' | 'success' | 'error'
+type DashboardSession = { id: string; snapshot?: DashboardSnapshot; refresh: RefreshState }
 let session: DashboardSession | null = null
 const listeners = new Set<() => void>()
 const notify = () => listeners.forEach(listener => listener())
@@ -26,20 +27,23 @@ const subscribe = (listener: () => void) => {
 export function setDashboardSession(id: string | null) {
   if ((session?.id ?? null) === id) return
   if (session) delete session.snapshot
-  session = id ? { id, refreshing: false } : null
+  session = id ? { id, refresh: 'idle' } : null
   notify()
 }
 
 export function saveDashboardSnapshot(grant: DashboardSession, snapshot: DashboardSnapshot) {
-  if (session === grant) grant.snapshot = snapshot
+  if (session !== grant) return
+  grant.snapshot = snapshot
+  notify()
 }
 
 export const getDashboardSession = () => session
 export const useDashboardSession = () => useSyncExternalStore(subscribe, getDashboardSession)
-export const useDashboardRefreshing = () => useSyncExternalStore(subscribe, () => session?.refreshing ?? false)
+export const useDashboardRefreshState = () => useSyncExternalStore(subscribe, () => session?.refresh ?? 'idle')
+export const useDashboardUpdatedAt = () => useSyncExternalStore(subscribe, () => session?.snapshot?.updatedAt ?? 0)
 
-export function setDashboardRefreshing(grant: DashboardSession | null, refreshing: boolean) {
-  if (!grant || session !== grant || grant.refreshing === refreshing) return
-  grant.refreshing = refreshing
+export function setDashboardRefresh(grant: DashboardSession | null, refresh: RefreshState) {
+  if (!grant || session !== grant || grant.refresh === refresh) return
+  grant.refresh = refresh
   notify()
 }

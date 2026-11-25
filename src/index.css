@@ -99,8 +99,17 @@ body {
 ::view-transition-group(loft-admin-header) { z-index: 10; }
 ::view-transition-old(loft-admin-header) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(loft-admin-header) { animation: none; mix-blend-mode: normal; }
-/* Dashboard chrome is ready in the same commit as the incoming frame. */
-:root[data-admin-dashboard-return]::view-transition-old(loft-admin-header) { display: none; }
+/* Resolve the island and its background in the same frame as the route. */
+:root:is([data-admin-dashboard-return], [data-admin-dashboard-exit]) :is([data-admin-header], [data-admin-island]) {
+  transition: none;
+}
+.dashboard-refresh-success {
+  animation: dashboard-refresh-success 200ms var(--loft-motion-ease) both;
+}
+@keyframes dashboard-refresh-success {
+  from { opacity: 0; scale: 0.9; }
+  to { opacity: 1; scale: 1; }
+}
 :root[data-admin-motion] { --admin-page-offset: 100%; }
 :root[data-admin-motion="back"] { --admin-page-offset: -100%; }
 :root[data-admin-motion]::view-transition-old(root),
@@ -116,7 +125,7 @@ body {
 @keyframes admin-page-in { from { transform: translateX(var(--admin-page-offset)); } }
 
 :root { --admin-header-height: 97px; overflow-x: clip; }
-[data-admin-page] > .min-h-screen { min-height: calc(100dvh - var(--admin-header-height)); }
+[data-admin-page] > .min-h-screen, [data-admin-page-copy] > .min-h-screen { min-height: calc(100dvh - var(--admin-header-height)); }
 .admin-header-grid {
   display: grid;
   grid-template: 48px 48px / minmax(0, 1fr) minmax(0, 70%) minmax(0, 1fr);
