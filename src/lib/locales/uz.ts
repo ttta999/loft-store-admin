@@ -816,6 +816,8 @@ export const uz:Record<keyof typeof ru,string> = {
 "Каталог и остатки": "Katalog va qoldiqlar",
 "Категории и подкатегории": "Kategoriyalar va ichki kategoriyalar",
 "Товары, категории, бренды и размеры": "Mahsulotlar, kategoriyalar, brendlar va o‘lchamlar",
+"{0} требует обработки": "{0} ta ishlov kutmoqda",
+"{0} требуют обработки": "{0} ta ishlov kutmoqda",
 "Сандали и Шлепанцы": "Sandallar va shippaklar",
 "Джемперы и Кардиганы": "Jemperlar va kardiganlar",
 "Сумки и Рюкзаки": "Sumkalar va ryukzaklar",

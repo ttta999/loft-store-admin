@@ -98,6 +98,8 @@ function NavCard({ icon, title, description, count, destination, onClick }: {
   )
 }
 
+const refundPlural = new Intl.PluralRules('ru')
+
 const fetchCounts = async () => {
   const [products, brands] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
@@ -302,8 +304,8 @@ export default function DashboardPage() {
           />
         </div>
         <AdminMenuRows entries={[
-         {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,count:snapshot ? productsCount+' · '+brandsCount : undefined},
-         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:snapshot ? String(pendingRefunds) : undefined},
+         {path:'/catalog',title:'Каталог',description:'Товары, категории, бренды и размеры',icon:<ShoppingBag size={20}/>,reservedCountWidth:snapshot ? productsCount+' · '+brandsCount : undefined},
+         {path:'/refunds',title:'Возвраты',icon:<Undo2 size={20}/>,count:snapshot ? t(refundPlural.select(pendingRefunds) === 'one' ? '{0} требует обработки' : '{0} требуют обработки', [pendingRefunds]) : undefined},
          {path:'/analytics',title:'Аналитика',icon:<BarChart3 size={20}/>},
          {path:'/campaigns',title:'Рассылки',icon:<Bell size={20}/>},
          {path:'/settings',title:'Настройки',icon:<Settings size={20}/>},

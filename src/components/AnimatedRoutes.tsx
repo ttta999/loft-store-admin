@@ -87,6 +87,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     }
 
     void preloadPage(location.pathname).catch(() => {})
+    const dashboardTransition = displayed.pathname === '/' || location.pathname === '/'
     const root = document.documentElement
     let active = true
     let applied = false
@@ -97,8 +98,7 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     const interrupt = () => { transition?.skipTransition(); fallback?.cancel(); leaving?.cancel() }
     const cleanup = () => {
       delete root.dataset.adminMotion
-      delete root.dataset.adminDashboardReturn
-      delete root.dataset.adminDashboardExit
+      delete root.dataset.adminLiveHeader
       outgoing?.remove()
       window.removeEventListener('pointerdown', interrupt)
       window.removeEventListener('wheel', interrupt)
@@ -115,11 +115,10 @@ export default function AnimatedRoutes({ children }: { children: ReactNode }) {
     queueMicrotask(() => {
       if (!active) return
       root.dataset.adminMotion = backwards ? 'back' : 'forward'
-      if (location.pathname === '/') root.dataset.adminDashboardReturn = 'true'
-      else if (displayed.pathname === '/' && location.pathname === '/analytics') root.dataset.adminDashboardExit = 'true'
       window.addEventListener('pointerdown', interrupt, { passive: true })
       window.addEventListener('wheel', interrupt, { passive: true })
-      if (root.dataset.adminDashboardReturn || root.dataset.adminDashboardExit) {
+      if (dashboardTransition) {
+        root.dataset.adminLiveHeader = 'true'
         outgoing = captureOutgoingPage()
         apply()
         const incoming = document.querySelector<HTMLElement>('[data-admin-page]')

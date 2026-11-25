@@ -78,7 +78,7 @@ function DashboardHeaderActions() {
     </div>
     <button type="button" title={tx('Выйти')} aria-label={tx('Выйти')}
       disabled={!grant} className={dashboardActionClass} onClick={signOut}>
-      <LogOut size={18} />
+      <LogOut size={18} className="text-[#9B3B3B] dark:text-red-300" />
     </button>
   </>
 }

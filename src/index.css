@@ -95,12 +95,12 @@ body {
    is captured separately into an opaque, stationary layer. */
 ::view-transition { pointer-events: none; overflow: clip; }
 ::view-transition-group(root), ::view-transition-group(loft-admin-header) { animation: none; }
-:root[data-admin-motion] [data-admin-header] { view-transition-name: loft-admin-header; }
+:root[data-admin-motion]:not([data-admin-live-header]) [data-admin-header] { view-transition-name: loft-admin-header; }
 ::view-transition-group(loft-admin-header) { z-index: 10; }
 ::view-transition-old(loft-admin-header) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(loft-admin-header) { animation: none; mix-blend-mode: normal; }
 /* Resolve the island and its background in the same frame as the route. */
-:root:is([data-admin-dashboard-return], [data-admin-dashboard-exit]) :is([data-admin-header], [data-admin-island]) {
+:root[data-admin-live-header] :is([data-admin-header], [data-admin-island]) {
   transition: none;
 }
 .dashboard-refresh-success {
