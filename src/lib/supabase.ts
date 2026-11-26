@@ -4,14 +4,55 @@ import { readAll } from './readAll'
 import { createDataFetch } from './dataFetch'
 import { invalidateAllCaches } from './cache'
 import { createClient } from '@supabase/supabase-js'
+import { createAdminSessionBoundary } from './adminSessionBoundary'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+const sessionBoundary = createAdminSessionBoundary(storageKey)
 let cacheUserId: string | null = null
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { fetch: createDataFetch(invalidateAllCaches,()=>cacheUserId||'anonymous') } })
+let accessToken: string | null = null
+const invalidationListeners = new Set<() => void>()
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { storageKey, storage: sessionBoundary.storage },
+  global: { fetch: createDataFetch(invalidateAllCaches, () => cacheUserId || 'anonymous') },
+})
 export const getAdminCacheScope = () => cacheUserId || 'anonymous'
+export const isAdminSessionCurrent = sessionBoundary.current
+export function onAdminSessionInvalidated(listener: () => void) {
+  invalidationListeners.add(listener)
+  return () => { invalidationListeners.delete(listener) }
+}
+
+function clearLocalAdminSession() {
+  cacheUserId = null
+  accessToken = null
+  setDashboardSession(null)
+  invalidateAllCaches()
+  invalidationListeners.forEach(listener => listener())
+}
+
+export function detachAdminSession() {
+  const token = sessionBoundary.current() ? accessToken : null
+  sessionBoundary.invalidate(token ?? undefined)
+  clearLocalAdminSession()
+  return token
+}
+
+export function prepareAdminLogin() {
+  sessionBoundary.resumeForLogin()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (sessionBoundary.changedInAnotherTab(event)) clearLocalAdminSession()
+  })
+}
 supabase.auth.onAuthStateChange((event, session) => {
+  if (!sessionBoundary.current() || (session && !sessionBoundary.acceptsToken(session.access_token))) return
+  accessToken = session?.access_token ?? null
   const nextUserId = session?.user.id || null
   if (nextUserId !== cacheUserId || event === 'SIGNED_OUT') {
     setDashboardSession(null)

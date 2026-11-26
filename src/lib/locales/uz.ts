@@ -1,5 +1,6 @@
 import type {ru} from './ru'
 export const uz:Record<keyof typeof ru,string> = {
+  "Вы вышли из админки на этом устройстве. Серверный выход не подтверждён.": "Bu qurilmada boshqaruv panelidan chiqdingiz. Server seansi yakunlangani tasdiqlanmadi.",
   "Подтверждение возврата": "Qaytarishni tasdiqlash",
   "Переведите сумму клиенту через банк и прикрепите квитанцию": "Summani bank orqali mijozga o‘tkazing va kvitansiyani biriktiring",
   "Информация о переводе": "Pul o‘tkazmasi haqida",

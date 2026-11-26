@@ -62,5 +62,14 @@ test('MFA login challenges only an owner-approved verified factor',async()=> {
     assert.equal(outsider.success,false)
     assert.equal(state.signedOut,2)
     assert.equal(state.enrollments,0)
+    state.failedRevocation=true
+    const before=state.revocations
+    const first=auth.logout()
+    assert.equal(auth.logout(),first)
+    assert.deepEqual(await first,{success:false})
+    assert.equal(state.revocations,before+1)
+    state.failedRevocation=false
+    assert.deepEqual(await auth.retryLogout(),{success:true})
+    assert.equal(state.revocations,before+2)
   } finally { await rm(root,{recursive:true,force:true}) }
 })

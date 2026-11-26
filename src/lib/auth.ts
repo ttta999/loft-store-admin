@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { detachAdminSession, isAdminSessionCurrent, prepareAdminLogin, supabase } from './supabase'
 
 export interface MfaStep {
   factorId: string
@@ -33,8 +33,9 @@ async function prepareSecondFactor(): Promise<MfaStep | undefined> {
 
 export const login = async (email: string, password: string): Promise<LoginResult> => {
   try {
+    prepareAdminLogin()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { success: false, error: 'Неверный email или пароль' }
+    if (error || !isAdminSessionCurrent()) return { success: false, error: 'Неверный email или пароль' }
     const mfa = await prepareSecondFactor()
     if (mfa) return { success: true, mfa }
     const { data: allowed, error: roleError } = await supabase.rpc('store_is_admin')
@@ -53,21 +54,47 @@ export const verifySecondFactor = async (factorId: string, code: string) => {
   if (roleError || admin !== true) throw new Error('Нет доступа к админке')
 }
 
-export const logout = async () => {
-  try {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    localStorage.removeItem('adminLoggedIn')
-    return { success: true }
-  } catch { return { success: false } }
+let pendingToken: string | null = null
+let logoutAttempt: Promise<{ success: boolean }> | null = null
+export const canRetryLogout = () => pendingToken !== null
+
+export const retryLogout = () => {
+  if (logoutAttempt) return logoutAttempt
+  if (!pendingToken) return Promise.resolve({ success: false })
+  const token = pendingToken
+  logoutAttempt = Promise.resolve().then(async () => {
+    try {
+      const { error } = await supabase.auth.admin.signOut(token, 'local')
+      if (error) {
+        if (error.status === 401 && pendingToken === token) pendingToken = null
+        return { success: false }
+      }
+      if (pendingToken === token) pendingToken = null
+      return { success: true }
+    } catch {
+      return { success: false }
+    } finally {
+      logoutAttempt = null
+    }
+  })
+  return logoutAttempt
+}
+
+export const logout = () => {
+  if (logoutAttempt) return logoutAttempt
+  const token = detachAdminSession()
+  if (token) pendingToken = token
+  try { localStorage.removeItem('adminLoggedIn') } catch { /* Storage can be disabled. */ }
+  return retryLogout()
 }
 
 export const getCurrentUser = async () => {
   try {
+    if (!isAdminSessionCurrent()) return null
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error || !user) return null
     const { data: admin, error: roleError } = await supabase.rpc('store_is_admin')
-    return !roleError && admin === true ? user : null
+    return isAdminSessionCurrent() && !roleError && admin === true ? user : null
   } catch { return null }
 }
 

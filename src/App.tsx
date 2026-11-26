@@ -2,7 +2,7 @@ import {hasDirtyAdminForms} from './lib/adminNavigation'
 import {setLanguageScope,useAdminLanguage} from './lib/i18n'
 import PageSkeleton from './components/PageSkeleton'
 import { useAdminLive } from './lib/adminLive'
-import { getAdminCacheScope, supabase } from './lib/supabase'
+import { getAdminCacheScope, onAdminSessionInvalidated, supabase } from './lib/supabase'
 import { SizeChartsPage, CampaignsPage, RefundsPage, OrdersPage, ChinaPage, ProductsPage, AnalyticsPage, SettingsPage, BrandsPage, CategoriesPage } from './lib/pagePreload'
 import AnimatedRoutes from './components/AnimatedRoutes'
 import AppToaster from './components/AppToaster'
@@ -45,11 +45,19 @@ function ProtectedLayout() {
       if (active && again) { again = false; void check() }
     }
   }
-  const {data:{subscription}}=supabase.auth.onAuthStateChange((event)=>{if(event==='INITIAL_SESSION')return;if(event==='SIGNED_OUT'){generation++;setDashboardSession(null);setLanguageScope(null);setUserId(null);setAllowed(false)}else queueMicrotask(()=>void check())})
+  const clearAuthentication = () => {
+   generation++
+   setDashboardSession(null)
+   setLanguageScope(null)
+   setUserId(null)
+   setAllowed(false)
+  }
+  const unsubscribeInvalidation = onAdminSessionInvalidated(clearAuthentication)
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((event)=>{if(event==='INITIAL_SESSION')return;if(event==='SIGNED_OUT')clearAuthentication();else queueMicrotask(()=>void check())})
   const resume=()=>{if(!document.hidden&&!running&&Date.now()-last>10000)void check()}
   const unload=(e:BeforeUnloadEvent)=>{if(hasDirtyAdminForms()){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',unload)
   void check();window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);const timer=setInterval(resume,60000)
-  return()=>{active=false;generation++;window.removeEventListener('beforeunload',unload);clearInterval(timer);subscription.unsubscribe();window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume)}
+  return()=>{active=false;generation++;window.removeEventListener('beforeunload',unload);clearInterval(timer);subscription.unsubscribe();unsubscribeInvalidation();window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume)}
  },[])
  if(allowed===null)return <PageSkeleton/>
  if(!allowed)return <Navigate to="/login" replace/>
