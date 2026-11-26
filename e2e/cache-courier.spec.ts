@@ -6,7 +6,6 @@ const sections = [
   ['/china', 'Спецзаказы'],
   ['/products', 'Товары'],
   ['/categories', 'Категории'],
-  ['/analytics', 'Аналитика'],
   ['/settings', 'Настройки'],
   ['/brands', 'Бренды'],
 ] as const
@@ -47,6 +46,43 @@ for (const [path, title] of sections) {
     expect(await page.evaluate(() => (window as any).loadingFlashed)).toBe(false)
   })
 }
+
+test('Analytics renders cached totals while exactly one refresh runs in the background', async ({ page, harness }) => {
+  const order = harness.db.orders[0]
+  Object.assign(order, { total_price_usd: 633, payment_status: 'paid', paid_at: new Date().toISOString() })
+  await page.goto(ADMIN + '/analytics')
+  await expect(page.getByText('$633', { exact: true }).first()).toBeVisible()
+  await page.locator('[data-admin-back]').click()
+  await expect(page.locator('[data-admin-island]')).toBeVisible()
+  await expect(page.locator('html')).not.toHaveAttribute('data-admin-motion')
+
+  let release = () => {}
+  const pending = new Promise<void>(resolve => { release = resolve })
+  const reads: string[] = []
+  await page.route('**/rest/v1/**', async route => {
+    const url = new URL(route.request().url())
+    const projection = url.searchParams.get('select')
+    if (url.pathname === '/rest/v1/orders' && projection?.startsWith('id,total_price_usd,status')) {
+      reads.push('orders')
+      await pending
+    }
+    if (url.pathname === '/rest/v1/products' && projection === 'id,category,brand,images') reads.push('products')
+    await route.fallback()
+  })
+  try {
+    order.total_price_usd = 740
+    await page.locator('[data-admin-card="/analytics"]').click()
+    await expect(page.locator('[data-admin-header]').getByRole('heading', { name: 'Аналитика' })).toBeVisible()
+    await expect(page.locator('[data-admin-page] [data-loft-content]').getByText('$633', { exact: true }).first()).toBeVisible()
+    await expect.poll(() => [...reads].sort()).toEqual(['orders', 'products'])
+    await expect(page.locator('[data-admin-page] [data-loft-content]').getByText('$740', { exact: true })).toHaveCount(0)
+    await expect(page.locator('[data-admin-page] [data-loft-content] [aria-label="Загрузка"]')).toHaveCount(0)
+  } finally {
+    release()
+  }
+  await expect(page.getByText('$740', { exact: true }).first()).toBeVisible()
+  expect([...reads].sort()).toEqual(['orders', 'products'])
+})
 
 for (const link of ['', '   ', 'https://example.test/courier/123']) {
   test(`курьер: сохранение ${link.trim() ? 'со ссылкой' : JSON.stringify(link) + ' без ссылки'}`, async ({ page, harness }) => {
