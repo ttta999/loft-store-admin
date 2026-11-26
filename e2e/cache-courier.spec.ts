@@ -1,8 +1,17 @@
 import { test, expect, ADMIN } from './fixture'
 
 const catalogSections = new Set(['/products', '/categories', '/brands'])
+const sections = [
+  ['/orders', 'Заказы'],
+  ['/china', 'Спецзаказы'],
+  ['/products', 'Товары'],
+  ['/categories', 'Категории'],
+  ['/analytics', 'Аналитика'],
+  ['/settings', 'Настройки'],
+  ['/brands', 'Бренды'],
+] as const
 
-for (const path of ['/orders', '/china', '/products', '/categories', '/analytics', '/settings', '/brands']) {
+for (const [path, title] of sections) {
   test(`кэш ${path}: повторное открытие не загружает данные заново`, async ({ page, harness }) => {
     await page.goto(ADMIN)
     const parent = catalogSections.has(path) ? '/catalog' : '/'
@@ -13,10 +22,11 @@ for (const path of ['/orders', '/china', '/products', '/categories', '/analytics
     const open = async () => {
       await page.locator(`[data-admin-card="${path}"]`).click()
       await expect(page).toHaveURL(ADMIN + path)
+      await expect(page.locator('[data-admin-header]').getByRole('heading', { name: title, exact: true })).toBeVisible()
+      await expect(page.locator('html')).not.toHaveAttribute('data-admin-motion')
       const content = page.locator('[data-admin-page] [data-loft-content]')
       await expect(content).toHaveCount(1)
       await expect(content).toBeVisible()
-      await page.waitForFunction(() => !document.documentElement.hasAttribute('data-admin-motion'))
     }
     await open()
     await page.locator('[data-admin-back]').click()
