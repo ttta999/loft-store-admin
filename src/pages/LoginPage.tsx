@@ -120,23 +120,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             {mfa ? (
               <div className="p-5 space-y-4">
                 <p className="text-sm text-[#1B2A4A] dark:text-white">
-                  {mfa.qrCode?t("Добавьте LOFT Admin в приложение-аутентификатор, затем введите шестизначный код."):t("Введите шестизначный код из приложения-аутентификатора.")}
+                  {t("Введите шестизначный код из приложения-аутентификатора.")}
                 </p>
-                {mfa.qrCode && (
-                  <div className="space-y-3">
-                    <img
-                      src={mfa.qrCode.startsWith('data:') ? mfa.qrCode : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(mfa.qrCode)}`}
-                      alt={t("QR-код настройки двухфакторного входа")}
-                      className="w-48 h-48 mx-auto bg-white rounded-xl p-2"
-                    />
-                    {mfa.secret && (
-                      <div className="text-xs text-[#8A8275] dark:text-gray-300">
-                        <p>{t("Если QR-код неудобно сканировать, добавьте этот ключ вручную:")}</p>
-                        <code className="block mt-2 break-all select-all text-[#1B2A4A] dark:text-white">{mfa.secret}</code>
-                      </div>
-                    )}
-                  </div>
-                )}
                 <div className="flex items-center gap-3 p-3.5 border border-[#E8E2D5] dark:border-dark-border rounded-xl">
                   <Lock size={16} className="text-[#1B2A4A] dark:text-white" />
                   <input

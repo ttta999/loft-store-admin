@@ -2,8 +2,6 @@ import { supabase } from './supabase'
 
 export interface MfaStep {
   factorId: string
-  qrCode?: string
-  secret?: string
 }
 
 type LoginResult = { success: true; mfa?: MfaStep } | { success: false; error: string }
@@ -19,21 +17,18 @@ async function prepareSecondFactor(): Promise<MfaStep | undefined> {
   const verified = factors.totp.find(factor => factor.status === 'verified')
   const { data: assurance, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   if (assuranceError) throw new Error('Не удалось проверить второй фактор. Повторите вход.')
-  if (!state.mfaRequired && !verified) return undefined
-  if (verified && assurance.currentLevel === 'aal2') {
+  const approved = state.factorId
+    ? factors.totp.find(factor => factor.id === state.factorId && factor.status === 'verified')
+    : verified
+  if (!approved) {
+    await logout()
+    throw new Error('Нет доступа к админке')
+  }
+  if (assurance.currentLevel === 'aal2') {
     const { data: allowed, error } = await supabase.rpc('store_is_admin')
     if (!error && allowed === true) return undefined
   }
-  if (verified) return { factorId: verified.id }
-  // Only abandoned, unverified enrollments created by this form may be replaced.
-  // Verified factors are never removed by the application.
-  for (const factor of factors.all.filter(factor => factor.status === 'unverified' && factor.friendly_name === 'LOFT Admin')) {
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
-    if (error) throw new Error('Не удалось начать настройку второго фактора. Повторите вход.')
-  }
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'LOFT Admin', issuer: 'LOFT Admin' })
-  if (error) throw new Error('Не удалось начать настройку второго фактора. Повторите вход.')
-  return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret }
+  return { factorId: approved.id }
 }
 
 export const login = async (email: string, password: string): Promise<LoginResult> => {
