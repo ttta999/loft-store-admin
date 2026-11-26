@@ -1,7 +1,7 @@
 # Graph Report - loft-security-admin  (2026-11-26)
 
 ## Corpus Check
-- 117 files · ~68,688 words
+- 117 files · ~68,695 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .css 2, (none) 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5eae1b38`
+- Built from commit: `1bc9137c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -52,16 +52,16 @@
 10. `DashboardPage()` - 27 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `4. Данные, RPC и Storage` --references--> `readAll()`  [INFERRED]
-  docs/ARCHITECTURE.md → src/lib/readAll.ts
-- `4. Данные, RPC и Storage` --references--> `privateFile()`  [INFERRED]
-  docs/ARCHITECTURE.md → src/lib/supabase.ts
-- `Компоненты и точки переиспользования` --references--> `AdminDialog()`  [INFERRED]
-  docs/DESIGN_SYSTEM.md → src/components/AdminDialog.tsx
-- `Компоненты и точки переиспользования` --references--> `ContentSkeleton()`  [INFERRED]
-  docs/DESIGN_SYSTEM.md → src/components/PageSkeleton.tsx
 - `8. Время, локализация и аналитика` --references--> `adminDateTime()`  [INFERRED]
   docs/ARCHITECTURE.md → src/lib/adminDateTime.ts
+- `Компоненты и точки переиспользования` --references--> `AdminDialog()`  [INFERRED]
+  docs/DESIGN_SYSTEM.md → src/components/AdminDialog.tsx
+- `4. Данные, RPC и Storage` --references--> `readAll()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/readAll.ts
+- `Интерфейс и состояние` --references--> `useAdminDialogRoute()`  [INFERRED]
+  AGENTS.md → src/lib/useAdminDialogRoute.ts
+- `3. Маршруты и состояние` --references--> `getCurrentUser()`  [INFERRED]
+  docs/ARCHITECTURE.md → src/lib/auth.ts
 
 ## Import Cycles
 - None detected.

@@ -13,7 +13,9 @@ for (const path of ['/orders', '/china', '/products', '/categories', '/analytics
     const open = async () => {
       await page.locator(`[data-admin-card="${path}"]`).click()
       await expect(page).toHaveURL(ADMIN + path)
-      await expect(page.locator('[data-loft-content]')).toBeVisible()
+      const content = page.locator('[data-admin-page] [data-loft-content]')
+      await expect(content).toHaveCount(1)
+      await expect(content).toBeVisible()
       await page.waitForFunction(() => !document.documentElement.hasAttribute('data-admin-motion'))
     }
     await open()
