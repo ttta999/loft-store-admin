@@ -54,36 +54,32 @@ export const verifySecondFactor = async (factorId: string, code: string) => {
   if (roleError || admin !== true) throw new Error('Нет доступа к админке')
 }
 
-let pendingToken: string | null = null
-let logoutAttempt: Promise<{ success: boolean }> | null = null
-export const canRetryLogout = () => pendingToken !== null
+type PendingRevocation = { token: string; attempt?: Promise<{ success: boolean }> }
+let pendingRevocation: PendingRevocation | null = null
+export const canRetryLogout = () => pendingRevocation !== null
 
 export const retryLogout = () => {
-  if (logoutAttempt) return logoutAttempt
-  if (!pendingToken) return Promise.resolve({ success: false })
-  const token = pendingToken
-  logoutAttempt = Promise.resolve().then(async () => {
+  const pending = pendingRevocation
+  if (!pending) return Promise.resolve({ success: false })
+  if (pending.attempt) return pending.attempt
+  pending.attempt = Promise.resolve().then(async () => {
     try {
-      const { error } = await supabase.auth.admin.signOut(token, 'local')
-      if (error) {
-        if (error.status === 401 && pendingToken === token) pendingToken = null
-        return { success: false }
-      }
-      if (pendingToken === token) pendingToken = null
-      return { success: true }
+      const { error } = await supabase.auth.admin.signOut(pending.token, 'local')
+      if ((!error || error.status === 401) && pendingRevocation === pending) pendingRevocation = null
+      return { success: !error }
     } catch {
       return { success: false }
     } finally {
-      logoutAttempt = null
+      delete pending.attempt
     }
   })
-  return logoutAttempt
+  return pending.attempt
 }
 
 export const logout = () => {
-  if (logoutAttempt) return logoutAttempt
+  if (!isAdminSessionCurrent()) return retryLogout()
   const token = detachAdminSession()
-  if (token) pendingToken = token
+  pendingRevocation = token ? { token } : null
   try { localStorage.removeItem('adminLoggedIn') } catch { /* Storage can be disabled. */ }
   return retryLogout()
 }
