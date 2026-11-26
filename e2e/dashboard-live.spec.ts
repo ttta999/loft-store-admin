@@ -1,17 +1,6 @@
 import { test, expect, ADMIN } from './fixture'
 
-test.beforeEach(async ({ context, page }) => {
-  await context.routeWebSocket('**/*', socket => socket.close())
-  await page.route('**/rest/v1/rpc/store_admin_tasks', route => route.fulfill({
-    headers: { 'access-control-allow-origin': '*' },
-    json: { counts: {}, tasks: [] },
-  }))
-})
-
 test('Dashboard runs each section transition below its live sticky header', async ({ page }) => {
-  await page.route('**/rest/v1/rpc/store_admin_refunds', route => route.fulfill({
-    headers: { 'access-control-allow-origin': '*' }, json: [],
-  }))
   await page.addInitScript(() => {
     window.addEventListener('loft:admin-live-header', event => {
       const { animations } = (event as CustomEvent<{ animations: Animation[] }>).detail
@@ -59,13 +48,18 @@ for (const [language, countLabel] of [
     }, language)
     harness.db.products = Array.from({ length: 22 }, () => harness.db.products[0])
     harness.db.brands = Array.from({ length: 20 }, () => harness.db.brands[0])
-    let count = 2
-    await page.route('**/rest/v1/rpc/store_admin_refunds', route => route.fulfill({
-      headers: { 'access-control-allow-origin': '*' },
-      json: [...Array.from({ length: count }, (_, i) => ({
-        id: i + 1, status: i % 2 ? 'Проверка платежа' : 'Ожидает возврата',
-      })), { id: 99, status: 'Возврат выполнен' }],
-    }))
+    const setRefundCount = (count: number) => {
+      const order = harness.db.orders[0]
+      harness.db.refunds = [
+        ...Array.from({ length: count }, (_, index) => ({
+          id: index + 1,
+          order_id: order.id,
+          status: index % 2 ? 'Проверка платежа' : 'Ожидает возврата',
+        })),
+        { id: 99, order_id: order.id, status: 'Возврат выполнен' },
+      ]
+    }
+    setRefundCount(2)
     await page.goto(ADMIN)
     const rows = page.locator('[data-admin-card="/catalog"], [data-admin-card="/refunds"], [data-admin-card="/analytics"], [data-admin-card="/campaigns"], [data-admin-card="/settings"]')
     const refunds = page.locator('[data-admin-card="/refunds"]')
@@ -85,7 +79,8 @@ for (const [language, countLabel] of [
     })).toBe(true)
 
     const refresh = page.locator('button[data-dashboard-refresh]')
-    for (count of [1, 5, 0]) {
+    for (const count of [1, 5, 0]) {
+      setRefundCount(count)
       await refresh.click()
       await expect(refunds.getByText(countLabel(count), { exact: true })).toBeVisible()
       expect(await measure()).toEqual(original)
