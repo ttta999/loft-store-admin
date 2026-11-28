@@ -14,7 +14,7 @@ export function catalog() {
     product_variants: [{ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', product_id: productId, size_value: '42', color_id: null, stock: 5 }],
     product_colors: [],
     settings: [
-      { key: 'payment_cards', value: { UZS: { number: '5614382959503289', holder: 'Fixture UZS' }, USD: { number: '4023057010852969', holder: 'Fixture USD' } }, updated_at: now() },
+      { key: 'payment_cards', value: { UZS: { number: '0000000000000001', holder: 'Fixture UZS' }, USD: { number: '0000000000000002', holder: 'Fixture USD' } }, updated_at: now() },
       { key: 'exchange_rate', value: { rate: 12000, version: 1 }, updated_at: now() },
       { key: 'sale_mode_enabled', value: { enabled: false }, updated_at: now() },
       { key: 'delivery_price', value: { price: 30000 }, updated_at: now() },
@@ -32,6 +32,7 @@ export type Harness = { db: Record<string, any[]>; calls: { method: string; path
 export async function install(context: BrowserContext, supabaseHost = 'fixture.supabase.co'): Promise<Harness> {
   const h: Harness = { db: catalog(), calls: [], errors: [], blocked: [], failAction: null, failTable: null, setup: async page => { page.on('pageerror', error => h.errors.push(error.message)); page.on('console', msg => { if (msg.type() === 'error') console.log('BROWSER', msg.text()) }) } }
   context.on('page', page => { void h.setup(page) })
+  await context.routeWebSocket(`wss://${supabaseHost}/realtime/v1/websocket*`, socket => socket.close())
   await context.addInitScript(() => {
     const win = window as any
     win.Telegram = { WebApp: { initData: 'fixture-signed-login', initDataUnsafe: { user: { id: 900000001, first_name: 'Тестовый покупатель' } }, ready() {}, expand() {}, close() {}, onEvent() {}, offEvent() {}, setHeaderColor() {}, setBackgroundColor() {}, BackButton: { show() {}, hide() {}, onClick(callback: any) { win.telegramBack = callback }, offClick(callback: any) { if (win.telegramBack === callback) win.telegramBack = null } }, HapticFeedback: { impactOccurred() {}, selectionChanged() {}, notificationOccurred() {} } } }
@@ -82,6 +83,26 @@ export async function install(context: BrowserContext, supabaseHost = 'fixture.s
       if (url.pathname.includes('/storage/')) return json({ signedURL: '/fixture-product.svg' })
       if (url.pathname.includes('/rest/v1/rpc/')) {
         const rpc = url.pathname.split('/').pop()
+        if (rpc === 'store_admin_refunds') {
+          const refunds = (h.db.refunds || []).flatMap(refund => {
+            const order = h.db.orders.find(order => order.id === refund.order_id)
+            return order && (body?.p_before == null || refund.id < body.p_before)
+              ? [{ ...refund, orders: order }]
+              : []
+          })
+            .sort((first, second) => second.id - first.id)
+            .slice(0, 100)
+          return json(refunds)
+        }
+        if (rpc === 'store_admin_refund_history') {
+          return json((h.db.refund_history || []).filter(event => event.refund_id === body.p_id))
+        }
+        if (rpc === 'store_admin_order_history') {
+          return json((h.db.order_events || []).filter(event => event.order_id === body.p_id))
+        }
+        if (rpc === 'store_admin_tasks') {
+          return json({ counts: {}, tasks: [], timezone: 'Asia/Tashkent' })
+        }
         if (rpc === 'store_admin_save_delivery') {
           const rate = h.db.settings.find(s => s.key === 'exchange_rate')!.value.rate
           h.db.settings.find(s => s.key === 'delivery_price')!.value = { price_usd: body.p_price_usd, price: Math.round(body.p_price_usd * rate) }
@@ -96,7 +117,7 @@ export async function install(context: BrowserContext, supabaseHost = 'fixture.s
         if (rpc === 'store_available_sizes') return json(h.db.product_variants.filter(v => v.product_id === body.p_product && (v.color_id || null) === (body.p_color || null) && v.stock > 0).map(v => ({ size_value: v.size_value, color_id: v.color_id })))
         if (rpc === 'store_product_available') return json(h.db.product_variants.some(v => v.product_id === body.p_product && v.size_value === body.p_size && (v.color_id || null) === (body.p_color || null) && v.stock >= body.p_quantity))
         if (rpc === 'store_admin_variants') return json(h.db.product_variants.slice(Number(url.searchParams.get('offset') || 0), Number(url.searchParams.get('offset') || 0) + Number(url.searchParams.get('limit') || 200)))
-        if (rpc === 'store_admin_save_product') {
+        if (rpc === 'store_admin_save_product' || rpc === 'store_admin_save_product_recommendations') {
           let product = h.db.products.find(p => p.id === body.p_id)
           if (!product) { product = { id: crypto.randomUUID(), is_active: true, created_at: now(), catalog_version: 0 }; h.db.products.push(product) }
           Object.assign(product, body.p_product, { catalog_version: (product.catalog_version || 0) + 1 })

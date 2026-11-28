@@ -1,13 +1,13 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, Package, Globe, ShoppingBag, Layers, Tag, Ruler, Undo2, BarChart3, Send, Settings, Bell, Truck, Monitor, DollarSign, RefreshCw, LogOut, Check, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import NotificationBell from './NotificationBell'
 import { dashboardActionClass } from '../lib/adminHeaderStyles'
-import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, setDashboardRefresh, setDashboardSession, useDashboardRefreshState, useDashboardSession, useDashboardUpdatedAt } from '../lib/dashboardSession'
+import { DASHBOARD_FRESH_FOR, DASHBOARD_REFRESH, setDashboardRefresh, useDashboardRefreshState, useDashboardSession, useDashboardUpdatedAt } from '../lib/dashboardSession'
 import { adminTime } from '../lib/adminDateTime'
-import { invalidateAllCaches } from '../lib/cache'
-import { logout } from '../lib/auth'
+import { canRetryLogout, logout, retryLogout } from '../lib/auth'
 import { tx, useAdminLanguage } from '../lib/i18n'
 import { routeTitle, useAdminBack, type AdminLocation } from '../lib/adminNavigation'
 
@@ -39,11 +39,20 @@ function DashboardHeaderActions() {
     return () => clearTimeout(timer)
   }, [grant, refresh])
   const navigate = useNavigate()
+  const signingOut = useRef(false)
   const signOut = async () => {
-    setDashboardSession(null)
-    invalidateAllCaches()
-    await logout()
-    navigate('/login')
+    if (signingOut.current) return
+    signingOut.current = true
+    const pending = logout()
+    navigate('/login', { replace: true })
+    const report = ({ success }: { success: boolean }) => {
+      if (success) return
+      toast.error(tx('Вы вышли из админки на этом устройстве. Серверный выход не подтверждён.'), {
+        duration: Infinity,
+        action: canRetryLogout() ? { label: tx('Повторить'), onClick: () => void retryLogout().then(report) } : undefined,
+      })
+    }
+    report(await pending)
   }
 
   return <>
